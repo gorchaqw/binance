@@ -10,11 +10,14 @@ import (
 	"time"
 )
 
-const urlPath = "/api/v3/order"
+const orderUrlPath = "/api/v3/order"
 
-type OrderUseCase struct {
+type orderUseCase struct {
 	clientController *controllers.ClientController
 	cryptoController *controllers.CryptoController
+	tgmController    *controllers.TgmController
+
+	url string
 
 	logger *logrus.Logger
 }
@@ -22,24 +25,29 @@ type OrderUseCase struct {
 func NewOrderUseCase(
 	client *controllers.ClientController,
 	crypto *controllers.CryptoController,
+	tgmController *controllers.TgmController,
+	url string,
 	logger *logrus.Logger,
-) *OrderUseCase {
-	return &OrderUseCase{
+) *orderUseCase {
+	return &orderUseCase{
 		clientController: client,
 		cryptoController: crypto,
+		tgmController:    tgmController,
+		url:              url,
 		logger:           logger,
 	}
 }
 
-func (u *OrderUseCase) GetOrder() error {
-	baseURLs := "https://api.binance.com"
+func (u *orderUseCase) GetOrder() error {
 
-	baseURL, err := url.Parse(baseURLs)
+	return nil
+
+	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return err
 	}
 
-	baseURL.Path = path.Join(urlPath)
+	baseURL.Path = path.Join(orderUrlPath)
 
 	tNow := time.Now()
 	tNow.AddDate(0, 0, 1)
@@ -49,8 +57,8 @@ func (u *OrderUseCase) GetOrder() error {
 	q.Set("side", "SELL")
 	q.Set("type", "LIMIT")
 	q.Set("timeInForce", "GTC")
-	q.Set("quantity", "0.00055")
-	q.Set("price", "21400")
+	q.Set("quantity", "0.00118")
+	q.Set("price", "21200")
 	q.Set("recvWindow", "60000")
 	q.Set("timestamp", fmt.Sprintf("%d", tNow.Unix()*1000))
 
@@ -63,9 +71,10 @@ func (u *OrderUseCase) GetOrder() error {
 	if err != nil {
 		return err
 	}
-	u.logger.Debug(baseURL.String())
 
-	u.logger.Debugf("%s", req)
+	if err := u.tgmController.Send(fmt.Sprintf("%s", req)); err != nil {
+		return err
+	}
 
 	return nil
 }

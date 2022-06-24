@@ -1,14 +1,14 @@
 package main
 
 import (
-	"github.com/joho/godotenv"
-
 	"errors"
+	"github.com/joho/godotenv"
 	"os"
 )
 
 type Config struct {
 	TelegramApiToken string
+	TelegramChatID   string
 	BinanceApiKey    string
 	BinanceSecretKey string
 	BinanceUrl       string
@@ -28,6 +28,10 @@ func (a *App) loadConfig() error {
 	}
 
 	if cfg.TelegramApiToken, err = cfg.set("TELEGRAM_API_TOKEN"); err != nil {
+		return err
+	}
+
+	if cfg.TelegramChatID, err = cfg.set("TELEGRAM_CHAT_ID"); err != nil {
 		return err
 	}
 

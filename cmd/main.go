@@ -2,7 +2,9 @@ package main
 
 import (
 	"binance/internal/controllers"
+	"binance/internal/repository/sqlite"
 	"binance/internal/usecasees"
+	"strconv"
 )
 
 func main() {
@@ -18,32 +20,33 @@ func main() {
 		panic(err)
 	}
 
+	if err := app.InitDB(); err != nil {
+		panic(err)
+	}
+
 	app.initHTTPClient()
+
+	chatId, err := strconv.ParseInt(app.Config.TelegramChatID, 10, 64)
+	if err != nil {
+		panic(err)
+	}
+
+	priceRepo := sqlite.NewPriceRepository(app.DB)
 
 	clientController := controllers.NewClientController(app.HTTPClient, app.Config.BinanceApiKey)
 	cryptoController := controllers.NewCryptoController(app.Config.BinanceSecretKey)
+	tgmController := controllers.NewTgmController(app.TGM, chatId)
 
-	orderUseCase := usecasees.NewOrderUseCase(clientController, cryptoController, app.Logger)
+	orderUseCase := usecasees.NewOrderUseCase(clientController, cryptoController, tgmController, app.Config.BinanceUrl, app.Logger)
 
 	if err := orderUseCase.GetOrder(); err != nil {
 		app.Logger.Debug(err)
 	}
 
-	//u := tgbotapi.NewUpdate(0)
-	//u.Timeout = 60
+	priceUseCase := usecasees.NewPriceUseCase(clientController, tgmController, priceRepo, app.Config.BinanceUrl, app.Logger)
 
-	//updates := app.TGM.GetUpdatesChan(u)
-	//
-	//for update := range updates {
-	//	if update.Message != nil {
-	//		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
-	//
-	//		msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
-	//		msg.ReplyToMessageID = update.Message.MessageID
-	//
-	//		if _, err := app.TGM.Send(msg); err != nil {
-	//			app.Logger.Debug(err)
-	//		}
-	//	}
-	//}
+	if err := priceUseCase.GetPrice(); err != nil {
+		app.Logger.Debug(err)
+	}
+
 }
