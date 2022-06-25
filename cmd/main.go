@@ -5,6 +5,7 @@ import (
 	"binance/internal/repository/sqlite"
 	"binance/internal/usecasees"
 	"strconv"
+	"sync"
 )
 
 func main() {
@@ -45,8 +46,15 @@ func main() {
 
 	priceUseCase := usecasees.NewPriceUseCase(clientController, tgmController, priceRepo, app.Config.BinanceUrl, app.Logger)
 
-	if err := priceUseCase.GetPrice(); err != nil {
+	if err := priceUseCase.Monitoring(); err != nil {
 		app.Logger.Debug(err)
 	}
 
+	if err := priceUseCase.GetAverage(); err != nil {
+		app.Logger.Debug(err)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	wg.Wait()
 }

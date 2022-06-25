@@ -2,9 +2,9 @@ package sqlite
 
 import (
 	"binance/models"
-	"context"
-
+	"fmt"
 	"github.com/jmoiron/sqlx"
+	"time"
 )
 
 type PriceRepository struct {
@@ -17,17 +17,22 @@ func NewPriceRepository(conn *sqlx.DB) *PriceRepository {
 	}
 }
 
-func (r *PriceRepository) Store(ctx context.Context, m *models.Price) (err error) {
+func (r *PriceRepository) GetByCreatedByInterval(sTime, eTime time.Time) ([]models.Price, error) {
+	var out []models.Price
 
-	_, err = r.conn.NamedExec(`INSERT prices user (symbol,price) VALUES (:symbol,:price)`, m)
+	fmt.Println(sTime.Format("2006-02-01 15:04:05"))
+	fmt.Println(eTime.Format("2006-02-01 15:04:05"))
 
-	query := `INSERT prices SET symbol=? , price=?`
-	stmt, err := r.conn.PrepareContext(ctx, query)
-	if err != nil {
-		return err
+	if err := r.conn.Select(&out, "SELECT * FROM prices where created_at > $1 AND created_at < $2;", sTime.Format("2006-01-02 15:04:05"), eTime.Format("2006-01-02 15:04:05")); err != nil {
+		return nil, err
 	}
 
-	if _, err := stmt.ExecContext(ctx, m.Symbol, m.Price); err != nil {
+	return out, nil
+}
+
+func (r *PriceRepository) Store(m *models.Price) (err error) {
+
+	if _, err := r.conn.NamedExec("INSERT INTO prices (symbol,price) VALUES (:symbol,:price)", m); err != nil {
 		return err
 	}
 
