@@ -55,7 +55,7 @@ func (u *priceUseCase) GetAverage() error {
 				return
 			case t := <-ticker.C:
 				eTime := time.Now()
-				sTime := eTime.Add(-1 * time.Hour)
+				sTime := eTime.Add(-6 * time.Hour)
 
 				pList, err := u.priceRepo.GetByCreatedByInterval(sTime, eTime)
 				if err != nil {
@@ -94,7 +94,7 @@ func (u *priceUseCase) Monitoring() error {
 
 	baseURL.RawQuery = q.Encode()
 
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(15 * time.Second)
 	done := make(chan bool)
 
 	go func() {
@@ -102,7 +102,7 @@ func (u *priceUseCase) Monitoring() error {
 			select {
 			case <-done:
 				return
-			case t := <-ticker.C:
+			case _ = <-ticker.C:
 				req, err := u.clientController.Send(http.MethodGet, baseURL, nil, false)
 				if err != nil {
 					u.logger.Debug(err)
@@ -115,10 +115,6 @@ func (u *priceUseCase) Monitoring() error {
 				var out reqJson
 
 				if err := json.Unmarshal(req, &out); err != nil {
-					u.logger.Debug(err)
-				}
-
-				if err := u.tgmController.Send(fmt.Sprintf("[ Monitoring ]\n%s\n%s\n%s", t.Format(time.RFC822), out.Symbol, out.Price)); err != nil {
 					u.logger.Debug(err)
 				}
 

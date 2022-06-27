@@ -9,7 +9,7 @@ func (a *App) initTgBot() error {
 	if err != nil {
 		return err
 	}
-	bot.Debug = true
+	bot.Debug = false
 
 	a.TGM = bot
 

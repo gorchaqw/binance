@@ -33,26 +33,63 @@ func main() {
 	}
 
 	priceRepo := sqlite.NewPriceRepository(app.DB)
+	orderRepo := sqlite.NewOrderRepository(app.DB)
 
 	clientController := controllers.NewClientController(app.HTTPClient, app.Config.BinanceApiKey)
 	cryptoController := controllers.NewCryptoController(app.Config.BinanceSecretKey)
 	tgmController := controllers.NewTgmController(app.TGM, chatId)
 
-	orderUseCase := usecasees.NewOrderUseCase(clientController, cryptoController, tgmController, app.Config.BinanceUrl, app.Logger)
+	orderUseCase := usecasees.NewOrderUseCase(
+		clientController,
+		cryptoController,
+		tgmController,
+		orderRepo,
+		priceRepo,
+		app.Config.BinanceUrl,
+		app.Logger,
+	)
 
-	if err := orderUseCase.GetOrder(); err != nil {
-		app.Logger.Debug(err)
+	priceUseCase := usecasees.NewPriceUseCase(
+		clientController,
+		tgmController,
+		priceRepo,
+		app.Config.BinanceUrl,
+		app.Logger,
+	)
+
+	//walletUseCase := usecasees.NewWalletUseCase(clientController, cryptoController, tgmController, app.Config.BinanceUrl, app.Logger)
+
+	if err := orderUseCase.Monitoring(); err != nil {
+		app.Logger.Error(err)
 	}
 
-	priceUseCase := usecasees.NewPriceUseCase(clientController, tgmController, priceRepo, app.Config.BinanceUrl, app.Logger)
+	//if err := orderUseCase.GetOrder(&structs.Order{
+	//	Symbol: "BTCBUSD",
+	//	Side:   "SELL",
+	//	Price:  "21300",
+	//}, "0.003"); err != nil {
+	//	app.Logger.Error(err)
+	//}
+
+	//if _, err := orderUseCase.GetOpenOrders(); err != nil {
+	//	app.Logger.Error(err)
+	//}
+
+	if err := orderUseCase.Monitoring(); err != nil {
+		app.Logger.Error(err)
+	}
 
 	if err := priceUseCase.Monitoring(); err != nil {
-		app.Logger.Debug(err)
+		app.Logger.Error(err)
 	}
 
-	if err := priceUseCase.GetAverage(); err != nil {
-		app.Logger.Debug(err)
-	}
+	//if err := priceUseCase.GetAverage(); err != nil {
+	//	app.Logger.Error(err)
+	//}
+
+	//if err := walletUseCase.GetAllCoins(); err != nil {
+	//	app.Logger.Debug(err)
+	//}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
