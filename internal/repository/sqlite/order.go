@@ -24,9 +24,9 @@ func (r *OrderRepository) Store(m *models.Order) (err error) {
 	return nil
 }
 
-func (r *OrderRepository) GetLast() (*models.Order, error) {
+func (r *OrderRepository) GetLast(symbol string) (*models.Order, error) {
 	var order models.Order
-	if err := r.conn.QueryRowx("SELECT * FROM orders ORDER BY created_at DESC LIMIT 1").StructScan(&order); err != nil {
+	if err := r.conn.QueryRowx("SELECT * FROM orders WHERE symbol = $1 ORDER BY created_at DESC LIMIT 1", symbol).StructScan(&order); err != nil {
 		return nil, err
 	}
 

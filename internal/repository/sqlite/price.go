@@ -16,10 +16,10 @@ func NewPriceRepository(conn *sqlx.DB) *PriceRepository {
 	}
 }
 
-func (r *PriceRepository) GetByCreatedByInterval(sTime, eTime time.Time) ([]models.Price, error) {
+func (r *PriceRepository) GetByCreatedByInterval(symbol string, sTime, eTime time.Time) ([]models.Price, error) {
 	var out []models.Price
 
-	if err := r.conn.Select(&out, "SELECT * FROM prices where created_at > $1 AND created_at < $2;", sTime.Format("2006-01-02 15:04:05"), eTime.Format("2006-01-02 15:04:05")); err != nil {
+	if err := r.conn.Select(&out, "SELECT * FROM prices where created_at > $1 AND created_at < $2 AND symbol = $3;", sTime.Format("2006-01-02 15:04:05"), eTime.Format("2006-01-02 15:04:05"), symbol); err != nil {
 		return nil, err
 	}
 

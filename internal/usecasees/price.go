@@ -44,7 +44,7 @@ func NewPriceUseCase(
 	}
 }
 
-func (u *priceUseCase) GetAverage() error {
+func (u *priceUseCase) GetAverage(symbol string) error {
 	ticker := time.NewTicker(10 * time.Second)
 	done := make(chan bool)
 
@@ -57,7 +57,7 @@ func (u *priceUseCase) GetAverage() error {
 				eTime := time.Now()
 				sTime := eTime.Add(-6 * time.Hour)
 
-				pList, err := u.priceRepo.GetByCreatedByInterval(sTime, eTime)
+				pList, err := u.priceRepo.GetByCreatedByInterval(symbol, sTime, eTime)
 				if err != nil {
 					u.logger.Debug(err)
 				}
@@ -78,7 +78,7 @@ func (u *priceUseCase) GetAverage() error {
 	return nil
 }
 
-func (u *priceUseCase) Monitoring() error {
+func (u *priceUseCase) Monitoring(symbol string) error {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return err
@@ -86,11 +86,8 @@ func (u *priceUseCase) Monitoring() error {
 
 	baseURL.Path = path.Join(priceUrlPath)
 
-	tNow := time.Now()
-	tNow.AddDate(0, 0, 1)
-
 	q := baseURL.Query()
-	q.Set("symbol", "BTCBUSD")
+	q.Set("symbol", symbol)
 
 	baseURL.RawQuery = q.Encode()
 

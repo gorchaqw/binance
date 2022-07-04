@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"bytes"
+	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -9,6 +10,7 @@ import (
 
 type ClientController struct {
 	client *http.Client
+	logger *logrus.Logger
 
 	apiKey string
 }
@@ -16,10 +18,12 @@ type ClientController struct {
 func NewClientController(
 	client *http.Client,
 	apiKey string,
+	logger *logrus.Logger,
 ) *ClientController {
 	return &ClientController{
 		client: client,
 		apiKey: apiKey,
+		logger: logger,
 	}
 }
 

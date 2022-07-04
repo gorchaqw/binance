@@ -19,6 +19,14 @@ const (
 	orderUrlPath     = "/api/v3/order"
 	orderAllUrlPath  = "/api/v3/allOrders"
 	orderOpenUrlPath = "/api/v3/openOrders"
+
+	BTCBUSD = "BTCBUSD"
+	BTCRUB  = "BTCRUB"
+
+	ETHRUB  = "ETHRUB"
+	ETHBUSD = "ETHBUSD"
+
+	BUSDRUB = "BUSDRUB"
 )
 
 type orderUseCase struct {
@@ -54,7 +62,22 @@ func NewOrderUseCase(
 	}
 }
 
-func (u *orderUseCase) Monitoring() error {
+func (u *orderUseCase) Monitoring(symbol string) error {
+	var quantity string
+	var delta float64
+
+	switch symbol {
+	case BTCBUSD:
+		quantity = "0.003"
+		delta = 30
+	case BTCRUB:
+		quantity = "0.004"
+		delta = 500
+	case ETHRUB:
+		quantity = "0.03"
+		delta = 500
+	}
+
 	ticker := time.NewTicker(5 * time.Second)
 	done := make(chan bool)
 	go func() {
@@ -63,27 +86,31 @@ func (u *orderUseCase) Monitoring() error {
 			case <-done:
 				return
 			case _ = <-ticker.C:
-				orders, err := u.GetOpenOrders()
+				orders, err := u.GetOpenOrders(symbol)
 				if err != nil {
 					u.logger.Debug(err)
+					continue
 				}
 
 				if len(orders) == 0 {
-					lastOrder, err := u.orderRepo.GetLast()
+					lastOrder, err := u.orderRepo.GetLast(symbol)
 					if err != nil {
 						u.logger.Debug(err)
+						continue
 					}
 
 					if err := u.tgmController.Send(fmt.Sprintf("[ Order Monitoring, Last Order ]\n%+v", lastOrder)); err != nil {
 						u.logger.Debug(err)
+						continue
 					}
 
 					eTime := time.Now()
 					sTime := eTime.Add(-6 * time.Hour)
 
-					pList, err := u.priceRepo.GetByCreatedByInterval(sTime, eTime)
+					pList, err := u.priceRepo.GetByCreatedByInterval(symbol, sTime, eTime)
 					if err != nil {
 						u.logger.Debug(err)
+						continue
 					}
 
 					sum := float64(0)
@@ -92,35 +119,36 @@ func (u *orderUseCase) Monitoring() error {
 					}
 					avr := sum / float64(len(pList))
 
-					var price, side, symbol string
+					var price, side string
 
 					switch lastOrder.Side {
 					case "SELL":
-						price = fmt.Sprintf("%f", avr-50)
+						price = fmt.Sprintf("%.0f", avr-delta)
 						side = "BUY"
-						symbol = "BTCBUSD"
 					case "BUY":
-						price = fmt.Sprintf("%f", avr+50)
+						price = fmt.Sprintf("%.0f", avr+delta)
 						side = "SELL"
-						symbol = "BTCBUSD"
 					}
 
 					if err := u.GetOrder(&structs.Order{
 						Symbol: symbol,
 						Side:   side,
 						Price:  price,
-					}, "0.003"); err != nil {
+					}, quantity); err != nil {
 						u.logger.Debug(err)
+						continue
 					}
 
 					if err := u.tgmController.Send(
 						fmt.Sprintf(
-							"[ New Orders ]\nSide:\t%s\nSymbol:\t%s\nPrice:\t%s",
+							"[ New Orders ]\nSide:\t%s\nSymbol:\t%s\nPrice:\t%s\nAvr:\t%f",
 							side,
-							"BTCBUSD",
+							symbol,
 							price,
+							avr,
 						)); err != nil {
 						u.logger.Debug(err)
+						continue
 					}
 				}
 			}
@@ -130,7 +158,7 @@ func (u *orderUseCase) Monitoring() error {
 	return nil
 }
 
-func (u *orderUseCase) GetOpenOrders() ([]structs.Order, error) {
+func (u *orderUseCase) GetOpenOrders(symbol string) ([]structs.Order, error) {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return nil, err
@@ -139,7 +167,7 @@ func (u *orderUseCase) GetOpenOrders() ([]structs.Order, error) {
 	baseURL.Path = path.Join(orderOpenUrlPath)
 
 	q := baseURL.Query()
-	q.Set("symbol", "BTCBUSD")
+	q.Set("symbol", symbol)
 	q.Set("recvWindow", "60000")
 	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
 
@@ -228,8 +256,6 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity string) error {
 	if err != nil {
 		return err
 	}
-
-	fmt.Println(qu)
 
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
