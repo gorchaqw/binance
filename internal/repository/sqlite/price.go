@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"binance/models"
+	"database/sql"
 	"github.com/jmoiron/sqlx"
 	"time"
 )
@@ -27,13 +28,13 @@ func (r *PriceRepository) GetByCreatedByInterval(symbol string, sTime, eTime tim
 }
 
 func (r *PriceRepository) GetMaxMinByCreatedByInterval(symbol string, sTime, eTime time.Time) (float64, float64, error) {
-	var max, min float64
+	var max, min sql.NullFloat64
 
 	if err := r.conn.QueryRowx("SELECT max(price),min(price) FROM prices where created_at > $1 AND created_at < $2 AND symbol = $3;", sTime.Format("2006-01-02 15:04:05"), eTime.Format("2006-01-02 15:04:05"), symbol).Scan(&max, &min); err != nil {
 		return 0, 0, err
 	}
 
-	return max, min, nil
+	return max.Float64, min.Float64, nil
 }
 
 func (r *PriceRepository) Store(m *models.Price) (err error) {

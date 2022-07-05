@@ -27,6 +27,7 @@ const (
 	ETHBUSD = "ETHBUSD"
 
 	BUSDRUB = "BUSDRUB"
+	BNBBUSD = "BNBBUSD"
 )
 
 type orderUseCase struct {
@@ -73,16 +74,20 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 	switch symbol {
 	case BTCBUSD:
 		quantity = "0.0005"
-		delta = 30
-	case BTCRUB:
-		quantity = "0.004"
-		delta = 500
-	case ETHRUB:
-		quantity = "0.03"
-		delta = 500
+		delta = 15
+	case ETHBUSD:
+		quantity = "0.02"
+		delta = 10
+	case BUSDRUB:
+		quantity = "10"
+		delta = 0.2
+	case BNBBUSD:
+		quantity = "0.05"
+		delta = 5
+
 	}
 
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
 	done := make(chan bool)
 	go func() {
 		for {
@@ -108,31 +113,31 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					continue
 				}
 
-				if err := u.tgmController.Send(
-					fmt.Sprintf(
-						"[ Monitoring ]\n"+
-							"Symbol:\t%s\n"+
-							"Max Price:\t%.0f\n"+
-							"Min Price:\t%.0f\n"+
-							"Delta Max/Min:\t%.0f\n"+
-							"Actual Price:\t%.0f\n"+
-							"Order Price:\t%.0f\n"+
-							"Order Side:\t%s\n"+
-							"DeltaMax:\t%.0f\n"+
-							"DeltaMin:\t%.0f\n",
-						symbol,
-						max,
-						min,
-						max-min,
-						actualPrice,
-						lastOrder.Price,
-						lastOrder.Side,
-						max-actualPrice,
-						min-actualPrice,
-					)); err != nil {
-					u.logger.Debug(err)
-					continue
-				}
+				//if err := u.tgmController.Send(
+				//	fmt.Sprintf(
+				//		"[ Monitoring ]\n"+
+				//			"Symbol:\t%s\n"+
+				//			"Max Price:\t%.2f\n"+
+				//			"Min Price:\t%.2f\n"+
+				//			"Delta Max/Min:\t%.2f\n"+
+				//			"Actual Price:\t%.2f\n"+
+				//			"Order Price:\t%.2f\n"+
+				//			"Order Side:\t%s\n"+
+				//			"DeltaMax:\t%.2f\n"+
+				//			"DeltaMin:\t%.2f\n",
+				//		symbol,
+				//		max,
+				//		min,
+				//		max-min,
+				//		actualPrice,
+				//		lastOrder.Price,
+				//		lastOrder.Side,
+				//		max-actualPrice,
+				//		min-actualPrice,
+				//	)); err != nil {
+				//	u.logger.Debug(err)
+				//	continue
+				//}
 
 				orders, err := u.GetOpenOrders(symbol)
 				if err != nil {
@@ -147,23 +152,23 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						continue
 					}
 
-					if err := u.tgmController.Send(fmt.Sprintf("[ Order Monitoring, Last Order ]\n%+v", lastOrder)); err != nil {
-						u.logger.Debug(err)
-						continue
-					}
+					//if err := u.tgmController.Send(fmt.Sprintf("[ Order Monitoring, Last Order ]\n%+v", lastOrder)); err != nil {
+					//	u.logger.Debug(err)
+					//	continue
+					//}
 
 					var side, orderType string
 
 					switch lastOrder.Side {
 					case "SELL":
-						if min-actualPrice > -delta && actualPrice > lastOrder.Price {
+						if min-actualPrice >= -delta && actualPrice < lastOrder.Price {
 							side = "BUY"
 							orderType = "MARKET"
 						} else {
 							continue
 						}
 					case "BUY":
-						if max-actualPrice > delta && actualPrice < lastOrder.Price {
+						if max-actualPrice >= delta && actualPrice > lastOrder.Price {
 							side = "SELL"
 							orderType = "MARKET"
 						} else {
@@ -181,7 +186,10 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 					if err := u.tgmController.Send(
 						fmt.Sprintf(
-							"[ New Orders ]\nSide:\t%s\nSymbol:\t%s\nPrice:\t%.0f\n",
+							"[ New Orders ]\n"+
+								"Side:\t%s\n"+
+								"Symbol:\t%s\n"+
+								"Price:\t%.2f\n",
 							side,
 							symbol,
 							actualPrice,
@@ -330,9 +338,10 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity, orderType string
 
 	type reqJson struct {
 		Symbol              string `json:"symbol"`
-		OrderId             int64  `json:"orderId"`
-		OrderListId         int    `json:"orderListId"`
-		ClientOrderId       string `json:"clientOrderId"`
+		OrderID             int64  `json:"orderId"`
+		OrderListID         int    `json:"orderListId"`
+		ClientOrderID       string `json:"clientOrderId"`
+		TransactTime        int64  `json:"transactTime"`
 		Price               string `json:"price"`
 		OrigQty             string `json:"origQty"`
 		ExecutedQty         string `json:"executedQty"`
@@ -341,12 +350,13 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity, orderType string
 		TimeInForce         string `json:"timeInForce"`
 		Type                string `json:"type"`
 		Side                string `json:"side"`
-		StopPrice           string `json:"stopPrice"`
-		IcebergQty          string `json:"icebergQty"`
-		Time                int64  `json:"time"`
-		UpdateTime          int64  `json:"updateTime"`
-		IsWorking           bool   `json:"isWorking"`
-		OrigQuoteOrderQty   string `json:"origQuoteOrderQty"`
+		Fills               []struct {
+			Price           string `json:"price"`
+			Qty             string `json:"qty"`
+			Commission      string `json:"commission"`
+			CommissionAsset string `json:"commissionAsset"`
+			TradeID         int    `json:"tradeId"`
+		} `json:"fills"`
 	}
 
 	var out reqJson
@@ -355,17 +365,17 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity, orderType string
 		return err
 	}
 
-	if out.OrderId != 0 {
-		price, err := strconv.ParseFloat(out.Price, 64)
+	if out.OrderID != 0 {
+		price, err := strconv.ParseFloat(out.Fills[0].Price, 64)
 		if err != nil {
 			return err
 		}
 
 		if err := u.orderRepo.Store(&models.Order{
-			OrderId:  out.OrderId,
+			OrderId:  out.OrderID,
 			Symbol:   out.Symbol,
 			Side:     out.Side,
-			Quantity: fmt.Sprintf("%.5f", qu),
+			Quantity: out.Fills[0].Qty,
 			Price:    price,
 		}); err != nil {
 			return err

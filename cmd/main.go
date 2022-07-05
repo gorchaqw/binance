@@ -69,6 +69,9 @@ func main() {
 
 	for _, symbol := range []string{
 		usecasees.BTCBUSD,
+		usecasees.ETHBUSD,
+		usecasees.BUSDRUB,
+		usecasees.BNBBUSD,
 	} {
 		if err := orderUseCase.Monitoring(symbol); err != nil {
 			app.Logger.Error(err)
@@ -79,21 +82,13 @@ func main() {
 		}
 	}
 
-	if err := priceUseCase.Monitoring(usecasees.ETHRUB); err != nil {
-		app.Logger.Error(err)
-	}
-
-	if err := priceUseCase.Monitoring(usecasees.BTCRUB); err != nil {
-		app.Logger.Error(err)
-	}
-
-	if err := priceUseCase.Monitoring(usecasees.BUSDRUB); err != nil {
-		app.Logger.Error(err)
-	}
-
-	if err := priceUseCase.Monitoring(usecasees.ETHBUSD); err != nil {
-		app.Logger.Error(err)
-	}
+	//if err := priceUseCase.Monitoring(usecasees.ETHRUB); err != nil {
+	//	app.Logger.Error(err)
+	//}
+	//
+	//if err := priceUseCase.Monitoring(usecasees.BTCRUB); err != nil {
+	//	app.Logger.Error(err)
+	//}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
