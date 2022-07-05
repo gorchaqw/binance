@@ -78,6 +78,42 @@ func (u *priceUseCase) GetAverage(symbol string) error {
 	return nil
 }
 
+func (u *priceUseCase) GetPrice(symbol string) (float64, error) {
+	baseURL, err := url.Parse(u.url)
+	if err != nil {
+		return 0, err
+	}
+
+	baseURL.Path = path.Join(priceUrlPath)
+
+	q := baseURL.Query()
+	q.Set("symbol", symbol)
+
+	baseURL.RawQuery = q.Encode()
+
+	req, err := u.clientController.Send(http.MethodGet, baseURL, nil, false)
+	if err != nil {
+		return 0, err
+	}
+
+	type reqJson struct {
+		Symbol string `json:"symbol"`
+		Price  string `json:"price"`
+	}
+	var out reqJson
+
+	if err := json.Unmarshal(req, &out); err != nil {
+		return 0, err
+	}
+
+	price, err := strconv.ParseFloat(out.Price, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	return price, nil
+}
+
 func (u *priceUseCase) Monitoring(symbol string) error {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {

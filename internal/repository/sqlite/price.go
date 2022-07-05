@@ -26,6 +26,16 @@ func (r *PriceRepository) GetByCreatedByInterval(symbol string, sTime, eTime tim
 	return out, nil
 }
 
+func (r *PriceRepository) GetMaxMinByCreatedByInterval(symbol string, sTime, eTime time.Time) (float64, float64, error) {
+	var max, min float64
+
+	if err := r.conn.QueryRowx("SELECT max(price),min(price) FROM prices where created_at > $1 AND created_at < $2 AND symbol = $3;", sTime.Format("2006-01-02 15:04:05"), eTime.Format("2006-01-02 15:04:05"), symbol).Scan(&max, &min); err != nil {
+		return 0, 0, err
+	}
+
+	return max, min, nil
+}
+
 func (r *PriceRepository) Store(m *models.Price) (err error) {
 
 	if _, err := r.conn.NamedExec("INSERT INTO prices (symbol,price) VALUES (:symbol,:price)", m); err != nil {

@@ -35,18 +35,17 @@ func main() {
 	priceRepo := sqlite.NewPriceRepository(app.DB)
 	orderRepo := sqlite.NewOrderRepository(app.DB)
 
-	clientController := controllers.NewClientController(app.HTTPClient, app.Config.BinanceApiKey, app.Logger)
-	cryptoController := controllers.NewCryptoController(app.Config.BinanceSecretKey)
-	tgmController := controllers.NewTgmController(app.TGM, chatId)
-
-	orderUseCase := usecasees.NewOrderUseCase(
-		clientController,
-		cryptoController,
-		tgmController,
-		orderRepo,
-		priceRepo,
-		app.Config.BinanceUrl,
+	clientController := controllers.NewClientController(
+		app.HTTPClient,
+		app.Config.BinanceApiKey,
 		app.Logger,
+	)
+	cryptoController := controllers.NewCryptoController(
+		app.Config.BinanceSecretKey,
+	)
+	tgmController := controllers.NewTgmController(
+		app.TGM,
+		chatId,
 	)
 
 	priceUseCase := usecasees.NewPriceUseCase(
@@ -57,10 +56,19 @@ func main() {
 		app.Logger,
 	)
 
+	orderUseCase := usecasees.NewOrderUseCase(
+		clientController,
+		cryptoController,
+		tgmController,
+		orderRepo,
+		priceRepo,
+		priceUseCase,
+		app.Config.BinanceUrl,
+		app.Logger,
+	)
+
 	for _, symbol := range []string{
 		usecasees.BTCBUSD,
-		usecasees.BTCRUB,
-		usecasees.ETHRUB,
 	} {
 		if err := orderUseCase.Monitoring(symbol); err != nil {
 			app.Logger.Error(err)
@@ -69,6 +77,14 @@ func main() {
 		if err := priceUseCase.Monitoring(symbol); err != nil {
 			app.Logger.Error(err)
 		}
+	}
+
+	if err := priceUseCase.Monitoring(usecasees.ETHRUB); err != nil {
+		app.Logger.Error(err)
+	}
+
+	if err := priceUseCase.Monitoring(usecasees.BTCRUB); err != nil {
+		app.Logger.Error(err)
 	}
 
 	if err := priceUseCase.Monitoring(usecasees.BUSDRUB); err != nil {
