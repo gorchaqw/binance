@@ -4,16 +4,22 @@ import (
 	"binance/internal/controllers"
 	"binance/internal/repository/sqlite"
 	"binance/internal/usecasees"
+	"flag"
 	"strconv"
 	"sync"
 )
 
 func main() {
 	var app App
+	var confFileName, dbFileName string
+
+	flag.StringVar(&confFileName, "config", ".env", "")
+	flag.StringVar(&dbFileName, "db", "./store.db", "")
+	flag.Parse()
 
 	app.initLogger()
 
-	if err := app.loadConfig(); err != nil {
+	if err := app.loadConfig(confFileName); err != nil {
 		panic(err)
 	}
 
@@ -21,7 +27,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := app.InitDB(); err != nil {
+	if err := app.InitDB(dbFileName); err != nil {
 		panic(err)
 	}
 
@@ -69,9 +75,9 @@ func main() {
 
 	for _, symbol := range []string{
 		usecasees.BTCBUSD,
-		usecasees.ETHBUSD,
-		usecasees.BUSDRUB,
-		usecasees.BNBBUSD,
+		//usecasees.ETHBUSD,
+		//usecasees.BUSDRUB,
+		//usecasees.BNBBUSD,
 	} {
 		if err := orderUseCase.Monitoring(symbol); err != nil {
 			app.Logger.Error(err)

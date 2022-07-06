@@ -19,10 +19,10 @@ type Config struct {
 
 var ErrEnvNotFound = errors.New("err env not found")
 
-func (a *App) loadConfig() error {
+func (a *App) loadConfig(confFileName string) error {
 	var cfg Config
 
-	err := godotenv.Load()
+	err := godotenv.Load(confFileName)
 	if err != nil {
 		return err
 	}

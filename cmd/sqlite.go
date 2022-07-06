@@ -7,8 +7,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func (a *App) InitDB() error {
-	db, err := sqlx.Connect("sqlite3", "./store.db")
+func (a *App) InitDB(dbFileName string) error {
+	db, err := sqlx.Connect("sqlite3", dbFileName)
 	if err != nil {
 		log.Fatalln(err)
 	}

@@ -71,23 +71,15 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 	var quantity string
 	var delta float64
 
+	var lastOrder *models.Order
+
 	switch symbol {
 	case BTCBUSD:
-		quantity = "0.0005"
-		delta = 15
-	case ETHBUSD:
-		quantity = "0.02"
-		delta = 10
-	case BUSDRUB:
-		quantity = "10"
-		delta = 0.2
-	case BNBBUSD:
-		quantity = "0.05"
-		delta = 5
-
+		quantity = "0.007"
+		delta = 75
 	}
 
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	done := make(chan bool)
 	go func() {
 		for {
@@ -95,15 +87,16 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 			case <-done:
 				return
 			case _ = <-ticker.C:
-				lastOrder, err := u.orderRepo.GetLast(symbol)
+				order, err := u.orderRepo.GetLast(symbol)
 				if err != nil {
-					u.logger.Debug(err)
+					u.logger.Debugf("orderRepo.GetLast %+v", err)
 					continue
 				}
+				lastOrder = order
 
 				max, min, err := u.priceRepo.GetMaxMinByCreatedByInterval(symbol, lastOrder.CreatedAt, time.Now())
 				if err != nil {
-					u.logger.Debug(err)
+					u.logger.Debugf("priceRepo.GetMinByCreatedByInterval %+v", err)
 					continue
 				}
 
@@ -113,31 +106,31 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					continue
 				}
 
-				//if err := u.tgmController.Send(
-				//	fmt.Sprintf(
-				//		"[ Monitoring ]\n"+
-				//			"Symbol:\t%s\n"+
-				//			"Max Price:\t%.2f\n"+
-				//			"Min Price:\t%.2f\n"+
-				//			"Delta Max/Min:\t%.2f\n"+
-				//			"Actual Price:\t%.2f\n"+
-				//			"Order Price:\t%.2f\n"+
-				//			"Order Side:\t%s\n"+
-				//			"DeltaMax:\t%.2f\n"+
-				//			"DeltaMin:\t%.2f\n",
-				//		symbol,
-				//		max,
-				//		min,
-				//		max-min,
-				//		actualPrice,
-				//		lastOrder.Price,
-				//		lastOrder.Side,
-				//		max-actualPrice,
-				//		min-actualPrice,
-				//	)); err != nil {
-				//	u.logger.Debug(err)
-				//	continue
-				//}
+				if err := u.tgmController.Send(
+					fmt.Sprintf(
+						"[ Monitoring ]\n"+
+							"Symbol:\t%s\n"+
+							"Max Price:\t%.2f\n"+
+							"Min Price:\t%.2f\n"+
+							"Delta Max/Min:\t%.2f\n"+
+							"Actual Price:\t%.2f\n"+
+							"Order Price:\t%.2f\n"+
+							"Order Side:\t%s\n"+
+							"DeltaMax:\t%.2f\n"+
+							"DeltaMin:\t%.2f\n",
+						symbol,
+						max,
+						min,
+						max-min,
+						actualPrice,
+						lastOrder.Price,
+						lastOrder.Side,
+						max-actualPrice,
+						min-actualPrice,
+					)); err != nil {
+					u.logger.Debug(err)
+					continue
+				}
 
 				orders, err := u.GetOpenOrders(symbol)
 				if err != nil {
@@ -161,15 +154,15 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 					switch lastOrder.Side {
 					case "SELL":
-						if min-actualPrice >= -delta && actualPrice < lastOrder.Price {
-							side = "BUY"
+						if min-actualPrice <= -delta && actualPrice < lastOrder.Price-(delta/2) {
+							side = "BUY" // купить
 							orderType = "MARKET"
 						} else {
 							continue
 						}
 					case "BUY":
-						if max-actualPrice >= delta && actualPrice > lastOrder.Price {
-							side = "SELL"
+						if max-actualPrice >= delta && actualPrice > lastOrder.Price+(delta/2) {
+							side = "SELL" // продать
 							orderType = "MARKET"
 						} else {
 							continue
@@ -229,6 +222,8 @@ func (u *orderUseCase) GetOpenOrders(symbol string) ([]structs.Order, error) {
 	}
 
 	var out []structs.Order
+
+	u.logger.Debugf("%s", req)
 
 	if err := json.Unmarshal(req, &out); err != nil {
 		return nil, err
