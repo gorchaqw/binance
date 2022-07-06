@@ -41,7 +41,7 @@ func (r *PriceRepository) GetMaxByCreatedByInterval(symbol string, sTime, eTime 
 	var max sql.NullFloat64
 	var createdAt sql.NullTime
 
-	if err := r.conn.QueryRowx("SELECT max(price),created_at FROM prices where created_at > $1 AND created_at < $2 AND symbol = $3;", sTime.Format("2006-01-02 15:04:05"), eTime.Format("2006-01-02 15:04:05"), symbol).Scan(&max, &createdAt); err != nil {
+	if err := r.conn.QueryRowx("SELECT max(price),created_at FROM prices where created_at >= $1 AND created_at <= $2 AND symbol = $3;", sTime.Format("2006-01-02 15:04:05"), eTime.Format("2006-01-02 15:04:05"), symbol).Scan(&max, &createdAt); err != nil {
 		return 0, createdAt.Time, err
 	}
 
@@ -52,7 +52,7 @@ func (r *PriceRepository) GetMinByCreatedByInterval(symbol string, sTime, eTime 
 	var min sql.NullFloat64
 	var createdAt sql.NullTime
 
-	if err := r.conn.QueryRowx("SELECT min(price),created_at FROM prices where created_at > $1 AND created_at < $2 AND symbol = $3;", sTime.Format("2006-01-02 15:04:05"), eTime.Format("2006-01-02 15:04:05"), symbol).Scan(&min, &createdAt); err != nil {
+	if err := r.conn.QueryRowx("SELECT min(price),created_at FROM prices where created_at >= $1 AND created_at <= $2 AND symbol = $3;", sTime.Format("2006-01-02 15:04:05"), eTime.Format("2006-01-02 15:04:05"), symbol).Scan(&min, &createdAt); err != nil {
 		return 0, createdAt.Time, err
 	}
 

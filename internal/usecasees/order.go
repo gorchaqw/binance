@@ -71,6 +71,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 	var quantity string
 	var delta float64
 
+	var sTime time.Time
 	var lastOrder *models.Order
 
 	switch symbol {
@@ -79,7 +80,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 		delta = 75
 	}
 
-	ticker := time.NewTicker(5 * time.Second)
+	sTime = time.Now()
+	ticker := time.NewTicker(15 * time.Second)
 	done := make(chan bool)
 	go func() {
 		for {
@@ -94,102 +96,96 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				}
 				lastOrder = order
 
-				max, min, err := u.priceRepo.GetMaxMinByCreatedByInterval(symbol, lastOrder.CreatedAt, time.Now())
-				if err != nil {
-					u.logger.Debugf("priceRepo.GetMinByCreatedByInterval %+v", err)
-					continue
-				}
-
 				actualPrice, err := u.priceUseCase.GetPrice(symbol)
 				if err != nil {
 					u.logger.Debug(err)
 					continue
 				}
 
+				max, maxT, err := u.priceRepo.GetMaxByCreatedByInterval(symbol, sTime, time.Now())
+				if err != nil {
+					u.logger.Debugf("priceRepo.GetMaxByCreatedByInterval %+v", err)
+					continue
+				}
+				sTime = maxT
+
+				min, _, err := u.priceRepo.GetMinByCreatedByInterval(symbol, sTime, time.Now())
+				if err != nil {
+					u.logger.Debugf("priceRepo.GetMinByCreatedByInterval %+v", err)
+					continue
+				}
+
+				//if err := u.tgmController.Send(
+				//	fmt.Sprintf(
+				//		"[ Monitoring ]\n"+
+				//			"Symbol:\t%s\n"+
+				//			"Max Price:\t%.2f\n"+
+				//			"Min Price:\t%.2f\n"+
+				//			"Delta Max/Min:\t%.2f\n"+
+				//			"Actual Price:\t%.2f\n"+
+				//			"Order Price:\t%.2f\n"+
+				//			"Order Side:\t%s\n"+
+				//			"Order Time:\t%s\n"+
+				//			"DeltaMax:\t%.2f\n"+
+				//			"DeltaMin:\t%.2f\n"+
+				//			"STime:\t%s",
+				//		symbol,
+				//		max,
+				//		min,
+				//		max-min,
+				//		actualPrice,
+				//		lastOrder.Price,
+				//		lastOrder.Side,
+				//		lastOrder.CreatedAt.Format(time.RFC822),
+				//		max-actualPrice,
+				//		min-actualPrice,
+				//		sTime.Format(time.RFC822),
+				//	)); err != nil {
+				//	u.logger.Debug(err)
+				//	continue
+				//}
+
+				var side, orderType string
+
+				switch lastOrder.Side {
+				case "SELL":
+					//if min-actualPrice <= -delta && actualPrice < lastOrder.Price-(delta/2) {
+					if min-actualPrice <= -delta {
+						side = "BUY" // купить
+						orderType = "MARKET"
+					} else {
+						continue
+					}
+				case "BUY":
+					//if max-actualPrice >= delta && actualPrice > lastOrder.Price+(delta/2) {
+					if max-actualPrice >= delta {
+						side = "SELL" // продать
+						orderType = "MARKET"
+					} else {
+						continue
+					}
+				}
+
+				if err := u.GetOrder(&structs.Order{
+					Symbol: symbol,
+					Side:   side,
+				}, quantity, orderType); err != nil {
+					u.logger.Debug(err)
+					continue
+				}
+
 				if err := u.tgmController.Send(
 					fmt.Sprintf(
-						"[ Monitoring ]\n"+
+						"[ New Orders ]\n"+
+							"Side:\t%s\n"+
 							"Symbol:\t%s\n"+
-							"Max Price:\t%.2f\n"+
-							"Min Price:\t%.2f\n"+
-							"Delta Max/Min:\t%.2f\n"+
-							"Actual Price:\t%.2f\n"+
-							"Order Price:\t%.2f\n"+
-							"Order Side:\t%s\n"+
-							"DeltaMax:\t%.2f\n"+
-							"DeltaMin:\t%.2f\n",
+							"Price:\t%.2f\n",
+						side,
 						symbol,
-						max,
-						min,
-						max-min,
 						actualPrice,
-						lastOrder.Price,
-						lastOrder.Side,
-						max-actualPrice,
-						min-actualPrice,
 					)); err != nil {
 					u.logger.Debug(err)
 					continue
-				}
-
-				orders, err := u.GetOpenOrders(symbol)
-				if err != nil {
-					u.logger.Debug(err)
-					continue
-				}
-
-				if len(orders) == 0 {
-					lastOrder, err := u.orderRepo.GetLast(symbol)
-					if err != nil {
-						u.logger.Debug(err)
-						continue
-					}
-
-					//if err := u.tgmController.Send(fmt.Sprintf("[ Order Monitoring, Last Order ]\n%+v", lastOrder)); err != nil {
-					//	u.logger.Debug(err)
-					//	continue
-					//}
-
-					var side, orderType string
-
-					switch lastOrder.Side {
-					case "SELL":
-						if min-actualPrice <= -delta && actualPrice < lastOrder.Price-(delta/2) {
-							side = "BUY" // купить
-							orderType = "MARKET"
-						} else {
-							continue
-						}
-					case "BUY":
-						if max-actualPrice >= delta && actualPrice > lastOrder.Price+(delta/2) {
-							side = "SELL" // продать
-							orderType = "MARKET"
-						} else {
-							continue
-						}
-					}
-
-					if err := u.GetOrder(&structs.Order{
-						Symbol: symbol,
-						Side:   side,
-					}, quantity, orderType); err != nil {
-						u.logger.Debug(err)
-						continue
-					}
-
-					if err := u.tgmController.Send(
-						fmt.Sprintf(
-							"[ New Orders ]\n"+
-								"Side:\t%s\n"+
-								"Symbol:\t%s\n"+
-								"Price:\t%.2f\n",
-							side,
-							symbol,
-							actualPrice,
-						)); err != nil {
-						u.logger.Debug(err)
-						continue
-					}
 				}
 			}
 		}
@@ -223,7 +219,7 @@ func (u *orderUseCase) GetOpenOrders(symbol string) ([]structs.Order, error) {
 
 	var out []structs.Order
 
-	u.logger.Debugf("%s", req)
+	fmt.Printf("%s", req)
 
 	if err := json.Unmarshal(req, &out); err != nil {
 		return nil, err
