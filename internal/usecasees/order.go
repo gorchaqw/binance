@@ -72,16 +72,21 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 	var delta float64
 
 	var sTime time.Time
-	var lastOrder *models.Order
 
 	switch symbol {
 	case BTCBUSD:
-		quantity = "0.007"
+		quantity = "0.005"
 		delta = 75
+	case BUSDRUB:
+		quantity = "10"
+		delta = 0.25
+	case BTCRUB:
+		quantity = ""
+		delta = 8500
 	}
 
 	sTime = time.Now()
-	ticker := time.NewTicker(15 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	done := make(chan bool)
 	go func() {
 		for {
@@ -89,12 +94,11 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 			case <-done:
 				return
 			case _ = <-ticker.C:
-				order, err := u.orderRepo.GetLast(symbol)
+				lastOrder, err := u.orderRepo.GetLast(symbol)
 				if err != nil {
 					u.logger.Debugf("orderRepo.GetLast %+v", err)
 					continue
 				}
-				lastOrder = order
 
 				actualPrice, err := u.priceUseCase.GetPrice(symbol)
 				if err != nil {
@@ -107,9 +111,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					u.logger.Debugf("priceRepo.GetMaxByCreatedByInterval %+v", err)
 					continue
 				}
-				sTime = maxT
 
-				min, _, err := u.priceRepo.GetMinByCreatedByInterval(symbol, sTime, time.Now())
+				min, minT, err := u.priceRepo.GetMinByCreatedByInterval(symbol, sTime, time.Now())
 				if err != nil {
 					u.logger.Debugf("priceRepo.GetMinByCreatedByInterval %+v", err)
 					continue
@@ -156,14 +159,15 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					} else {
 						continue
 					}
+					sTime = minT
 				case "BUY":
-					//if max-actualPrice >= delta && actualPrice > lastOrder.Price+(delta/2) {
 					if max-actualPrice >= delta {
 						side = "SELL" // продать
 						orderType = "MARKET"
 					} else {
 						continue
 					}
+					sTime = maxT
 				}
 
 				if err := u.GetOrder(&structs.Order{

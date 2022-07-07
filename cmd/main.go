@@ -75,8 +75,8 @@ func main() {
 
 	for _, symbol := range []string{
 		usecasees.BTCBUSD,
+		usecasees.BUSDRUB,
 		//usecasees.ETHBUSD,
-		//usecasees.BUSDRUB,
 		//usecasees.BNBBUSD,
 	} {
 		if err := orderUseCase.Monitoring(symbol); err != nil {
