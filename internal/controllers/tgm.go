@@ -26,3 +26,19 @@ func (c *TgmController) Send(text string) error {
 
 	return nil
 }
+
+func (c *TgmController) Update(msgID int, text string) error {
+	msg := tgbotapi.EditMessageTextConfig{
+		BaseEdit: tgbotapi.BaseEdit{
+			ChatID:    c.chatID,
+			MessageID: msgID,
+		},
+		Text: text,
+	}
+
+	if _, err := c.tgmBot.Send(msg); err != nil {
+		return err
+	}
+
+	return nil
+}

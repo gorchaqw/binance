@@ -20,14 +20,13 @@ const (
 	orderAllUrlPath  = "/api/v3/allOrders"
 	orderOpenUrlPath = "/api/v3/openOrders"
 
-	BTCBUSD = "BTCBUSD"
 	BTCRUB  = "BTCRUB"
-
 	ETHRUB  = "ETHRUB"
-	ETHBUSD = "ETHBUSD"
+	BTCBUSD = "BTCBUSD"
 
-	BUSDRUB = "BUSDRUB"
-	BNBBUSD = "BNBBUSD"
+	msgID_BTCRUB  = 41277
+	msgID_ETHRUB  = 41275
+	msgID_BTCBUSD = 41275
 )
 
 type orderUseCase struct {
@@ -69,24 +68,24 @@ func NewOrderUseCase(
 
 func (u *orderUseCase) Monitoring(symbol string) error {
 	var quantity string
-	var delta float64
 
 	var sTime time.Time
+	var delta float64
 
 	switch symbol {
-	case BTCBUSD:
-		quantity = "0.005"
-		delta = 75
-	case BUSDRUB:
-		quantity = "10"
-		delta = 0.25
+	case ETHRUB:
+		quantity = "0.03"
+		delta = 250
 	case BTCRUB:
-		quantity = ""
-		delta = 8500
+		quantity = "0.002"
+		delta = 5000
+	case BTCBUSD:
+		quantity = "0.002"
+		delta = 50
 	}
 
 	sTime = time.Now()
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(10 * time.Second)
 	done := make(chan bool)
 	go func() {
 		for {
@@ -97,12 +96,6 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				lastOrder, err := u.orderRepo.GetLast(symbol)
 				if err != nil {
 					u.logger.Debugf("orderRepo.GetLast %+v", err)
-					continue
-				}
-
-				actualPrice, err := u.priceUseCase.GetPrice(symbol)
-				if err != nil {
-					u.logger.Debug(err)
 					continue
 				}
 
@@ -118,6 +111,28 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					continue
 				}
 
+				average := (max + min) / 2
+				deltaMaxMin := (max - min) * 0.2
+
+				actualPrice, err := u.priceUseCase.GetPrice(symbol)
+				if err != nil {
+					u.logger.Debug(err)
+					continue
+				}
+
+				deltaMax := max - actualPrice
+				deltaMin := actualPrice - min
+
+				//msgId := 0
+				//switch symbol {
+				//case ETHRUB:
+				//	msgId = msgID_ETHRUB
+				//case BTCRUB:
+				//	msgId = msgID_BTCRUB
+				//case BTCBUSD:
+				//	msgId = msgID_BTCBUSD
+				//}
+
 				//if err := u.tgmController.Send(
 				//	fmt.Sprintf(
 				//		"[ Monitoring ]\n"+
@@ -131,7 +146,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				//			"Order Time:\t%s\n"+
 				//			"DeltaMax:\t%.2f\n"+
 				//			"DeltaMin:\t%.2f\n"+
-				//			"STime:\t%s",
+				//			"STime:\t%s\n"+
+				//			"DeltaMaxMin:\t%.2f\n",
 				//		symbol,
 				//		max,
 				//		min,
@@ -143,6 +159,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				//		max-actualPrice,
 				//		min-actualPrice,
 				//		sTime.Format(time.RFC822),
+				//		deltaMaxMin,
 				//	)); err != nil {
 				//	u.logger.Debug(err)
 				//	continue
@@ -152,8 +169,9 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				switch lastOrder.Side {
 				case "SELL":
-					//if min-actualPrice <= -delta && actualPrice < lastOrder.Price-(delta/2) {
-					if min-actualPrice <= -delta {
+					if deltaMax >= deltaMax*0.25 &&
+						deltaMaxMin != 0 &&
+						lastOrder.Price-actualPrice > delta {
 						side = "BUY" // купить
 						orderType = "MARKET"
 					} else {
@@ -161,7 +179,9 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					}
 					sTime = minT
 				case "BUY":
-					if max-actualPrice >= delta {
+					if deltaMin >= deltaMin*0.25 &&
+						deltaMaxMin != 0 &&
+						actualPrice-lastOrder.Price > delta {
 						side = "SELL" // продать
 						orderType = "MARKET"
 					} else {
@@ -183,10 +203,17 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						"[ New Orders ]\n"+
 							"Side:\t%s\n"+
 							"Symbol:\t%s\n"+
-							"Price:\t%.2f\n",
+							"Price:\t%.2f\n"+
+							"Last order price:\t%.2f\n"+
+							"Average:\t%.2f\n"+
+							"DeltaMaxMin:\t%.2f\n",
+
 						side,
 						symbol,
 						actualPrice,
+						lastOrder.Price,
+						average,
+						deltaMaxMin,
 					)); err != nil {
 					u.logger.Debug(err)
 					continue
@@ -232,7 +259,7 @@ func (u *orderUseCase) GetOpenOrders(symbol string) ([]structs.Order, error) {
 	return out, nil
 }
 
-func (u *orderUseCase) GetAllOrders() error {
+func (u *orderUseCase) GetAllOrders(symbol string) error {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return err
@@ -241,7 +268,7 @@ func (u *orderUseCase) GetAllOrders() error {
 	baseURL.Path = path.Join(orderAllUrlPath)
 
 	q := baseURL.Query()
-	q.Set("symbol", "BTCBUSD")
+	q.Set("symbol", symbol)
 	q.Set("recvWindow", "60000")
 	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
 
@@ -317,7 +344,7 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity, orderType string
 	q.Set("quantity", fmt.Sprintf("%.5f", qu))
 	//q.Set("price", order.Price)
 	q.Set("recvWindow", "60000")
-	q.Set("timestamp", fmt.Sprintf("%d", time.Now().Unix()*1000))
+	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
 
 	sig := u.cryptoController.GetSignature(q.Encode())
 	q.Set("signature", sig)
