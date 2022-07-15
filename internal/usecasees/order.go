@@ -20,48 +20,44 @@ const (
 	orderAllUrlPath  = "/api/v3/allOrders"
 	orderOpenUrlPath = "/api/v3/openOrders"
 
-	BTCRUB  = "BTCRUB"
 	ETHRUB  = "ETHRUB"
-	BTCBUSD = "BTCBUSD"
 	ETHBUSD = "ETHBUSD"
-	USDTRUB = "USDTRUB"
+	ETHUSDT = "ETHUSDT"
+
+	BTCRUB  = "BTCRUB"
+	BTCBUSD = "BTCBUSD"
 	BTCUSDT = "BTCUSDT"
-	BNBRUB  = "BNBRUB"
-	LTCRUB  = "LTCRUB"
 )
 
 var (
 	SymbolList = []string{
 		ETHRUB,
 		ETHBUSD,
-		BTCUSDT,
-		BTCBUSD,
+		ETHUSDT,
+
 		BTCRUB,
-		USDTRUB,
-		BNBRUB,
-		LTCRUB,
+		BTCBUSD,
+		BTCUSDT,
 	}
 
 	SpotURLs = map[string]string{
 		ETHRUB:  "https://www.binance.com/ru/trade/ETH_RUB?theme=dark&type=spot",
 		ETHBUSD: "https://www.binance.com/ru/trade/ETH_BUSD?theme=dark&type=spot",
-		BTCUSDT: "https://www.binance.com/ru/trade/BTC_USDT?theme=dark&type=spot",
-		BTCBUSD: "https://www.binance.com/ru/trade/BTC_BUSD?theme=dark&type=spot",
+		ETHUSDT: "https://www.binance.com/ru/trade/ETH_USDT?theme=dark&type=spot",
+
 		BTCRUB:  "https://www.binance.com/ru/trade/BTC_RUB?theme=dark&type=spot",
-		USDTRUB: "https://www.binance.com/ru/trade/USDT_RUB?theme=dark&type=spot",
-		BNBRUB:  "https://www.binance.com/ru/trade/BNB_RUB?theme=dark&type=spot",
-		LTCRUB:  "https://www.binance.com/ru/trade/LTC_RUB?theme=dark&type=spot",
+		BTCBUSD: "https://www.binance.com/ru/trade/BTC_BUSD?theme=dark&type=spot",
+		BTCUSDT: "https://www.binance.com/ru/trade/BTC_USDT?theme=dark&type=spot",
 	}
 
 	QuantityList = map[string]float64{
 		ETHRUB:  0.02,
 		ETHBUSD: 0.02,
-		BTCUSDT: 0.004,
-		BTCBUSD: 0.002,
+		ETHUSDT: 0.02,
+
 		BTCRUB:  0.002,
-		USDTRUB: 60,
-		BNBRUB:  0.04,
-		LTCRUB:  0.09,
+		BTCBUSD: 0.002,
+		BTCUSDT: 0.002,
 	}
 )
 

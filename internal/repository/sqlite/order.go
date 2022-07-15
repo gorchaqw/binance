@@ -33,3 +33,11 @@ func (r *OrderRepository) GetLast(symbol string) (*models.Order, error) {
 
 	return &order, nil
 }
+
+func (r *OrderRepository) SetActualPrice(id int, price float64) error {
+	if _, err := r.conn.Exec("UPDATE orders SET price = $1 where id = $2;", price, id); err != nil {
+		return err
+	}
+
+	return nil
+}

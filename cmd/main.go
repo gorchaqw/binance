@@ -72,6 +72,7 @@ func main() {
 		app.Logger,
 	)
 	tgmUseCase := usecasees.NewTgmUseCase(
+		priceUseCase,
 		tgmController,
 		orderRepo,
 		app.Logger,
