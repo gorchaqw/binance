@@ -61,7 +61,6 @@ func main() {
 		app.Config.BinanceUrl,
 		app.Logger,
 	)
-
 	orderUseCase := usecasees.NewOrderUseCase(
 		clientController,
 		cryptoController,
@@ -72,12 +71,13 @@ func main() {
 		app.Config.BinanceUrl,
 		app.Logger,
 	)
+	tgmUseCase := usecasees.NewTgmUseCase(
+		tgmController,
+		orderRepo,
+		app.Logger,
+	)
 
-	for _, symbol := range []string{
-		usecasees.BTCBUSD,
-		usecasees.BTCRUB,
-		usecasees.ETHRUB,
-	} {
+	for _, symbol := range usecasees.SymbolList {
 		if err := orderUseCase.Monitoring(symbol); err != nil {
 			app.Logger.Error(err)
 		}
@@ -86,6 +86,8 @@ func main() {
 			app.Logger.Error(err)
 		}
 	}
+
+	go tgmUseCase.CommandProcessor()
 
 	var wg sync.WaitGroup
 	wg.Add(1)

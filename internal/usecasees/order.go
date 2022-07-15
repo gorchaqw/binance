@@ -23,10 +23,36 @@ const (
 	BTCRUB  = "BTCRUB"
 	ETHRUB  = "ETHRUB"
 	BTCBUSD = "BTCBUSD"
+	ETHBUSD = "ETHBUSD"
+	USDTRUB = "USDTRUB"
+	BTCUSDT = "BTCUSDT"
+	BNBRUB  = "BNBRUB"
 
 	msgID_BTCRUB  = 41277
 	msgID_ETHRUB  = 41275
 	msgID_BTCBUSD = 41275
+)
+
+var (
+	SymbolList = []string{
+		ETHRUB,
+		ETHBUSD,
+		BTCUSDT,
+		BTCBUSD,
+		BTCRUB,
+		USDTRUB,
+		BNBRUB,
+	}
+
+	SpotURLs = map[string]string{
+		"ETHRUB":  "https://www.binance.com/ru/trade/ETH_RUB?theme=dark&type=spot",
+		"ETHBUSD": "https://www.binance.com/ru/trade/ETH_BUSD?theme=dark&type=spot",
+		"BTCUSDT": "https://www.binance.com/ru/trade/BTC_USDT?theme=dark&type=spot",
+		"BTCBUSD": "https://www.binance.com/ru/trade/BTC_BUSD?theme=dark&type=spot",
+		"BTCRUB":  "https://www.binance.com/ru/trade/BTC_RUB?theme=dark&type=spot",
+		"USDTRUB": "https://www.binance.com/ru/trade/USDT_RUB?theme=dark&type=spot",
+		"BNBRUB":  "https://www.binance.com/ru/trade/BNB_RUB?theme=dark&type=spot",
+	}
 )
 
 type orderUseCase struct {
@@ -74,14 +100,27 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 	switch symbol {
 	case ETHRUB:
-		quantity = "0.03"
+		quantity = "0.02"
 		delta = 250
 	case BTCRUB:
 		quantity = "0.002"
-		delta = 5000
+		delta = 2500
 	case BTCBUSD:
 		quantity = "0.002"
+		delta = 200
+	case ETHBUSD:
+		quantity = "0.02"
+		delta = 10
+	case USDTRUB:
+		quantity = "60"
+		delta = 2
+	case BTCUSDT:
+		quantity = "0.004"
 		delta = 50
+	case BNBRUB:
+		quantity = "0.04"
+		delta = 75
+
 	}
 
 	sTime = time.Now()
@@ -111,9 +150,6 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					continue
 				}
 
-				average := (max + min) / 2
-				deltaMaxMin := (max - min) * 0.2
-
 				actualPrice, err := u.priceUseCase.GetPrice(symbol)
 				if err != nil {
 					u.logger.Debug(err)
@@ -122,6 +158,16 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				deltaMax := max - actualPrice
 				deltaMin := actualPrice - min
+				avr := (max + min) / 2
+
+				avrMAX := max - avr
+				avrMAXActual := actualPrice - avr
+
+				avrMIN := avr - min
+				avrMINActual := avr - actualPrice
+
+				//deltaMax := 100 * (max - actualPrice) / actualPrice
+				//deltaMin := 100 * (actualPrice - min) / actualPrice
 
 				//msgId := 0
 				//switch symbol {
@@ -146,8 +192,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				//			"Order Time:\t%s\n"+
 				//			"DeltaMax:\t%.2f\n"+
 				//			"DeltaMin:\t%.2f\n"+
-				//			"STime:\t%s\n"+
-				//			"DeltaMaxMin:\t%.2f\n",
+				//			"STime:\t%s\n",
 				//		symbol,
 				//		max,
 				//		min,
@@ -156,10 +201,9 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				//		lastOrder.Price,
 				//		lastOrder.Side,
 				//		lastOrder.CreatedAt.Format(time.RFC822),
-				//		max-actualPrice,
-				//		min-actualPrice,
+				//		100*(max-actualPrice)/actualPrice,
+				//		100*(actualPrice-min)/actualPrice,
 				//		sTime.Format(time.RFC822),
-				//		deltaMaxMin,
 				//	)); err != nil {
 				//	u.logger.Debug(err)
 				//	continue
@@ -169,9 +213,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				switch lastOrder.Side {
 				case "SELL":
-					if deltaMax >= deltaMax*0.25 &&
-						deltaMaxMin != 0 &&
-						lastOrder.Price-actualPrice > delta {
+					if lastOrder.Price-actualPrice > delta &&
+						deltaMin > delta/2 {
 						side = "BUY" // купить
 						orderType = "MARKET"
 					} else {
@@ -179,9 +222,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					}
 					sTime = minT
 				case "BUY":
-					if deltaMin >= deltaMin*0.25 &&
-						deltaMaxMin != 0 &&
-						actualPrice-lastOrder.Price > delta {
+					if actualPrice-lastOrder.Price > delta &&
+						deltaMax > delta/2 {
 						side = "SELL" // продать
 						orderType = "MARKET"
 					} else {
@@ -205,15 +247,14 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							"Symbol:\t%s\n"+
 							"Price:\t%.2f\n"+
 							"Last order price:\t%.2f\n"+
-							"Average:\t%.2f\n"+
-							"DeltaMaxMin:\t%.2f\n",
-
+							"Delta MAX:\t%.2f\n"+
+							"Delta MIN:\t%.2f\n",
 						side,
 						symbol,
 						actualPrice,
 						lastOrder.Price,
-						average,
-						deltaMaxMin,
+						100*(avrMAX-avrMAXActual)/avrMAX,
+						100*(avrMIN-avrMINActual)/avrMIN,
 					)); err != nil {
 					u.logger.Debug(err)
 					continue

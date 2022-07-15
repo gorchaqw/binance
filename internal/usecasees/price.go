@@ -167,7 +167,7 @@ func (u *priceUseCase) Monitoring(symbol string) error {
 	}()
 
 	if err := u.tgmController.Send(
-		fmt.Sprintf("[ Price Monitoring :: Start ]\n%s", time.Now().Format(time.RFC822))); err != nil {
+		fmt.Sprintf("[ Price Monitoring ]\n%s\n%s", symbol, time.Now().Format(time.RFC822))); err != nil {
 
 		return err
 	}

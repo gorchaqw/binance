@@ -19,6 +19,7 @@ func NewTgmController(
 
 func (c *TgmController) Send(text string) error {
 	msg := tgbotapi.NewMessage(c.chatID, text)
+	msg.DisableWebPagePreview = true
 
 	if _, err := c.tgmBot.Send(msg); err != nil {
 		return err
@@ -41,4 +42,11 @@ func (c *TgmController) Update(msgID int, text string) error {
 	}
 
 	return nil
+}
+
+func (c *TgmController) GetUpdates() tgbotapi.UpdatesChannel {
+	u := tgbotapi.NewUpdate(0)
+	u.Timeout = 60
+
+	return c.tgmBot.GetUpdatesChan(u)
 }
