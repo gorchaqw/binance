@@ -45,13 +45,13 @@ var (
 	}
 
 	SpotURLs = map[string]string{
-		"ETHRUB":  "https://www.binance.com/ru/trade/ETH_RUB?theme=dark&type=spot",
-		"ETHBUSD": "https://www.binance.com/ru/trade/ETH_BUSD?theme=dark&type=spot",
-		"BTCUSDT": "https://www.binance.com/ru/trade/BTC_USDT?theme=dark&type=spot",
-		"BTCBUSD": "https://www.binance.com/ru/trade/BTC_BUSD?theme=dark&type=spot",
-		"BTCRUB":  "https://www.binance.com/ru/trade/BTC_RUB?theme=dark&type=spot",
-		"USDTRUB": "https://www.binance.com/ru/trade/USDT_RUB?theme=dark&type=spot",
-		"BNBRUB":  "https://www.binance.com/ru/trade/BNB_RUB?theme=dark&type=spot",
+		ETHRUB:  "https://www.binance.com/ru/trade/ETH_RUB?theme=dark&type=spot",
+		ETHBUSD: "https://www.binance.com/ru/trade/ETH_BUSD?theme=dark&type=spot",
+		BTCUSDT: "https://www.binance.com/ru/trade/BTC_USDT?theme=dark&type=spot",
+		BTCBUSD: "https://www.binance.com/ru/trade/BTC_BUSD?theme=dark&type=spot",
+		BTCRUB:  "https://www.binance.com/ru/trade/BTC_RUB?theme=dark&type=spot",
+		USDTRUB: "https://www.binance.com/ru/trade/USDT_RUB?theme=dark&type=spot",
+		BNBRUB:  "https://www.binance.com/ru/trade/BNB_RUB?theme=dark&type=spot",
 	}
 )
 
