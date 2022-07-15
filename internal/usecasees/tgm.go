@@ -27,8 +27,35 @@ func NewTgmUseCase(
 }
 
 func (u *tgmUseCase) CommandProcessor() {
+	loc, err := time.LoadLocation("Europe/Moscow")
+	if err != nil {
+		u.logger.Debug(err)
+	}
+
 	for update := range u.tgmController.GetUpdates() {
 		switch update.Message.Command() {
+		case "ping":
+			if err := u.tgmController.Send(
+				fmt.Sprintf(
+					"PONG [ %s ]",
+					time.Now().In(loc).Format(time.RFC822),
+				)); err != nil {
+				u.logger.Debug(err)
+				continue
+			}
+		case "quantity":
+			for symbol, quantity := range QuantityList {
+				if err := u.tgmController.Send(
+					fmt.Sprintf(
+						"Symbol:\t%s\n"+
+							"Quantity:\t%.5f\n",
+						symbol,
+						quantity,
+					)); err != nil {
+					u.logger.Debug(err)
+					continue
+				}
+			}
 		case "last":
 			for _, symbol := range SymbolList {
 				order, err := u.orderRepo.GetLast(symbol)
@@ -47,7 +74,7 @@ func (u *tgmUseCase) CommandProcessor() {
 						order.Price,
 						order.Side,
 						SpotURLs[symbol],
-						order.CreatedAt.Format(time.RFC822),
+						order.CreatedAt.In(loc).Format(time.RFC822),
 					)); err != nil {
 					u.logger.Debug(err)
 					continue

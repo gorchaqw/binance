@@ -27,10 +27,7 @@ const (
 	USDTRUB = "USDTRUB"
 	BTCUSDT = "BTCUSDT"
 	BNBRUB  = "BNBRUB"
-
-	msgID_BTCRUB  = 41277
-	msgID_ETHRUB  = 41275
-	msgID_BTCBUSD = 41275
+	LTCRUB  = "LTCRUB"
 )
 
 var (
@@ -42,6 +39,7 @@ var (
 		BTCRUB,
 		USDTRUB,
 		BNBRUB,
+		LTCRUB,
 	}
 
 	SpotURLs = map[string]string{
@@ -52,6 +50,18 @@ var (
 		BTCRUB:  "https://www.binance.com/ru/trade/BTC_RUB?theme=dark&type=spot",
 		USDTRUB: "https://www.binance.com/ru/trade/USDT_RUB?theme=dark&type=spot",
 		BNBRUB:  "https://www.binance.com/ru/trade/BNB_RUB?theme=dark&type=spot",
+		LTCRUB:  "https://www.binance.com/ru/trade/LTC_RUB?theme=dark&type=spot",
+	}
+
+	QuantityList = map[string]float64{
+		ETHRUB:  0.02,
+		ETHBUSD: 0.02,
+		BTCUSDT: 0.004,
+		BTCBUSD: 0.002,
+		BTCRUB:  0.002,
+		USDTRUB: 60,
+		BNBRUB:  0.04,
+		LTCRUB:  0.09,
 	}
 )
 
@@ -93,37 +103,8 @@ func NewOrderUseCase(
 }
 
 func (u *orderUseCase) Monitoring(symbol string) error {
-	var quantity string
+	sTime := time.Now()
 
-	var sTime time.Time
-	var delta float64
-
-	switch symbol {
-	case ETHRUB:
-		quantity = "0.02"
-		delta = 250
-	case BTCRUB:
-		quantity = "0.002"
-		delta = 2500
-	case BTCBUSD:
-		quantity = "0.002"
-		delta = 200
-	case ETHBUSD:
-		quantity = "0.02"
-		delta = 10
-	case USDTRUB:
-		quantity = "60"
-		delta = 2
-	case BTCUSDT:
-		quantity = "0.004"
-		delta = 50
-	case BNBRUB:
-		quantity = "0.04"
-		delta = 75
-
-	}
-
-	sTime = time.Now()
 	ticker := time.NewTicker(10 * time.Second)
 	done := make(chan bool)
 	go func() {
@@ -158,7 +139,9 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				deltaMax := max - actualPrice
 				deltaMin := actualPrice - min
+
 				avr := (max + min) / 2
+				delta := 0.00075 * avr
 
 				avrMAX := max - avr
 				avrMAXActual := actualPrice - avr
@@ -214,7 +197,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				switch lastOrder.Side {
 				case "SELL":
 					if lastOrder.Price-actualPrice > delta &&
-						deltaMin > delta/2 {
+						deltaMin > delta {
 						side = "BUY" // купить
 						orderType = "MARKET"
 					} else {
@@ -223,7 +206,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					sTime = minT
 				case "BUY":
 					if actualPrice-lastOrder.Price > delta &&
-						deltaMax > delta/2 {
+						deltaMax > delta {
 						side = "SELL" // продать
 						orderType = "MARKET"
 					} else {
@@ -235,7 +218,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				if err := u.GetOrder(&structs.Order{
 					Symbol: symbol,
 					Side:   side,
-				}, quantity, orderType); err != nil {
+				}, QuantityList[symbol], orderType); err != nil {
 					u.logger.Debug(err)
 					continue
 				}
@@ -247,12 +230,14 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							"Symbol:\t%s\n"+
 							"Price:\t%.2f\n"+
 							"Last order price:\t%.2f\n"+
+							"Delta:\t%.2f\n"+
 							"Delta MAX:\t%.2f\n"+
 							"Delta MIN:\t%.2f\n",
 						side,
 						symbol,
 						actualPrice,
 						lastOrder.Price,
+						delta,
 						100*(avrMAX-avrMAXActual)/avrMAX,
 						100*(avrMIN-avrMINActual)/avrMIN,
 					)); err != nil {
@@ -361,12 +346,7 @@ func (u *orderUseCase) GetAllOrders(symbol string) error {
 	return nil
 }
 
-func (u *orderUseCase) GetOrder(order *structs.Order, quantity, orderType string) error {
-	qu, err := strconv.ParseFloat(quantity, 64)
-	if err != nil {
-		return err
-	}
-
+func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, orderType string) error {
 	fmt.Printf("%s\n%s\n%s\n", order.Symbol, order.Side, orderType)
 
 	baseURL, err := url.Parse(u.url)
@@ -382,7 +362,7 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity, orderType string
 	q.Set("type", orderType)
 	//q.Set("type", "LIMIT")
 	//q.Set("timeInForce", "GTC")
-	q.Set("quantity", fmt.Sprintf("%.5f", qu))
+	q.Set("quantity", fmt.Sprintf("%.5f", quantity))
 	//q.Set("price", order.Price)
 	q.Set("recvWindow", "60000")
 	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
