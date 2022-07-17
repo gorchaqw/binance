@@ -28,6 +28,13 @@ func (c *TgmController) Send(text string) error {
 	return nil
 }
 
+func (c *TgmController) CheckChatID(chatID int64) bool {
+	if chatID == c.chatID {
+		return true
+	}
+	return false
+}
+
 func (c *TgmController) Update(msgID int, text string) error {
 	msg := tgbotapi.EditMessageTextConfig{
 		BaseEdit: tgbotapi.BaseEdit{

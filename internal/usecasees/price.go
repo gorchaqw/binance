@@ -15,7 +15,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const priceUrlPath = "/api/v3/ticker/price"
+const (
+	priceUrlPath          = "/api/v3/ticker/price"
+	priceChangeStatistics = "/api/v3/ticker/24hr"
+)
 
 type priceUseCase struct {
 	clientController *controllers.ClientController
@@ -78,6 +81,57 @@ func (u *priceUseCase) GetAverage(symbol string) error {
 	return nil
 }
 
+type PriceChangeStatistics struct {
+	Symbol             string `json:"symbol"`
+	PriceChange        string `json:"priceChange"`
+	PriceChangePercent string `json:"priceChangePercent"`
+	WeightedAvgPrice   string `json:"weightedAvgPrice"`
+	PrevClosePrice     string `json:"prevClosePrice"`
+	LastPrice          string `json:"lastPrice"`
+	LastQty            string `json:"lastQty"`
+	BidPrice           string `json:"bidPrice"`
+	BidQty             string `json:"bidQty"`
+	AskPrice           string `json:"askPrice"`
+	AskQty             string `json:"askQty"`
+	OpenPrice          string `json:"openPrice"`
+	HighPrice          string `json:"highPrice"`
+	LowPrice           string `json:"lowPrice"`
+	Volume             string `json:"volume"`
+	QuoteVolume        string `json:"quoteVolume"`
+	OpenTime           int64  `json:"openTime"`
+	CloseTime          int64  `json:"closeTime"`
+	FirstID            int    `json:"firstId"`
+	LastID             int    `json:"lastId"`
+	Count              int    `json:"count"`
+}
+
+func (u *priceUseCase) GetPriceChangeStatistics(symbol string) (*PriceChangeStatistics, error) {
+	baseURL, err := url.Parse(u.url)
+	if err != nil {
+		return nil, err
+	}
+
+	baseURL.Path = path.Join(priceChangeStatistics)
+
+	q := baseURL.Query()
+	q.Set("symbol", symbol)
+
+	baseURL.RawQuery = q.Encode()
+
+	req, err := u.clientController.Send(http.MethodGet, baseURL, nil, false)
+	if err != nil {
+		return nil, err
+	}
+
+	var out PriceChangeStatistics
+
+	if err := json.Unmarshal(req, &out); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+}
+
 func (u *priceUseCase) GetPrice(symbol string) (float64, error) {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
@@ -127,7 +181,7 @@ func (u *priceUseCase) Monitoring(symbol string) error {
 
 	baseURL.RawQuery = q.Encode()
 
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(15 * time.Second)
 	done := make(chan bool)
 
 	go func() {
@@ -165,12 +219,6 @@ func (u *priceUseCase) Monitoring(symbol string) error {
 			}
 		}
 	}()
-
-	if err := u.tgmController.Send(
-		fmt.Sprintf("[ Price Monitoring ]\n%s\n%s", symbol, time.Now().Format(time.RFC822))); err != nil {
-
-		return err
-	}
 
 	return nil
 }

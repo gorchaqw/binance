@@ -16,6 +16,8 @@ import (
 )
 
 const (
+	DeltaRatio = float64(0.015)
+
 	orderUrlPath     = "/api/v3/order"
 	orderAllUrlPath  = "/api/v3/allOrders"
 	orderOpenUrlPath = "/api/v3/openOrders"
@@ -27,6 +29,21 @@ const (
 	BTCRUB  = "BTCRUB"
 	BTCBUSD = "BTCBUSD"
 	BTCUSDT = "BTCUSDT"
+
+	BUSDRUB = "BUSDRUB"
+	USDTRUB = "USDTRUB"
+
+	XRPRUB  = "XRPRUB"
+	XRPBUSD = "XRPBUSD"
+	XRPUSDT = "XRPUSDT"
+
+	YFIBUSD = "YFIBUSD"
+	YFIUSDT = "YFIUSDT"
+
+	LUNABUSD = "LUNABUSD"
+
+	SIDE_SELL = "SELL"
+	SIDE_BUY  = "BUY"
 )
 
 var (
@@ -38,6 +55,20 @@ var (
 		BTCRUB,
 		BTCBUSD,
 		BTCUSDT,
+
+		BUSDRUB,
+	}
+
+	DeltaRatios = map[string]float64{
+		ETHRUB:  0.015,
+		ETHBUSD: 0.015,
+		ETHUSDT: 0.015,
+
+		BTCRUB:  0.015,
+		BTCBUSD: 0.015,
+		BTCUSDT: 0.015,
+
+		BUSDRUB: 0.015,
 	}
 
 	SpotURLs = map[string]string{
@@ -48,6 +79,18 @@ var (
 		BTCRUB:  "https://www.binance.com/ru/trade/BTC_RUB?theme=dark&type=spot",
 		BTCBUSD: "https://www.binance.com/ru/trade/BTC_BUSD?theme=dark&type=spot",
 		BTCUSDT: "https://www.binance.com/ru/trade/BTC_USDT?theme=dark&type=spot",
+
+		XRPRUB:  "https://www.binance.com/ru/trade/XRP_RUB?theme=dark&type=spot",
+		XRPBUSD: "https://www.binance.com/ru/trade/XRP_BUSD?theme=dark&type=spot",
+		XRPUSDT: "https://www.binance.com/ru/trade/XRP_USDT?theme=dark&type=spot",
+
+		YFIBUSD: "https://www.binance.com/ru/trade/YFI_BUSD?theme=dark&type=spot",
+		YFIUSDT: "https://www.binance.com/ru/trade/YFI_USDT?theme=dark&type=spot",
+
+		LUNABUSD: "https://www.binance.com/ru/trade/LUNA_BUSD?theme=dark&type=spot",
+
+		BUSDRUB: "https://www.binance.com/ru/trade/BUSD_RUB?theme=dark&type=spot",
+		USDTRUB: "https://www.binance.com/ru/trade/USDT_RUB?theme=dark&type=spot",
 	}
 
 	QuantityList = map[string]float64{
@@ -58,6 +101,9 @@ var (
 		BTCRUB:  0.002,
 		BTCBUSD: 0.002,
 		BTCUSDT: 0.002,
+
+		BUSDRUB: 65,
+		USDTRUB: 65,
 	}
 )
 
@@ -98,10 +144,57 @@ func NewOrderUseCase(
 	}
 }
 
+func (u *orderUseCase) UpdateRatio() {
+	ticker := time.NewTicker(12 * time.Hour)
+	done := make(chan bool)
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case t := <-ticker.C:
+				msg := "[ Ratio updated ]\n"
+				for _, symbol := range SymbolList {
+					stat, err := u.priceUseCase.GetPriceChangeStatistics(symbol)
+					if err != nil {
+						u.logger.Debug(err)
+					}
+
+					priceChangePercent, err := strconv.ParseFloat(stat.PriceChangePercent, 64)
+					if err != nil {
+						u.logger.Debug(err)
+					}
+
+					if priceChangePercent < 0 {
+						priceChangePercent *= -0.15
+					} else {
+						priceChangePercent *= 0.15
+					}
+
+					DeltaRatios[symbol] = priceChangePercent
+
+					msg += fmt.Sprintf(
+						"Symbol:\t%s\n"+
+							"Raio:\t%.2f\n"+
+							"Time:\t%s\n\n",
+						symbol,
+						priceChangePercent,
+						t.Format(time.RFC822),
+					)
+				}
+
+				if err := u.tgmController.Send(fmt.Sprintf("%s", msg)); err != nil {
+					u.logger.Debug(err)
+				}
+			}
+		}
+	}()
+}
+
 func (u *orderUseCase) Monitoring(symbol string) error {
 	sTime := time.Now()
 
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(30 * time.Second)
 	done := make(chan bool)
 	go func() {
 		for {
@@ -114,6 +207,12 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					u.logger.Debugf("orderRepo.GetLast %+v", err)
 					continue
 				}
+
+				//stat, err := u.priceUseCase.GetPriceChangeStatistics(symbol)
+				//if err != nil {
+				//	u.logger.Debug(err)
+				//	continue
+				//}
 
 				max, maxT, err := u.priceRepo.GetMaxByCreatedByInterval(symbol, sTime, time.Now())
 				if err != nil {
@@ -133,11 +232,11 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					continue
 				}
 
-				deltaMax := max - actualPrice
-				deltaMin := actualPrice - min
+				//deltaMax := max - actualPrice
+				//deltaMin := actualPrice - min
 
 				avr := (max + min) / 2
-				delta := 0.00075 * avr
+				delta := DeltaRatios[symbol] * avr
 
 				avrMAX := max - avr
 				avrMAXActual := actualPrice - avr
@@ -193,8 +292,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				switch lastOrder.Side {
 				case "SELL":
 					if lastOrder.Price-actualPrice > delta &&
-						deltaMin > delta {
-						side = "BUY" // купить
+						100*(avrMIN-avrMINActual)/avrMIN > 15 {
+						side = SIDE_BUY // купить
 						orderType = "MARKET"
 					} else {
 						continue
@@ -202,8 +301,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					sTime = minT
 				case "BUY":
 					if actualPrice-lastOrder.Price > delta &&
-						deltaMax > delta {
-						side = "SELL" // продать
+						100*(avrMAX-avrMAXActual)/avrMAX > 15 {
+						side = SIDE_SELL // продать
 						orderType = "MARKET"
 					} else {
 						continue
@@ -226,6 +325,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							"Symbol:\t%s\n"+
 							"Price:\t%.2f\n"+
 							"Last order price:\t%.2f\n"+
+							"Delta price:\t%.2f\n"+
 							"Delta:\t%.2f\n"+
 							"Delta MAX:\t%.2f\n"+
 							"Delta MIN:\t%.2f\n",
@@ -233,6 +333,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						symbol,
 						actualPrice,
 						lastOrder.Price,
+						lastOrder.Price-actualPrice,
 						delta,
 						100*(avrMAX-avrMAXActual)/avrMAX,
 						100*(avrMIN-avrMINActual)/avrMIN,

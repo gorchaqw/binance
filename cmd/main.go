@@ -5,6 +5,7 @@ import (
 	"binance/internal/repository/sqlite"
 	"binance/internal/usecasees"
 	"flag"
+	"fmt"
 	"strconv"
 	"sync"
 )
@@ -73,10 +74,14 @@ func main() {
 	)
 	tgmUseCase := usecasees.NewTgmUseCase(
 		priceUseCase,
+		orderUseCase,
 		tgmController,
 		orderRepo,
 		app.Logger,
 	)
+
+	go orderUseCase.UpdateRatio()
+	go tgmUseCase.CommandProcessor()
 
 	for _, symbol := range usecasees.SymbolList {
 		if err := orderUseCase.Monitoring(symbol); err != nil {
@@ -88,7 +93,9 @@ func main() {
 		}
 	}
 
-	go tgmUseCase.CommandProcessor()
+	if err := tgmController.Send(fmt.Sprintf("[ Started ]")); err != nil {
+		app.Logger.Error(err)
+	}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
