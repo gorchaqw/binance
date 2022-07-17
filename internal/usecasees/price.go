@@ -48,7 +48,7 @@ func NewPriceUseCase(
 }
 
 func (u *priceUseCase) GetAverage(symbol string) error {
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	done := make(chan bool)
 
 	go func() {

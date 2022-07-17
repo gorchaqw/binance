@@ -39,9 +39,11 @@ func main() {
 		panic(err)
 	}
 
+	// Init Repository
 	priceRepo := sqlite.NewPriceRepository(app.DB)
 	orderRepo := sqlite.NewOrderRepository(app.DB)
 
+	// Init Controllers
 	clientController := controllers.NewClientController(
 		app.HTTPClient,
 		app.Config.BinanceApiKey,
@@ -55,6 +57,7 @@ func main() {
 		chatId,
 	)
 
+	// Init UseCases
 	priceUseCase := usecasees.NewPriceUseCase(
 		clientController,
 		tgmController,

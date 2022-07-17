@@ -145,7 +145,7 @@ func NewOrderUseCase(
 }
 
 func (u *orderUseCase) UpdateRatio() {
-	ticker := time.NewTicker(12 * time.Hour)
+	ticker := time.NewTicker(6 * time.Hour)
 	done := make(chan bool)
 	go func() {
 		for {
@@ -444,8 +444,6 @@ func (u *orderUseCase) GetAllOrders(symbol string) error {
 }
 
 func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, orderType string) error {
-	fmt.Printf("%s\n%s\n%s\n", order.Symbol, order.Side, orderType)
-
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return err

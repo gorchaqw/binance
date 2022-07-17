@@ -202,14 +202,14 @@ func (u *tgmUseCase) pingProc(loc *time.Location) {
 
 func (u *tgmUseCase) quantityProc() {
 	var msg string
-	for symbol, quantity := range QuantityList {
+	for _, symbol := range SymbolList {
 		msg += fmt.Sprintf(
 			"Symbol:\t%s\n"+
 				"Raio:\t%.5f\n"+
 				"Quantity:\t%.5f\n\n",
 			symbol,
 			DeltaRatios[symbol],
-			quantity,
+			QuantityList[symbol],
 		)
 	}
 
