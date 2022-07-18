@@ -60,23 +60,85 @@ func (u *tgmUseCase) CommandProcessor() {
 				u.setAvgProc(loc)
 			case "ping":
 				u.pingProc(loc)
-			case "quantity":
-				u.quantityProc()
 			case "last":
 				u.lastProc(loc)
 			case "sell_all":
-				u.massOrderProc(SIDE_SELL)
+				u.massOrderProc(SIDE_SELL, loc)
 			case "buy_all":
-				u.massOrderProc(SIDE_BUY)
+				u.massOrderProc(SIDE_BUY, loc)
 			case "order":
 				order := strings.Split(update.Message.CommandArguments(), " ")
 				if (order[0] == SIDE_BUY || order[0] == SIDE_SELL) && contains(SymbolList, order[1]) {
-					u.orderProc(order[0], order[1])
+					u.orderProc(order[0], order[1], loc)
 				}
 			case "statistics":
 				u.statisticsProc()
+			case "calc_balance":
+				u.calculateBalanceProc()
 			}
 		}
+	}
+}
+
+func (u *tgmUseCase) calculateBalanceProc() {
+	msg := "[ Calculate Balance ]\n\n"
+	total := make(map[string]float64)
+	var totalInRUB float64
+
+	for _, symbol := range SymbolList {
+		actualPrice, err := u.priceUseCase.GetPrice(symbol)
+		if err != nil {
+			u.logger.Debug(err)
+		}
+
+		sum := actualPrice * QuantityList[symbol]
+		s := Symbols[symbol][1]
+
+		RUBSymbol := fmt.Sprintf("%s%s", Symbols[symbol][0], RUB)
+		actualPriceInRUB, err := u.priceUseCase.GetPrice(RUBSymbol)
+		if err != nil {
+			u.logger.Debug(err)
+		}
+
+		capacityInRUB := actualPriceInRUB * QuantityList[symbol]
+
+		msg += fmt.Sprintf(
+			"Symbol:\t%s\n"+
+				"Quantity:\t%.5f\n"+
+				"Capacity:\t%.2f %s\n"+
+				"Capacity RUB:\t%.2f RUB\n\n",
+			symbol,
+			QuantityList[symbol],
+			sum,
+			s,
+			capacityInRUB,
+		)
+
+		totalInRUB += actualPriceInRUB * QuantityList[symbol]
+		total[s] += sum
+	}
+
+	msg += fmt.Sprintf(
+		"Total in RUB:\t%.2f\n",
+		totalInRUB,
+	)
+
+	if err := u.tgmController.Send(msg); err != nil {
+		u.logger.Debug(err)
+	}
+
+	msg = "[ Total ]\n\n"
+	for symbol, weight := range total {
+		msg += fmt.Sprintf(
+			"Symbol:\t%s\n"+
+				"weight:\t%.2f\n\n",
+			symbol,
+			weight,
+		)
+	}
+
+	if err := u.tgmController.Send(msg); err != nil {
+		u.logger.Debug(err)
 	}
 }
 
@@ -96,13 +158,17 @@ func (u *tgmUseCase) statisticsProc() {
 
 		msg += fmt.Sprintf(
 			"Symbol:\t%s\n"+
+				"Raio:\t%.5f\n"+
+				"Quantity:\t%.5f\n"+
 				"AvgPrice:\t%.5f\n"+
 				"Delta:\t%.5f\n"+
 				"PriceChange:\t%s\n"+
 				"PriceChangePercent:\t%s\n\n",
 			symbol,
+			DeltaRatios[symbol],
+			QuantityList[symbol],
 			weightedAvgPrice,
-			weightedAvgPrice*DeltaRatio,
+			weightedAvgPrice/100*DeltaRatios[symbol],
 			stat.PriceChange,
 			stat.PriceChangePercent,
 		)
@@ -113,7 +179,7 @@ func (u *tgmUseCase) statisticsProc() {
 	}
 }
 
-func (u *tgmUseCase) massOrderProc(side string) {
+func (u *tgmUseCase) massOrderProc(side string, loc *time.Location) {
 	for _, symbol := range SymbolList {
 		order, err := u.orderRepo.GetLast(symbol)
 		if err != nil {
@@ -129,6 +195,15 @@ func (u *tgmUseCase) massOrderProc(side string) {
 				continue
 			}
 		}
+	}
+
+	if err := u.tgmController.Send(
+		fmt.Sprintf(
+			"[ Orders updated ]\n"+
+				"Time:\t%s\n",
+			time.Now().In(loc).Format(time.RFC822),
+		)); err != nil {
+		u.logger.Debug(err)
 	}
 }
 
@@ -157,7 +232,8 @@ func (u *tgmUseCase) setAvgProc(loc *time.Location) {
 
 	if err := u.tgmController.Send(
 		fmt.Sprintf(
-			"Orders updated [ %s ]",
+			"[ Orders updated ]\n"+
+				"Time:\t%s\n",
 			time.Now().In(loc).Format(time.RFC822),
 		)); err != nil {
 		u.logger.Debug(err)
@@ -183,7 +259,8 @@ func (u *tgmUseCase) setActualProc(loc *time.Location) {
 
 	if err := u.tgmController.Send(
 		fmt.Sprintf(
-			"Orders updated [ %s ]",
+			"[ Orders updated ]\n"+
+				"Time:\t%s\n",
 			time.Now().In(loc).Format(time.RFC822),
 		)); err != nil {
 		u.logger.Debug(err)
@@ -200,25 +277,7 @@ func (u *tgmUseCase) pingProc(loc *time.Location) {
 	}
 }
 
-func (u *tgmUseCase) quantityProc() {
-	var msg string
-	for _, symbol := range SymbolList {
-		msg += fmt.Sprintf(
-			"Symbol:\t%s\n"+
-				"Raio:\t%.5f\n"+
-				"Quantity:\t%.5f\n\n",
-			symbol,
-			DeltaRatios[symbol],
-			QuantityList[symbol],
-		)
-	}
-
-	if err := u.tgmController.Send(msg); err != nil {
-		u.logger.Debug(err)
-	}
-}
-
-func (u *tgmUseCase) orderProc(side, symbol string) {
+func (u *tgmUseCase) orderProc(side, symbol string, loc *time.Location) {
 	order, err := u.orderRepo.GetLast(symbol)
 	if err != nil {
 		u.logger.Debug(err)
@@ -231,6 +290,15 @@ func (u *tgmUseCase) orderProc(side, symbol string) {
 		}, QuantityList[symbol], "MARKET"); err != nil {
 			u.logger.Debug(err)
 		}
+	}
+
+	if err := u.tgmController.Send(
+		fmt.Sprintf(
+			"[ Orders updated ]\n"+
+				"Time:\t%s\n",
+			time.Now().In(loc).Format(time.RFC822),
+		)); err != nil {
+		u.logger.Debug(err)
 	}
 }
 

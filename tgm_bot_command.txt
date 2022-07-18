@@ -1,0 +1,9 @@
+set_actual - set actual prices for all orders
+set_avg_price - set avg prices for all orders
+order - create order [ /order SELL/BUY BTCRUB ]
+sell_all - sell all symbols
+buy_all - buy all symbols
+calc_balance - calculate balans weight
+last - show last orders
+ping - bot status
+statistics - symbols statistic

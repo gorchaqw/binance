@@ -83,7 +83,7 @@ func main() {
 		app.Logger,
 	)
 
-	go orderUseCase.UpdateRatio()
+	//go orderUseCase.UpdateRatio()
 	go tgmUseCase.CommandProcessor()
 
 	for _, symbol := range usecasees.SymbolList {

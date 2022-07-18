@@ -5,6 +5,7 @@ import (
 	"binance/internal/repository/sqlite"
 	"binance/internal/usecasees/structs"
 	"binance/models"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"github.com/sirupsen/logrus"
@@ -22,6 +23,13 @@ const (
 	orderAllUrlPath  = "/api/v3/allOrders"
 	orderOpenUrlPath = "/api/v3/openOrders"
 
+	ETH  = "ETH"
+	RUB  = "RUB"
+	BUSD = "BUSD"
+	USDT = "USDT"
+	BTC  = "BTC"
+	BNB  = "BNB"
+
 	ETHRUB  = "ETHRUB"
 	ETHBUSD = "ETHBUSD"
 	ETHUSDT = "ETHUSDT"
@@ -30,23 +38,25 @@ const (
 	BTCBUSD = "BTCBUSD"
 	BTCUSDT = "BTCUSDT"
 
-	BUSDRUB = "BUSDRUB"
-	USDTRUB = "USDTRUB"
-
-	XRPRUB  = "XRPRUB"
-	XRPBUSD = "XRPBUSD"
-	XRPUSDT = "XRPUSDT"
-
-	YFIBUSD = "YFIBUSD"
-	YFIUSDT = "YFIUSDT"
-
-	LUNABUSD = "LUNABUSD"
+	BNBBUSD = "BNBBUSD"
 
 	SIDE_SELL = "SELL"
 	SIDE_BUY  = "BUY"
 )
 
 var (
+	Symbols = map[string][]string{
+		ETHRUB:  {ETH, RUB},
+		ETHBUSD: {ETH, BUSD},
+		ETHUSDT: {ETH, USDT},
+
+		BTCRUB:  {BTC, RUB},
+		BTCBUSD: {BTC, BUSD},
+		BTCUSDT: {BTC, USDT},
+
+		BNBBUSD: {BNB, BUSD},
+	}
+
 	SymbolList = []string{
 		ETHRUB,
 		ETHBUSD,
@@ -56,19 +66,19 @@ var (
 		BTCBUSD,
 		BTCUSDT,
 
-		BUSDRUB,
+		BNBBUSD,
 	}
 
 	DeltaRatios = map[string]float64{
-		ETHRUB:  0.015,
-		ETHBUSD: 0.015,
-		ETHUSDT: 0.015,
+		ETHRUB:  3,
+		ETHBUSD: 3,
+		ETHUSDT: 3,
 
-		BTCRUB:  0.015,
-		BTCBUSD: 0.015,
-		BTCUSDT: 0.015,
+		BTCRUB:  3,
+		BTCBUSD: 3,
+		BTCUSDT: 3,
 
-		BUSDRUB: 0.015,
+		BNBBUSD: 3,
 	}
 
 	SpotURLs = map[string]string{
@@ -80,17 +90,7 @@ var (
 		BTCBUSD: "https://www.binance.com/ru/trade/BTC_BUSD?theme=dark&type=spot",
 		BTCUSDT: "https://www.binance.com/ru/trade/BTC_USDT?theme=dark&type=spot",
 
-		XRPRUB:  "https://www.binance.com/ru/trade/XRP_RUB?theme=dark&type=spot",
-		XRPBUSD: "https://www.binance.com/ru/trade/XRP_BUSD?theme=dark&type=spot",
-		XRPUSDT: "https://www.binance.com/ru/trade/XRP_USDT?theme=dark&type=spot",
-
-		YFIBUSD: "https://www.binance.com/ru/trade/YFI_BUSD?theme=dark&type=spot",
-		YFIUSDT: "https://www.binance.com/ru/trade/YFI_USDT?theme=dark&type=spot",
-
-		LUNABUSD: "https://www.binance.com/ru/trade/LUNA_BUSD?theme=dark&type=spot",
-
-		BUSDRUB: "https://www.binance.com/ru/trade/BUSD_RUB?theme=dark&type=spot",
-		USDTRUB: "https://www.binance.com/ru/trade/USDT_RUB?theme=dark&type=spot",
+		BNBBUSD: "https://www.binance.com/ru/trade/BNB_BUSD?theme=dark&type=spot",
 	}
 
 	QuantityList = map[string]float64{
@@ -102,8 +102,7 @@ var (
 		BTCBUSD: 0.002,
 		BTCUSDT: 0.002,
 
-		BUSDRUB: 65,
-		USDTRUB: 65,
+		BNBBUSD: 0.3,
 	}
 )
 
@@ -144,57 +143,34 @@ func NewOrderUseCase(
 	}
 }
 
-func (u *orderUseCase) UpdateRatio() {
-	ticker := time.NewTicker(6 * time.Hour)
-	done := make(chan bool)
-	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			case t := <-ticker.C:
-				msg := "[ Ratio updated ]\n"
-				for _, symbol := range SymbolList {
-					stat, err := u.priceUseCase.GetPriceChangeStatistics(symbol)
-					if err != nil {
-						u.logger.Debug(err)
-					}
-
-					priceChangePercent, err := strconv.ParseFloat(stat.PriceChangePercent, 64)
-					if err != nil {
-						u.logger.Debug(err)
-					}
-
-					if priceChangePercent < 0 {
-						priceChangePercent *= -0.15
-					} else {
-						priceChangePercent *= 0.15
-					}
-
-					DeltaRatios[symbol] = priceChangePercent
-
-					msg += fmt.Sprintf(
-						"Symbol:\t%s\n"+
-							"Raio:\t%.2f\n"+
-							"Time:\t%s\n\n",
-						symbol,
-						priceChangePercent,
-						t.Format(time.RFC822),
-					)
-				}
-
-				if err := u.tgmController.Send(fmt.Sprintf("%s", msg)); err != nil {
-					u.logger.Debug(err)
-				}
-			}
+func (u *orderUseCase) updateRatio() {
+	for _, symbol := range SymbolList {
+		stat, err := u.priceUseCase.GetPriceChangeStatistics(symbol)
+		if err != nil {
+			u.logger.Debug(err)
 		}
-	}()
+
+		priceChangePercent, err := strconv.ParseFloat(stat.PriceChangePercent, 64)
+		if err != nil {
+			u.logger.Debug(err)
+		}
+
+		var ratio float64
+
+		if priceChangePercent < 0 {
+			ratio = priceChangePercent * -0.25
+		} else {
+			ratio = priceChangePercent * 0.25
+		}
+
+		DeltaRatios[symbol] = ratio
+	}
 }
 
 func (u *orderUseCase) Monitoring(symbol string) error {
 	sTime := time.Now()
 
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(10 * time.Second)
 	done := make(chan bool)
 	go func() {
 		for {
@@ -202,17 +178,31 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 			case <-done:
 				return
 			case _ = <-ticker.C:
+				u.updateRatio()
+
 				lastOrder, err := u.orderRepo.GetLast(symbol)
 				if err != nil {
-					u.logger.Debugf("orderRepo.GetLast %+v", err)
+					if err == sql.ErrNoRows {
+						if err := u.initSymbol(symbol); err != nil {
+							u.logger.Debug(err)
+						}
+						continue
+					} else {
+						u.logger.Debug(err)
+						continue
+					}
+				}
+
+				stat, err := u.priceUseCase.GetPriceChangeStatistics(symbol)
+				if err != nil {
+					u.logger.Debug(err)
 					continue
 				}
 
-				//stat, err := u.priceUseCase.GetPriceChangeStatistics(symbol)
-				//if err != nil {
-				//	u.logger.Debug(err)
-				//	continue
-				//}
+				weightedAvgPrice, err := strconv.ParseFloat(stat.WeightedAvgPrice, 64)
+				if err != nil {
+					u.logger.Debug(err)
+				}
 
 				max, maxT, err := u.priceRepo.GetMaxByCreatedByInterval(symbol, sTime, time.Now())
 				if err != nil {
@@ -232,11 +222,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					continue
 				}
 
-				//deltaMax := max - actualPrice
-				//deltaMin := actualPrice - min
-
-				avr := (max + min) / 2
-				delta := DeltaRatios[symbol] * avr
+				avr := weightedAvgPrice
+				delta := avr / 100 * DeltaRatios[symbol]
 
 				avrMAX := max - avr
 				avrMAXActual := actualPrice - avr
@@ -244,55 +231,12 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				avrMIN := avr - min
 				avrMINActual := avr - actualPrice
 
-				//deltaMax := 100 * (max - actualPrice) / actualPrice
-				//deltaMin := 100 * (actualPrice - min) / actualPrice
-
-				//msgId := 0
-				//switch symbol {
-				//case ETHRUB:
-				//	msgId = msgID_ETHRUB
-				//case BTCRUB:
-				//	msgId = msgID_BTCRUB
-				//case BTCBUSD:
-				//	msgId = msgID_BTCBUSD
-				//}
-
-				//if err := u.tgmController.Send(
-				//	fmt.Sprintf(
-				//		"[ Monitoring ]\n"+
-				//			"Symbol:\t%s\n"+
-				//			"Max Price:\t%.2f\n"+
-				//			"Min Price:\t%.2f\n"+
-				//			"Delta Max/Min:\t%.2f\n"+
-				//			"Actual Price:\t%.2f\n"+
-				//			"Order Price:\t%.2f\n"+
-				//			"Order Side:\t%s\n"+
-				//			"Order Time:\t%s\n"+
-				//			"DeltaMax:\t%.2f\n"+
-				//			"DeltaMin:\t%.2f\n"+
-				//			"STime:\t%s\n",
-				//		symbol,
-				//		max,
-				//		min,
-				//		max-min,
-				//		actualPrice,
-				//		lastOrder.Price,
-				//		lastOrder.Side,
-				//		lastOrder.CreatedAt.Format(time.RFC822),
-				//		100*(max-actualPrice)/actualPrice,
-				//		100*(actualPrice-min)/actualPrice,
-				//		sTime.Format(time.RFC822),
-				//	)); err != nil {
-				//	u.logger.Debug(err)
-				//	continue
-				//}
-
 				var side, orderType string
 
 				switch lastOrder.Side {
 				case "SELL":
 					if lastOrder.Price-actualPrice > delta &&
-						100*(avrMIN-avrMINActual)/avrMIN > 15 {
+						100*(avrMIN-avrMINActual)/avrMIN > 20 {
 						side = SIDE_BUY // купить
 						orderType = "MARKET"
 					} else {
@@ -301,7 +245,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					sTime = minT
 				case "BUY":
 					if actualPrice-lastOrder.Price > delta &&
-						100*(avrMAX-avrMAXActual)/avrMAX > 15 {
+						100*(avrMAX-avrMAXActual)/avrMAX > 20 {
 						side = SIDE_SELL // продать
 						orderType = "MARKET"
 					} else {
@@ -344,6 +288,30 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 			}
 		}
 	}()
+
+	return nil
+}
+
+func (u *orderUseCase) initSymbol(symbol string) error {
+	stat, err := u.priceUseCase.GetPriceChangeStatistics(symbol)
+	if err != nil {
+		return err
+	}
+
+	weightedAvgPrice, err := strconv.ParseFloat(stat.WeightedAvgPrice, 64)
+	if err != nil {
+		return err
+	}
+
+	if err := u.orderRepo.Store(&models.Order{
+		OrderId:  777,
+		Symbol:   symbol,
+		Side:     SIDE_BUY,
+		Quantity: fmt.Sprintf("%.5f", QuantityList[symbol]),
+		Price:    weightedAvgPrice,
+	}); err != nil {
+		return err
+	}
 
 	return nil
 }
