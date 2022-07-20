@@ -17,8 +17,6 @@ import (
 )
 
 const (
-	DeltaRatio = float64(0.015)
-
 	orderUrlPath     = "/api/v3/order"
 	orderAllUrlPath  = "/api/v3/allOrders"
 	orderOpenUrlPath = "/api/v3/openOrders"
@@ -42,6 +40,8 @@ const (
 
 	SIDE_SELL = "SELL"
 	SIDE_BUY  = "BUY"
+
+	TIME_FRAME = 1 * time.Hour
 )
 
 var (
@@ -158,9 +158,9 @@ func (u *orderUseCase) updateRatio() {
 		var ratio float64
 
 		if priceChangePercent < 0 {
-			ratio = priceChangePercent * -0.25
+			ratio = priceChangePercent * -0.15
 		} else {
-			ratio = priceChangePercent * 0.25
+			ratio = priceChangePercent * 0.15
 		}
 
 		DeltaRatios[symbol] = ratio
@@ -168,18 +168,43 @@ func (u *orderUseCase) updateRatio() {
 }
 
 func (u *orderUseCase) Monitoring(symbol string) error {
+	lastPrice, err := u.priceUseCase.GetPrice(symbol)
+	if err != nil {
+		u.logger.Debug(err)
+	}
+
 	sTime := time.Now()
+
+	timeFrame := time.NewTicker(TIME_FRAME)
+	timeFrameDone := make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case <-timeFrameDone:
+				return
+			case _ = <-timeFrame.C:
+				sTime = time.Now()
+				p, err := u.priceUseCase.GetPrice(symbol)
+				if err != nil {
+					u.logger.Debug(err)
+					continue
+				}
+
+				lastPrice = p
+			}
+		}
+	}()
 
 	ticker := time.NewTicker(10 * time.Second)
 	done := make(chan bool)
+
 	go func() {
 		for {
 			select {
 			case <-done:
 				return
 			case _ = <-ticker.C:
-				u.updateRatio()
-
 				lastOrder, err := u.orderRepo.GetLast(symbol)
 				if err != nil {
 					if err == sql.ErrNoRows {
@@ -193,26 +218,15 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					}
 				}
 
-				stat, err := u.priceUseCase.GetPriceChangeStatistics(symbol)
+				max, _, err := u.priceRepo.GetMaxByCreatedByInterval(symbol, sTime, time.Now())
 				if err != nil {
 					u.logger.Debug(err)
 					continue
 				}
 
-				weightedAvgPrice, err := strconv.ParseFloat(stat.WeightedAvgPrice, 64)
+				min, _, err := u.priceRepo.GetMinByCreatedByInterval(symbol, sTime, time.Now())
 				if err != nil {
 					u.logger.Debug(err)
-				}
-
-				max, maxT, err := u.priceRepo.GetMaxByCreatedByInterval(symbol, sTime, time.Now())
-				if err != nil {
-					u.logger.Debugf("priceRepo.GetMaxByCreatedByInterval %+v", err)
-					continue
-				}
-
-				min, minT, err := u.priceRepo.GetMinByCreatedByInterval(symbol, sTime, time.Now())
-				if err != nil {
-					u.logger.Debugf("priceRepo.GetMinByCreatedByInterval %+v", err)
 					continue
 				}
 
@@ -222,36 +236,99 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					continue
 				}
 
-				avr := weightedAvgPrice
-				delta := avr / 100 * DeltaRatios[symbol]
+				avr := (max + min) / 2
+				delta := avr / 100 * 0.2
 
-				avrMAX := max - avr
-				avrMAXActual := actualPrice - avr
+				avgMAXMIN := max - min
 
-				avrMIN := avr - min
-				avrMINActual := avr - actualPrice
+				avgMAX := max - actualPrice
+				avgMIN := actualPrice - min
+
+				lastMax := max - lastPrice
+				lastMin := lastPrice - min
+
+				if avgMAXMIN == 0 ||
+					avgMAX <= 0 ||
+					avgMIN <= 0 ||
+					lastMax <= 0 ||
+					lastMin <= 0 {
+					continue
+				}
+
+				deltaMIN := avgMIN * 100 / avgMAXMIN
+				deltaMAX := avgMAX * 100 / avgMAXMIN
+
+				deltaLastMIN := lastMin * 100 / avgMAXMIN
+				deltaLastMAX := lastMax * 100 / avgMAXMIN
+
+				//avrMAX := max - avr
+				//avrMAXActual := actualPrice - avr
+
+				//avrMIN := avr - min
+				//avrMINActual := avr - actualPrice
 
 				var side, orderType string
+
+				//if err := u.tgmController.Send(
+				//	fmt.Sprintf(
+				//		"[ Monitoring ]\n"+
+				//			"Symbol:\t%s\n"+
+				//			"Price:\t%.2f\n"+
+				//			"Last order price:\t%.2f\n"+
+				//			"Delta price:\t%.2f\n"+
+				//			"Delta:\t%.2f\n"+
+				//			"Max:\t%.2f\n"+
+				//			"Min:\t%.2f\n"+
+				//			"AvgMAXMIN:\t%.2f\n"+
+				//			"AvgMAX:\t%.2f\n"+
+				//			"AvgMIN:\t%.2f\n"+
+				//			"Avg:\t%.2f\n"+
+				//			"Last MAX:\t%.2f\n"+
+				//			"Last MIN:\t%.2f\n"+
+				//			"Delta Last MAX:\t%.2f\n"+
+				//			"Delta Last MIN:\t%.2f\n"+
+				//			"Delta MAX:\t%.2f\n"+
+				//			"Delta MIN:\t%.2f\n",
+				//		symbol,
+				//		actualPrice,
+				//		lastOrder.Price,
+				//		lastOrder.Price-actualPrice,
+				//		delta,
+				//		max,
+				//		min,
+				//		avgMAXMIN,
+				//		avgMAX,
+				//		avgMIN,
+				//		avr,
+				//		lastMax,
+				//		lastMin,
+				//		deltaLastMAX,
+				//		deltaLastMIN,
+				//		deltaMAX,
+				//		deltaMIN,
+				//	)); err != nil {
+				//	u.logger.Debug(err)
+				//	continue
+				//}
 
 				switch lastOrder.Side {
 				case "SELL":
 					if lastOrder.Price-actualPrice > delta &&
-						100*(avrMIN-avrMINActual)/avrMIN > 20 {
+						(structs.PatternShootingStar(deltaLastMIN, deltaMAX) ||
+							structs.PatternGallows(deltaLastMIN, deltaMAX)) {
 						side = SIDE_BUY // купить
 						orderType = "MARKET"
 					} else {
 						continue
 					}
-					sTime = minT
 				case "BUY":
 					if actualPrice-lastOrder.Price > delta &&
-						100*(avrMAX-avrMAXActual)/avrMAX > 20 {
+						structs.PatternBaseBUY(deltaMAX, deltaLastMAX) {
 						side = SIDE_SELL // продать
 						orderType = "MARKET"
 					} else {
 						continue
 					}
-					sTime = maxT
 				}
 
 				if err := u.GetOrder(&structs.Order{
@@ -271,16 +348,20 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							"Last order price:\t%.2f\n"+
 							"Delta price:\t%.2f\n"+
 							"Delta:\t%.2f\n"+
-							"Delta MAX:\t%.2f\n"+
-							"Delta MIN:\t%.2f\n",
+							"Delta Last MIN:\t%.2f\n"+
+							"Delta Last MAX:\t%.2f\n"+
+							"Delta MIN:\t%.2f\n"+
+							"Delta MAX:\t%.2f\n",
 						side,
 						symbol,
 						actualPrice,
 						lastOrder.Price,
 						lastOrder.Price-actualPrice,
 						delta,
-						100*(avrMAX-avrMAXActual)/avrMAX,
-						100*(avrMIN-avrMINActual)/avrMIN,
+						deltaLastMIN,
+						deltaLastMAX,
+						deltaMIN,
+						deltaMAX,
 					)); err != nil {
 					u.logger.Debug(err)
 					continue
