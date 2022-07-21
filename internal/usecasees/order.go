@@ -41,7 +41,7 @@ const (
 	SIDE_SELL = "SELL"
 	SIDE_BUY  = "BUY"
 
-	TIME_FRAME = 1 * time.Hour
+	TIME_FRAME = 15 * time.Minute
 )
 
 var (
@@ -111,8 +111,9 @@ type orderUseCase struct {
 	cryptoController *controllers.CryptoController
 	tgmController    *controllers.TgmController
 
-	orderRepo *sqlite.OrderRepository
-	priceRepo *sqlite.PriceRepository
+	orderRepo  *sqlite.OrderRepository
+	priceRepo  *sqlite.PriceRepository
+	candleRepo *sqlite.CandleRepository
 
 	priceUseCase *priceUseCase
 
@@ -127,6 +128,7 @@ func NewOrderUseCase(
 	tgmController *controllers.TgmController,
 	orderRepo *sqlite.OrderRepository,
 	priceRepo *sqlite.PriceRepository,
+	candleRepo *sqlite.CandleRepository,
 	priceUseCase *priceUseCase,
 	url string,
 	logger *logrus.Logger,
@@ -137,6 +139,7 @@ func NewOrderUseCase(
 		tgmController:    tgmController,
 		orderRepo:        orderRepo,
 		priceRepo:        priceRepo,
+		candleRepo:       candleRepo,
 		priceUseCase:     priceUseCase,
 		url:              url,
 		logger:           logger,
@@ -168,36 +171,28 @@ func (u *orderUseCase) updateRatio() {
 }
 
 func (u *orderUseCase) Monitoring(symbol string) error {
-	lastPrice, err := u.priceUseCase.GetPrice(symbol)
+	sTime := time.Now()
+
+	ticker := time.NewTicker(TIME_FRAME)
+	done := make(chan bool)
+
+	actualPrice, err := u.priceUseCase.GetPrice(symbol)
 	if err != nil {
 		u.logger.Debug(err)
 	}
 
-	sTime := time.Now()
-
-	timeFrame := time.NewTicker(TIME_FRAME)
-	timeFrameDone := make(chan bool)
-
-	go func() {
-		for {
-			select {
-			case <-timeFrameDone:
-				return
-			case _ = <-timeFrame.C:
-				sTime = time.Now()
-				p, err := u.priceUseCase.GetPrice(symbol)
-				if err != nil {
-					u.logger.Debug(err)
-					continue
-				}
-
-				lastPrice = p
-			}
-		}
-	}()
-
-	ticker := time.NewTicker(10 * time.Second)
-	done := make(chan bool)
+	if err := u.candleRepo.Store(&models.Candle{
+		Symbol:     symbol,
+		OpenPrice:  actualPrice,
+		ClosePrice: actualPrice,
+		MaxPrice:   actualPrice,
+		MinPrice:   actualPrice,
+		TimeFrame:  TIME_FRAME.String(),
+		OpenTime:   sTime,
+		CloseTime:  time.Now(),
+	}); err != nil {
+		u.logger.Debug(err)
+	}
 
 	go func() {
 		for {
@@ -205,6 +200,38 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 			case <-done:
 				return
 			case _ = <-ticker.C:
+				candle, err := u.candleRepo.GetLast(symbol)
+				if err != nil {
+					u.logger.Debug(err)
+					continue
+				}
+
+				if err := u.tgmController.Send(
+					fmt.Sprintf(
+						"[ Сandle ]\n"+
+							"ID:\t%d\n"+
+							"Symbol:\t%s\n"+
+							"MaxPrice:\t%.2f\n"+
+							"MinPrice:\t%.2f\n"+
+							"OpenPrice:\t%.2f\n"+
+							"ClosePrice:\t%.2f\n"+
+							"AvgPrice:\t%.2f\n"+
+							"OpenTime:\t%s\n"+
+							"CloseTime:\t%s\n\n",
+						candle.ID,
+						candle.Symbol,
+						candle.MaxPrice,
+						candle.MinPrice,
+						candle.OpenPrice,
+						candle.ClosePrice,
+						(candle.MaxPrice+candle.MinPrice)/2,
+						candle.OpenTime.Format(time.RFC822),
+						candle.CloseTime.Format(time.RFC822),
+					)); err != nil {
+					u.logger.Debug(err)
+					continue
+				}
+
 				lastOrder, err := u.orderRepo.GetLast(symbol)
 				if err != nil {
 					if err == sql.ErrNoRows {
@@ -218,42 +245,16 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					}
 				}
 
-				max, _, err := u.priceRepo.GetMaxByCreatedByInterval(symbol, sTime, time.Now())
-				if err != nil {
-					u.logger.Debug(err)
-					continue
-				}
-
-				min, _, err := u.priceRepo.GetMinByCreatedByInterval(symbol, sTime, time.Now())
-				if err != nil {
-					u.logger.Debug(err)
-					continue
-				}
-
-				actualPrice, err := u.priceUseCase.GetPrice(symbol)
-				if err != nil {
-					u.logger.Debug(err)
-					continue
-				}
-
-				avr := (max + min) / 2
+				avr := (candle.MaxPrice + candle.MinPrice) / 2
 				delta := avr / 100 * 0.2
 
-				avgMAXMIN := max - min
+				avgMAXMIN := candle.MaxPrice - candle.MinPrice
 
-				avgMAX := max - actualPrice
-				avgMIN := actualPrice - min
+				avgMAX := candle.MaxPrice - candle.ClosePrice
+				avgMIN := candle.ClosePrice - candle.MinPrice
 
-				lastMax := max - lastPrice
-				lastMin := lastPrice - min
-
-				if avgMAXMIN == 0 ||
-					avgMAX <= 0 ||
-					avgMIN <= 0 ||
-					lastMax <= 0 ||
-					lastMin <= 0 {
-					continue
-				}
+				lastMax := candle.MaxPrice - candle.OpenPrice
+				lastMin := candle.OpenPrice - candle.MinPrice
 
 				deltaMIN := avgMIN * 100 / avgMAXMIN
 				deltaMAX := avgMAX * 100 / avgMAXMIN
@@ -267,7 +268,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				//avrMIN := avr - min
 				//avrMINActual := avr - actualPrice
 
-				var side, orderType string
+				var side string
 
 				//if err := u.tgmController.Send(
 				//	fmt.Sprintf(
@@ -294,8 +295,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				//		lastOrder.Price,
 				//		lastOrder.Price-actualPrice,
 				//		delta,
-				//		max,
-				//		min,
+				//		candle.MaxPrice,
+				//		candle.MinPrice,
 				//		avgMAXMIN,
 				//		avgMAX,
 				//		avgMIN,
@@ -313,36 +314,63 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				switch lastOrder.Side {
 				case "SELL":
-					if lastOrder.Price-actualPrice > delta &&
-						(structs.PatternShootingStar(deltaLastMIN, deltaMAX) ||
-							structs.PatternGallows(deltaLastMIN, deltaMAX)) {
-						side = SIDE_BUY // купить
-						orderType = "MARKET"
-					} else {
-						continue
+					if lastOrder.Price-candle.ClosePrice > delta && structs.BUYPatterns(candle) {
+
+						side = SIDE_BUY
+						if err := u.GetOrder(&structs.Order{
+							Symbol: symbol,
+							Side:   side,
+						}, QuantityList[symbol], "MARKET"); err != nil {
+							u.logger.Debug(err)
+						}
+
 					}
 				case "BUY":
-					if actualPrice-lastOrder.Price > delta &&
-						structs.PatternBaseBUY(deltaMAX, deltaLastMAX) {
-						side = SIDE_SELL // продать
-						orderType = "MARKET"
-					} else {
-						continue
+					if candle.ClosePrice-lastOrder.Price > delta && structs.SELLPatterns(candle) {
+
+						side = SIDE_SELL
+						if err := u.GetOrder(&structs.Order{
+							Symbol: symbol,
+							Side:   side,
+						}, QuantityList[symbol], "MARKET"); err != nil {
+							u.logger.Debug(err)
+						}
+
 					}
 				}
 
-				if err := u.GetOrder(&structs.Order{
-					Symbol: symbol,
-					Side:   side,
-				}, QuantityList[symbol], orderType); err != nil {
+				max, _, err := u.priceRepo.GetMaxByCreatedByInterval(symbol, sTime, time.Now())
+				if err != nil {
 					u.logger.Debug(err)
-					continue
 				}
+
+				min, _, err := u.priceRepo.GetMinByCreatedByInterval(symbol, sTime, time.Now())
+				if err != nil {
+					u.logger.Debug(err)
+				}
+
+				actualPrice, err := u.priceUseCase.GetPrice(symbol)
+				if err != nil {
+					u.logger.Debug(err)
+				}
+
+				if err := u.candleRepo.Store(&models.Candle{
+					Symbol:     symbol,
+					OpenPrice:  candle.ClosePrice,
+					ClosePrice: actualPrice,
+					MaxPrice:   max,
+					MinPrice:   min,
+					TimeFrame:  TIME_FRAME.String(),
+					OpenTime:   sTime,
+					CloseTime:  time.Now(),
+				}); err != nil {
+					u.logger.Debug(err)
+				}
+				sTime = time.Now()
 
 				if err := u.tgmController.Send(
 					fmt.Sprintf(
-						"[ New Orders ]\n"+
-							"Side:\t%s\n"+
+						"[ Stat ]\n"+
 							"Symbol:\t%s\n"+
 							"Price:\t%.2f\n"+
 							"Last order price:\t%.2f\n"+
@@ -352,7 +380,6 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							"Delta Last MAX:\t%.2f\n"+
 							"Delta MIN:\t%.2f\n"+
 							"Delta MAX:\t%.2f\n",
-						side,
 						symbol,
 						actualPrice,
 						lastOrder.Price,

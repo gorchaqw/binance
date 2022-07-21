@@ -42,6 +42,7 @@ func main() {
 	// Init Repository
 	priceRepo := sqlite.NewPriceRepository(app.DB)
 	orderRepo := sqlite.NewOrderRepository(app.DB)
+	candleRepo := sqlite.NewCandlesRepository(app.DB)
 
 	// Init Controllers
 	clientController := controllers.NewClientController(
@@ -71,6 +72,7 @@ func main() {
 		tgmController,
 		orderRepo,
 		priceRepo,
+		candleRepo,
 		priceUseCase,
 		app.Config.BinanceUrl,
 		app.Logger,
