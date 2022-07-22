@@ -19,6 +19,7 @@ func main() {
 	flag.Parse()
 
 	app.initLogger()
+	app.initCron()
 
 	if err := app.loadConfig(confFileName); err != nil {
 		panic(err)

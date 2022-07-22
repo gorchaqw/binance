@@ -146,7 +146,7 @@ func (u *priceUseCase) Monitoring(symbol string) error {
 
 	baseURL.RawQuery = q.Encode()
 
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	done := make(chan bool)
 
 	go func() {

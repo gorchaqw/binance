@@ -161,6 +161,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				"[ Сandle ]\n"+
 					"ID:\t%d\n"+
 					"Symbol:\t%s\n"+
+					"Trend:\t%s\n"+
 					"MaxPrice:\t%.2f\n"+
 					"MinPrice:\t%.2f\n"+
 					"OpenPrice:\t%.2f\n"+
@@ -176,6 +177,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					"Lower Shadow Weight Percent:\t%.2f\n\n",
 				candle.ID,
 				candle.Symbol,
+				candle.Trend(),
 				candle.MaxPrice,
 				candle.MinPrice,
 				candle.OpenPrice,
@@ -215,9 +217,6 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					Debug(err)
 			}
 		}
-
-		//avr := (candle.MaxPrice + candle.MinPrice) / 2
-		//delta := avr / 100 * 0.15
 
 		var side string
 

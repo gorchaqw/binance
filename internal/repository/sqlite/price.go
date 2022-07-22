@@ -70,7 +70,7 @@ func (r *PriceRepository) Store(m *models.Price) (err error) {
 
 func (r *PriceRepository) GetLast(symbol string) (*models.Price, error) {
 	var price models.Price
-	if err := r.conn.QueryRowx("SELECT * FROM prices WHERE symbol = $1 ORDER BY created_at DESC LIMIT 1", symbol).StructScan(&price); err != nil {
+	if err := r.conn.QueryRowx("SELECT * FROM prices WHERE symbol = $1 ORDER BY id DESC LIMIT 1", symbol).StructScan(&price); err != nil {
 		return nil, err
 	}
 
