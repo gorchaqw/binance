@@ -2,8 +2,14 @@ package structs
 
 import "binance/models"
 
+const (
+	maxPercent = 75
+	minPercent = 5
+	avgPercent = 35
+)
+
 func SELLPatterns(candle *models.Candle) bool {
-	if patternBase(candle) {
+	if patternBase(candle, models.TREND_DOWN) {
 		return true
 	}
 
@@ -19,14 +25,24 @@ func SELLPatterns(candle *models.Candle) bool {
 }
 
 func BUYPatterns(candle *models.Candle) bool {
-	if patternBase(candle) {
+	if patternBase(candle, models.TREND_UP) {
+		return true
+	}
+
+	if patternHammer(candle) {
+		return true
+	}
+
+	if patternInvertedHammer(candle) {
 		return true
 	}
 	return false
 }
 
-func patternBase(candle *models.Candle) bool {
-	if candle.UpperShadow().WeightPercent > 35 && candle.LowerShadow().WeightPercent > 35 {
+func patternBase(candle *models.Candle, trend models.Trend) bool {
+	if candle.UpperShadow().WeightPercent > avgPercent &&
+		candle.LowerShadow().WeightPercent > avgPercent &&
+		candle.Trend() == trend {
 		return true
 	}
 
@@ -35,10 +51,36 @@ func patternBase(candle *models.Candle) bool {
 
 // https://academy.binance.com/ru/articles/beginners-candlestick-patterns
 
+func patternHammer(candle *models.Candle) bool {
+	// Молот
+
+	if candle.UpperShadow().WeightPercent < minPercent &&
+		candle.LowerShadow().WeightPercent > maxPercent &&
+		candle.Trend() == models.TREND_UP {
+		return true
+	}
+
+	return false
+}
+
+func patternInvertedHammer(candle *models.Candle) bool {
+	// Перевернутый молот
+
+	if candle.UpperShadow().WeightPercent < maxPercent &&
+		candle.LowerShadow().WeightPercent < minPercent &&
+		candle.Trend() == models.TREND_UP {
+		return true
+	}
+
+	return false
+}
+
 func patternShootingStar(candle *models.Candle) bool {
 	// Падающая звезда
 
-	if candle.UpperShadow().WeightPercent > 60 && candle.LowerShadow().WeightPercent < 10 {
+	if candle.UpperShadow().WeightPercent > maxPercent &&
+		candle.LowerShadow().WeightPercent < minPercent &&
+		candle.Trend() == models.TREND_DOWN {
 		return true
 	}
 
@@ -48,7 +90,9 @@ func patternShootingStar(candle *models.Candle) bool {
 func patternGallows(candle *models.Candle) bool {
 	//Висельник
 
-	if candle.UpperShadow().WeightPercent < 10 && candle.LowerShadow().WeightPercent > 60 {
+	if candle.UpperShadow().WeightPercent < minPercent &&
+		candle.LowerShadow().WeightPercent > maxPercent &&
+		candle.Trend() == models.TREND_DOWN {
 		return true
 	}
 

@@ -74,6 +74,7 @@ func main() {
 		priceRepo,
 		candleRepo,
 		priceUseCase,
+		app.Cron,
 		app.Config.BinanceUrl,
 		app.Logger,
 	)
@@ -85,7 +86,6 @@ func main() {
 		app.Logger,
 	)
 
-	//go orderUseCase.UpdateRatio()
 	go tgmUseCase.CommandProcessor()
 
 	for _, symbol := range usecasees.SymbolList {
@@ -97,6 +97,8 @@ func main() {
 			app.Logger.Error(err)
 		}
 	}
+
+	app.Cron.Start()
 
 	if err := tgmController.Send(fmt.Sprintf("[ Started ]")); err != nil {
 		app.Logger.Error(err)

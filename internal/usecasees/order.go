@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/robfig/cron/v3"
 	"github.com/sirupsen/logrus"
 	"net/http"
 	"net/url"
@@ -41,7 +42,9 @@ const (
 	SIDE_SELL = "SELL"
 	SIDE_BUY  = "BUY"
 
-	TIME_FRAME = 15 * time.Minute
+	TIME_FRAME    = 15 * time.Minute
+	CRON_JOB      = "0,15,30,45 * * * *"
+	TEST_CRON_JOB = "*/1 * * * *"
 )
 
 var (
@@ -59,26 +62,14 @@ var (
 
 	SymbolList = []string{
 		ETHRUB,
-		ETHBUSD,
-		ETHUSDT,
-
-		BTCRUB,
-		BTCBUSD,
-		BTCUSDT,
-
-		BNBBUSD,
-	}
-
-	DeltaRatios = map[string]float64{
-		ETHRUB:  3,
-		ETHBUSD: 3,
-		ETHUSDT: 3,
-
-		BTCRUB:  3,
-		BTCBUSD: 3,
-		BTCUSDT: 3,
-
-		BNBBUSD: 3,
+		//ETHBUSD,
+		//ETHUSDT,
+		//
+		//BTCRUB,
+		//BTCBUSD,
+		//BTCUSDT,
+		//
+		//BNBBUSD,
 	}
 
 	SpotURLs = map[string]string{
@@ -117,6 +108,8 @@ type orderUseCase struct {
 
 	priceUseCase *priceUseCase
 
+	cron *cron.Cron
+
 	url string
 
 	logger *logrus.Logger
@@ -130,6 +123,7 @@ func NewOrderUseCase(
 	priceRepo *sqlite.PriceRepository,
 	candleRepo *sqlite.CandleRepository,
 	priceUseCase *priceUseCase,
+	cron *cron.Cron,
 	url string,
 	logger *logrus.Logger,
 ) *orderUseCase {
@@ -141,261 +135,169 @@ func NewOrderUseCase(
 		priceRepo:        priceRepo,
 		candleRepo:       candleRepo,
 		priceUseCase:     priceUseCase,
+		cron:             cron,
 		url:              url,
 		logger:           logger,
-	}
-}
-
-func (u *orderUseCase) updateRatio() {
-	for _, symbol := range SymbolList {
-		stat, err := u.priceUseCase.GetPriceChangeStatistics(symbol)
-		if err != nil {
-			u.logger.Debug(err)
-		}
-
-		priceChangePercent, err := strconv.ParseFloat(stat.PriceChangePercent, 64)
-		if err != nil {
-			u.logger.Debug(err)
-		}
-
-		var ratio float64
-
-		if priceChangePercent < 0 {
-			ratio = priceChangePercent * -0.15
-		} else {
-			ratio = priceChangePercent * 0.15
-		}
-
-		DeltaRatios[symbol] = ratio
 	}
 }
 
 func (u *orderUseCase) Monitoring(symbol string) error {
 	sTime := time.Now()
 
-	ticker := time.NewTicker(TIME_FRAME)
-	done := make(chan bool)
+	if _, err := u.cron.AddFunc(CRON_JOB, func() {
+		eTime := time.Now()
 
-	actualPrice, err := u.priceUseCase.GetPrice(symbol)
-	if err != nil {
-		u.logger.Debug(err)
-	}
+		candle, err := u.candleRepo.GetLast(symbol)
+		if err != nil {
+			u.logger.
+				WithField("func", "GetLast").
+				WithField("useCase", "order").
+				WithField("method", "Monitoring").
+				Debug(err)
+		}
 
-	if err := u.candleRepo.Store(&models.Candle{
-		Symbol:     symbol,
-		OpenPrice:  actualPrice,
-		ClosePrice: actualPrice,
-		MaxPrice:   actualPrice,
-		MinPrice:   actualPrice,
-		TimeFrame:  TIME_FRAME.String(),
-		OpenTime:   sTime,
-		CloseTime:  time.Now(),
-	}); err != nil {
-		u.logger.Debug(err)
-	}
+		if err := u.tgmController.Send(
+			fmt.Sprintf(
+				"[ Сandle ]\n"+
+					"ID:\t%d\n"+
+					"Symbol:\t%s\n"+
+					"MaxPrice:\t%.2f\n"+
+					"MinPrice:\t%.2f\n"+
+					"OpenPrice:\t%.2f\n"+
+					"ClosePrice:\t%.2f\n"+
+					"AvgPrice:\t%.2f\n"+
+					"OpenTime:\t%s\n"+
+					"CloseTime:\t%s\n"+
+					"Upper Shadow Weight:\t%.2f\n"+
+					"Body Weight:\t%.2f\n"+
+					"Lower Shadow Weight:\t%.2f\n"+
+					"Upper Shadow Weight Percent:\t%.2f\n"+
+					"Body Weight Percent:\t%.2f\n"+
+					"Lower Shadow Weight Percent:\t%.2f\n\n",
+				candle.ID,
+				candle.Symbol,
+				candle.MaxPrice,
+				candle.MinPrice,
+				candle.OpenPrice,
+				candle.ClosePrice,
+				(candle.MaxPrice+candle.MinPrice)/2,
+				candle.OpenTime.Format(time.RFC822),
+				candle.CloseTime.Format(time.RFC822),
+				candle.UpperShadow().Weight,
+				candle.Body().Weight,
+				candle.LowerShadow().Weight,
+				candle.UpperShadow().WeightPercent,
+				candle.Body().WeightPercent,
+				candle.LowerShadow().WeightPercent,
+			)); err != nil {
+			u.logger.
+				WithField("func", "tgmController.Send").
+				WithField("useCase", "order").
+				WithField("method", "Monitoring").
+				Debug(err)
+		}
 
-	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			case _ = <-ticker.C:
-				candle, err := u.candleRepo.GetLast(symbol)
-				if err != nil {
-					u.logger.Debug(err)
-					continue
+		lastOrder, err := u.orderRepo.GetLast(symbol)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				if err := u.initSymbol(symbol); err != nil {
+					u.logger.
+						WithField("func", "initSymbol").
+						WithField("useCase", "order").
+						WithField("method", "Monitoring").
+						Debug(err)
 				}
+			} else {
+				u.logger.
+					WithField("func", "orderRepo.GetLast").
+					WithField("useCase", "order").
+					WithField("method", "Monitoring").
+					Debug(err)
+			}
+		}
 
-				if err := u.tgmController.Send(
-					fmt.Sprintf(
-						"[ Сandle ]\n"+
-							"ID:\t%d\n"+
-							"Symbol:\t%s\n"+
-							"MaxPrice:\t%.2f\n"+
-							"MinPrice:\t%.2f\n"+
-							"OpenPrice:\t%.2f\n"+
-							"ClosePrice:\t%.2f\n"+
-							"AvgPrice:\t%.2f\n"+
-							"OpenTime:\t%s\n"+
-							"CloseTime:\t%s\n\n",
-						candle.ID,
-						candle.Symbol,
-						candle.MaxPrice,
-						candle.MinPrice,
-						candle.OpenPrice,
-						candle.ClosePrice,
-						(candle.MaxPrice+candle.MinPrice)/2,
-						candle.OpenTime.Format(time.RFC822),
-						candle.CloseTime.Format(time.RFC822),
-					)); err != nil {
-					u.logger.Debug(err)
-					continue
+		//avr := (candle.MaxPrice + candle.MinPrice) / 2
+		//delta := avr / 100 * 0.15
+
+		var side string
+
+		switch lastOrder.Side {
+		case "SELL":
+			//if lastOrder.Price-candle.ClosePrice > delta && structs.BUYPatterns(candle) {
+			if structs.BUYPatterns(candle) {
+				side = SIDE_BUY
+				if err := u.GetOrder(&structs.Order{
+					Symbol: symbol,
+					Side:   side,
+				}, QuantityList[symbol], "MARKET"); err != nil {
+					u.logger.
+						WithField("func", "u.GetOrder").
+						WithField("useCase", "order").
+						WithField("method", "Monitoring").
+						Debug(err)
 				}
-
-				lastOrder, err := u.orderRepo.GetLast(symbol)
-				if err != nil {
-					if err == sql.ErrNoRows {
-						if err := u.initSymbol(symbol); err != nil {
-							u.logger.Debug(err)
-						}
-						continue
-					} else {
-						u.logger.Debug(err)
-						continue
-					}
-				}
-
-				avr := (candle.MaxPrice + candle.MinPrice) / 2
-				delta := avr / 100 * 0.2
-
-				avgMAXMIN := candle.MaxPrice - candle.MinPrice
-
-				avgMAX := candle.MaxPrice - candle.ClosePrice
-				avgMIN := candle.ClosePrice - candle.MinPrice
-
-				lastMax := candle.MaxPrice - candle.OpenPrice
-				lastMin := candle.OpenPrice - candle.MinPrice
-
-				deltaMIN := avgMIN * 100 / avgMAXMIN
-				deltaMAX := avgMAX * 100 / avgMAXMIN
-
-				deltaLastMIN := lastMin * 100 / avgMAXMIN
-				deltaLastMAX := lastMax * 100 / avgMAXMIN
-
-				//avrMAX := max - avr
-				//avrMAXActual := actualPrice - avr
-
-				//avrMIN := avr - min
-				//avrMINActual := avr - actualPrice
-
-				var side string
-
-				//if err := u.tgmController.Send(
-				//	fmt.Sprintf(
-				//		"[ Monitoring ]\n"+
-				//			"Symbol:\t%s\n"+
-				//			"Price:\t%.2f\n"+
-				//			"Last order price:\t%.2f\n"+
-				//			"Delta price:\t%.2f\n"+
-				//			"Delta:\t%.2f\n"+
-				//			"Max:\t%.2f\n"+
-				//			"Min:\t%.2f\n"+
-				//			"AvgMAXMIN:\t%.2f\n"+
-				//			"AvgMAX:\t%.2f\n"+
-				//			"AvgMIN:\t%.2f\n"+
-				//			"Avg:\t%.2f\n"+
-				//			"Last MAX:\t%.2f\n"+
-				//			"Last MIN:\t%.2f\n"+
-				//			"Delta Last MAX:\t%.2f\n"+
-				//			"Delta Last MIN:\t%.2f\n"+
-				//			"Delta MAX:\t%.2f\n"+
-				//			"Delta MIN:\t%.2f\n",
-				//		symbol,
-				//		actualPrice,
-				//		lastOrder.Price,
-				//		lastOrder.Price-actualPrice,
-				//		delta,
-				//		candle.MaxPrice,
-				//		candle.MinPrice,
-				//		avgMAXMIN,
-				//		avgMAX,
-				//		avgMIN,
-				//		avr,
-				//		lastMax,
-				//		lastMin,
-				//		deltaLastMAX,
-				//		deltaLastMIN,
-				//		deltaMAX,
-				//		deltaMIN,
-				//	)); err != nil {
-				//	u.logger.Debug(err)
-				//	continue
-				//}
-
-				switch lastOrder.Side {
-				case "SELL":
-					if lastOrder.Price-candle.ClosePrice > delta && structs.BUYPatterns(candle) {
-
-						side = SIDE_BUY
-						if err := u.GetOrder(&structs.Order{
-							Symbol: symbol,
-							Side:   side,
-						}, QuantityList[symbol], "MARKET"); err != nil {
-							u.logger.Debug(err)
-						}
-
-					}
-				case "BUY":
-					if candle.ClosePrice-lastOrder.Price > delta && structs.SELLPatterns(candle) {
-
-						side = SIDE_SELL
-						if err := u.GetOrder(&structs.Order{
-							Symbol: symbol,
-							Side:   side,
-						}, QuantityList[symbol], "MARKET"); err != nil {
-							u.logger.Debug(err)
-						}
-
-					}
-				}
-
-				max, _, err := u.priceRepo.GetMaxByCreatedByInterval(symbol, sTime, time.Now())
-				if err != nil {
-					u.logger.Debug(err)
-				}
-
-				min, _, err := u.priceRepo.GetMinByCreatedByInterval(symbol, sTime, time.Now())
-				if err != nil {
-					u.logger.Debug(err)
-				}
-
-				actualPrice, err := u.priceUseCase.GetPrice(symbol)
-				if err != nil {
-					u.logger.Debug(err)
-				}
-
-				if err := u.candleRepo.Store(&models.Candle{
-					Symbol:     symbol,
-					OpenPrice:  candle.ClosePrice,
-					ClosePrice: actualPrice,
-					MaxPrice:   max,
-					MinPrice:   min,
-					TimeFrame:  TIME_FRAME.String(),
-					OpenTime:   sTime,
-					CloseTime:  time.Now(),
-				}); err != nil {
-					u.logger.Debug(err)
-				}
-				sTime = time.Now()
-
-				if err := u.tgmController.Send(
-					fmt.Sprintf(
-						"[ Stat ]\n"+
-							"Symbol:\t%s\n"+
-							"Price:\t%.2f\n"+
-							"Last order price:\t%.2f\n"+
-							"Delta price:\t%.2f\n"+
-							"Delta:\t%.2f\n"+
-							"Delta Last MIN:\t%.2f\n"+
-							"Delta Last MAX:\t%.2f\n"+
-							"Delta MIN:\t%.2f\n"+
-							"Delta MAX:\t%.2f\n",
-						symbol,
-						actualPrice,
-						lastOrder.Price,
-						lastOrder.Price-actualPrice,
-						delta,
-						deltaLastMIN,
-						deltaLastMAX,
-						deltaMIN,
-						deltaMAX,
-					)); err != nil {
-					u.logger.Debug(err)
-					continue
+			}
+		case "BUY":
+			//if candle.ClosePrice-lastOrder.Price > delta && structs.SELLPatterns(candle) {
+			if structs.SELLPatterns(candle) {
+				side = SIDE_SELL
+				if err := u.GetOrder(&structs.Order{
+					Symbol: symbol,
+					Side:   side,
+				}, QuantityList[symbol], "MARKET"); err != nil {
+					u.logger.
+						WithField("func", "u.GetOrder").
+						WithField("useCase", "order").
+						WithField("method", "Monitoring").
+						Debug(err)
 				}
 			}
 		}
-	}()
+
+		max, min, err := u.priceRepo.GetMaxMinByCreatedByInterval(symbol, sTime, eTime)
+		if err != nil {
+			u.logger.
+				WithField("func", "priceRepo.GetMaxMinByCreatedByInterval").
+				WithField("useCase", "order").
+				WithField("method", "Monitoring").
+				Debug(err)
+		}
+
+		lastPrice, err := u.priceRepo.GetLast(symbol)
+		if err != nil {
+			u.logger.
+				WithField("func", "priceRepo.GetLast").
+				WithField("useCase", "order").
+				WithField("method", "Monitoring").
+				Debug(err)
+		}
+
+		if err := u.candleRepo.Store(&models.Candle{
+			Symbol:     symbol,
+			OpenPrice:  candle.ClosePrice,
+			ClosePrice: lastPrice.Price,
+			MaxPrice:   max,
+			MinPrice:   min,
+			TimeFrame:  TIME_FRAME.String(),
+			OpenTime:   sTime,
+			CloseTime:  time.Now(),
+		}); err != nil {
+			u.logger.
+				WithField("func", "candleRepo.Store").
+				WithField("useCase", "order").
+				WithField("method", "Monitoring").
+				Debug(err)
+		}
+
+		sTime = time.Now()
+
+	}); err != nil {
+		u.logger.
+			WithField("func", "c.AddFunc").
+			WithField("useCase", "order").
+			WithField("method", "Monitoring").
+			Debug(err)
+	}
 
 	return nil
 }
@@ -548,7 +450,7 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, orderTyp
 		return err
 	}
 
-	u.logger.Debugf("%s", req)
+	u.logger.WithField("method", "GetOrder").Debugf("%s", req)
 
 	type reqJson struct {
 		Symbol              string `json:"symbol"`

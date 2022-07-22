@@ -66,11 +66,11 @@ func (u *walletUseCase) GetAllCoins() error {
 			case t := <-ticker.C:
 				req, err := u.clientController.Send(http.MethodGet, baseURL, nil, true)
 				if err != nil {
-					u.logger.Debug(err)
+					u.logger.WithField("method", "GetAllCoins").Debug(err)
 				}
 
 				if err := u.tgmController.Send(fmt.Sprintf("%s\n%s", req, t.Format(time.RFC822))); err != nil {
-					u.logger.Debug(err)
+					u.logger.WithField("method", "GetAllCoins").Debug(err)
 				}
 			}
 		}

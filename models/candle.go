@@ -1,6 +1,16 @@
 package models
 
-import "time"
+import (
+	"time"
+)
+
+type Trend string
+
+const (
+	TREND_UP     Trend = "UP"
+	TREND_DOWN   Trend = "DOWN"
+	TREND_MIDDLE Trend = "MIDDLE"
+)
 
 type Candle struct {
 	ID         int       `db:"id"`
@@ -27,7 +37,7 @@ type Body struct {
 func (c *Candle) Body() *Body {
 	deltaMAXMIN := c.MaxPrice - c.MinPrice
 
-	var b *Body
+	var b Body
 	switch true {
 	case c.ClosePrice >= c.OpenPrice:
 		b.Weight = c.ClosePrice - c.OpenPrice
@@ -35,15 +45,19 @@ func (c *Candle) Body() *Body {
 		b.Weight = c.OpenPrice - c.ClosePrice
 	}
 
-	b.WeightPercent = b.Weight * 100 / deltaMAXMIN
+	if deltaMAXMIN == 0 {
+		b.WeightPercent = 0
+	} else {
+		b.WeightPercent = b.Weight * 100 / deltaMAXMIN
+	}
 
-	return b
+	return &b
 }
 
 func (c *Candle) UpperShadow() *Shadow {
 	deltaMAXMIN := c.MaxPrice - c.MinPrice
 
-	var s *Shadow
+	var s Shadow
 	switch true {
 	case c.ClosePrice >= c.OpenPrice:
 		s.Weight = c.MaxPrice - c.ClosePrice
@@ -51,15 +65,19 @@ func (c *Candle) UpperShadow() *Shadow {
 		s.Weight = c.MaxPrice - c.OpenPrice
 	}
 
-	s.WeightPercent = s.Weight * 100 / deltaMAXMIN
+	if deltaMAXMIN == 0 {
+		s.WeightPercent = 0
+	} else {
+		s.WeightPercent = s.Weight * 100 / deltaMAXMIN
+	}
 
-	return s
+	return &s
 }
 
 func (c *Candle) LowerShadow() *Shadow {
 	deltaMAXMIN := c.MaxPrice - c.MinPrice
 
-	var s *Shadow
+	var s Shadow
 	switch true {
 	case c.ClosePrice >= c.OpenPrice:
 		s.Weight = c.OpenPrice - c.MinPrice
@@ -67,7 +85,22 @@ func (c *Candle) LowerShadow() *Shadow {
 		s.Weight = c.ClosePrice - c.MinPrice
 	}
 
-	s.WeightPercent = s.Weight * 100 / deltaMAXMIN
+	if deltaMAXMIN == 0 {
+		s.WeightPercent = 0
+	} else {
+		s.WeightPercent = s.Weight * 100 / deltaMAXMIN
+	}
 
-	return s
+	return &s
+}
+
+func (c *Candle) Trend() Trend {
+	switch true {
+	case c.ClosePrice > c.OpenPrice:
+		return TREND_UP
+	case c.ClosePrice < c.OpenPrice:
+		return TREND_DOWN
+	default:
+		return TREND_MIDDLE
+	}
 }

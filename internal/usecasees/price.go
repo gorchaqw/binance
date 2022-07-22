@@ -5,7 +5,6 @@ import (
 	"binance/internal/repository/sqlite"
 	"binance/models"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"path"
@@ -45,40 +44,6 @@ func NewPriceUseCase(
 		url:              url,
 		logger:           logger,
 	}
-}
-
-func (u *priceUseCase) GetAverage(symbol string) error {
-	ticker := time.NewTicker(5 * time.Second)
-	done := make(chan bool)
-
-	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			case t := <-ticker.C:
-				eTime := time.Now()
-				sTime := eTime.Add(-6 * time.Hour)
-
-				pList, err := u.priceRepo.GetByCreatedByInterval(symbol, sTime, eTime)
-				if err != nil {
-					u.logger.Debug(err)
-				}
-
-				sum := float64(0)
-				for _, p := range pList {
-					sum += p.Price
-				}
-				avr := sum / float64(len(pList))
-
-				if err := u.tgmController.Send(fmt.Sprintf("[ Average ]\n%f\n%s", avr, t.Format(time.RFC822))); err != nil {
-					u.logger.Debug(err)
-				}
-			}
-		}
-	}()
-
-	return nil
 }
 
 type PriceChangeStatistics struct {
@@ -181,7 +146,7 @@ func (u *priceUseCase) Monitoring(symbol string) error {
 
 	baseURL.RawQuery = q.Encode()
 
-	ticker := time.NewTicker(3 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	done := make(chan bool)
 
 	go func() {
@@ -192,7 +157,7 @@ func (u *priceUseCase) Monitoring(symbol string) error {
 			case _ = <-ticker.C:
 				req, err := u.clientController.Send(http.MethodGet, baseURL, nil, false)
 				if err != nil {
-					u.logger.Debug(err)
+					u.logger.WithField("method", "Monitoring").Debug(err)
 				}
 
 				type reqJson struct {
@@ -202,19 +167,19 @@ func (u *priceUseCase) Monitoring(symbol string) error {
 				var out reqJson
 
 				if err := json.Unmarshal(req, &out); err != nil {
-					u.logger.Debug(err)
+					u.logger.WithField("method", "Monitoring").Debug(err)
 				}
 
 				price, err := strconv.ParseFloat(out.Price, 64)
 				if err != nil {
-					u.logger.Debug(err)
+					u.logger.WithField("method", "Monitoring").Debug(err)
 				}
 
 				if err := u.priceRepo.Store(&models.Price{
 					Symbol: out.Symbol,
 					Price:  price,
 				}); err != nil {
-					u.logger.Debug(err)
+					u.logger.WithField("method", "Monitoring").Debug(err)
 				}
 			}
 		}

@@ -13,6 +13,21 @@ import (
 	"time"
 )
 
+func TestTimeFrame(t *testing.T) {
+	TIME_FRAME := 15 * time.Minute
+	tNow := time.Now()
+
+	tNow.Truncate(4 * time.Hour)
+
+	fmt.Printf("%d\n", tNow.Hour())
+	fmt.Printf("%d\n", tNow.Minute())
+
+	v := (float64(tNow.Minute()) - float64(tNow.Minute()%int(TIME_FRAME.Minutes()))) / TIME_FRAME.Minutes()
+
+	fmt.Printf("%.12f\n", v)
+
+}
+
 func TestTicker24h(t *testing.T) {
 	httpClient := &http.Client{}
 	apiKey := "40A1YfOXYUm85x5slZCL6TcVdB6S8im024Uk5t7Mmj2rQJ2DB0FBSWIpaOB9Zd7J"
@@ -46,7 +61,7 @@ func TestTicker24h(t *testing.T) {
 		}
 
 		var orders []Order
-		
+
 		symbol := "BTCBUSD"
 		bURL, err := url.Parse("https://api2.binance.com/api/v3/allOrders")
 		assert.NoError(t, err)
