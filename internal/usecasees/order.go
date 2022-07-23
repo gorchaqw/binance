@@ -62,14 +62,14 @@ var (
 
 	SymbolList = []string{
 		ETHRUB,
-		//ETHBUSD,
-		//ETHUSDT,
-		//
-		//BTCRUB,
-		//BTCBUSD,
-		//BTCUSDT,
-		//
-		//BNBBUSD,
+		ETHBUSD,
+		ETHUSDT,
+
+		BTCRUB,
+		BTCBUSD,
+		BTCUSDT,
+
+		BNBBUSD,
 	}
 
 	SpotURLs = map[string]string{
@@ -156,6 +156,9 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				Debug(err)
 		}
 
+		avgPrice := (candle.MaxPrice + candle.MinPrice) / 2
+		delta := avgPrice / 100 * 0.15
+
 		if err := u.tgmController.Send(
 			fmt.Sprintf(
 				"[ Сandle ]\n"+
@@ -222,8 +225,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 		switch lastOrder.Side {
 		case "SELL":
-			//if lastOrder.Price-candle.ClosePrice > delta && structs.BUYPatterns(candle) {
-			if structs.BUYPatterns(candle) {
+			if lastOrder.Price-candle.ClosePrice > delta && structs.BUYPatterns(candle) {
+				//if structs.BUYPatterns(candle) {
 				side = SIDE_BUY
 				if err := u.GetOrder(&structs.Order{
 					Symbol: symbol,
@@ -237,8 +240,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				}
 			}
 		case "BUY":
-			//if candle.ClosePrice-lastOrder.Price > delta && structs.SELLPatterns(candle) {
-			if structs.SELLPatterns(candle) {
+			if candle.ClosePrice-lastOrder.Price > delta && structs.SELLPatterns(candle) {
+				//if structs.SELLPatterns(candle) {
 				side = SIDE_SELL
 				if err := u.GetOrder(&structs.Order{
 					Symbol: symbol,

@@ -4,7 +4,7 @@ import "time"
 
 type Order struct {
 	ID        int       `db:"id"`
-	OrderId   int64     `db:"orderId"`
+	OrderId   int64     `db:"order_id"`
 	Symbol    string    `db:"symbol"`
 	Side      string    `db:"side"`
 	Quantity  string    `db:"quantity"`
