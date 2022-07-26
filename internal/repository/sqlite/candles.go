@@ -26,9 +26,20 @@ func (r *CandleRepository) Store(m *models.Candle) (err error) {
 
 func (r *CandleRepository) GetLast(symbol string) (*models.Candle, error) {
 	var candle models.Candle
+
 	if err := r.conn.QueryRowx("SELECT * FROM candles WHERE symbol = $1 ORDER BY id DESC LIMIT 1", symbol).StructScan(&candle); err != nil {
 		return nil, err
 	}
 
 	return &candle, nil
+}
+
+func (r *CandleRepository) GetLastList(symbol string, limit int) ([]models.Candle, error) {
+	var candles []models.Candle
+
+	if err := r.conn.Select(&candles, "SELECT * FROM candles WHERE symbol = $1 ORDER BY id DESC LIMIT $2", symbol, limit); err != nil {
+		return nil, err
+	}
+
+	return candles, nil
 }

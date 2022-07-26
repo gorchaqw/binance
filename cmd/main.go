@@ -4,7 +4,6 @@ import (
 	"binance/internal/controllers"
 	"binance/internal/repository/sqlite"
 	"binance/internal/usecasees"
-	"binance/models"
 	"flag"
 	"fmt"
 	"strconv"
@@ -98,16 +97,6 @@ func main() {
 		if err := priceUseCase.Monitoring(symbol); err != nil {
 			app.Logger.Error(err)
 		}
-	}
-
-	if err := orderRepo.Store(&models.Order{
-		OrderId:  118138,
-		Symbol:   "BTCBUSD",
-		Side:     "SELL",
-		Quantity: "22867",
-		Price:    22869,
-	}); err != nil {
-		app.Logger.Debug(err)
 	}
 
 	app.Cron.Start()

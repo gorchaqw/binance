@@ -1,98 +1,200 @@
 package structs
 
-import "binance/models"
-
-const (
-	maxPercent = 75
-	minPercent = 5
-	avgPercent = 35
+import (
+	"binance/internal/controllers"
+	"binance/models"
+	"fmt"
+	"github.com/sirupsen/logrus"
 )
 
-func SELLPatterns(candle *models.Candle) bool {
-	if patternBase(candle, models.TREND_DOWN) {
+const (
+	maxPercent = 65
+	minPercent = 10
+)
+
+type Pattern struct {
+	tgmController *controllers.TgmController
+	logger        *logrus.Logger
+}
+
+func NewPattern(
+	tgmController *controllers.TgmController,
+	logger *logrus.Logger,
+) *Pattern {
+	return &Pattern{
+		tgmController: tgmController,
+		logger:        logger,
+	}
+}
+
+func (p *Pattern) SELLPatterns(candles []models.Candle) bool {
+
+	if p.basePattern(candles) {
 		return true
 	}
 
-	if patternShootingStar(candle) {
+	if p.patternShootingStar(candles) {
 		return true
 	}
 
-	if patternGallows(candle) {
+	if p.patternGallows(candles) {
 		return true
 	}
 
 	return false
 }
 
-func BUYPatterns(candle *models.Candle) bool {
-	if patternBase(candle, models.TREND_UP) {
+func (p *Pattern) BUYPatterns(candles []models.Candle) bool {
+
+	if p.basePattern(candles) {
 		return true
 	}
 
-	if patternHammer(candle) {
+	if p.patternHammer(candles) {
 		return true
 	}
 
-	if patternInvertedHammer(candle) {
+	if p.patternInvertedHammer(candles) {
 		return true
 	}
+
+	if p.patternThreeWhiteSoldiers(candles) {
+		return true
+	}
+
 	return false
 }
 
-func patternBase(candle *models.Candle, trend models.Trend) bool {
-	if candle.UpperShadow().WeightPercent > avgPercent &&
-		candle.LowerShadow().WeightPercent > avgPercent &&
-		candle.Trend() == trend {
+func (p *Pattern) basePattern(candles []models.Candle) bool {
+	if candles[0].Body().WeightPercent < minPercent {
+
+		if err := p.tgmController.Send(
+			fmt.Sprintf("[ Pattern Detected ]\n%s\n%+v", "Base", candles)); err != nil {
+			p.logger.
+				WithField("func", "basePattern").
+				WithField("method", "Pattern").
+				Debug(err)
+		}
+
 		return true
 	}
-
 	return false
 }
 
 // https://academy.binance.com/ru/articles/beginners-candlestick-patterns
 
-func patternHammer(candle *models.Candle) bool {
+func (p *Pattern) patternHammer(candles []models.Candle) bool {
 	// Молот
 
-	if candle.UpperShadow().WeightPercent < minPercent &&
-		candle.LowerShadow().WeightPercent > maxPercent &&
-		candle.Trend() == models.TREND_UP {
+	if candles[1].Trend() == models.TREND_DOWN &&
+		candles[0].UpperShadow().WeightPercent < minPercent &&
+		candles[0].LowerShadow().WeightPercent > maxPercent {
+
+		if err := p.tgmController.Send(
+			fmt.Sprintf("[ Pattern Detected ]\n%s\n%+v", "Молот", candles)); err != nil {
+			p.logger.
+				WithField("func", "patternHammer").
+				WithField("method", "Pattern").
+				Debug(err)
+		}
+
 		return true
 	}
 
 	return false
 }
 
-func patternInvertedHammer(candle *models.Candle) bool {
+func (p *Pattern) patternInvertedHammer(candles []models.Candle) bool {
 	// Перевернутый молот
 
-	if candle.UpperShadow().WeightPercent < maxPercent &&
-		candle.LowerShadow().WeightPercent < minPercent &&
-		candle.Trend() == models.TREND_UP {
+	if candles[1].Trend() == models.TREND_DOWN &&
+		candles[0].UpperShadow().WeightPercent > maxPercent &&
+		candles[0].LowerShadow().WeightPercent < minPercent {
+
+		if err := p.tgmController.Send(
+			fmt.Sprintf("[ Pattern Detected ]\n%s\n%+v", "Перевернутый молот", candles)); err != nil {
+			p.logger.
+				WithField("func", "patternInvertedHammer").
+				WithField("method", "Pattern").
+				Debug(err)
+		}
+
 		return true
 	}
 
 	return false
 }
 
-func patternShootingStar(candle *models.Candle) bool {
+func (p *Pattern) patternThreeWhiteSoldiers(candles []models.Candle) bool {
+	// Три белых солдата
+
+	if candles[2].Trend() == models.TREND_UP &&
+		candles[2].LowerShadow().WeightPercent < minPercent &&
+		candles[2].OpenPrice < candles[1].OpenPrice &&
+		candles[2].ClosePrice > candles[1].OpenPrice &&
+		candles[2].MaxPrice < candles[1].ClosePrice &&
+		//
+		candles[1].Trend() == models.TREND_UP &&
+		candles[1].LowerShadow().WeightPercent < minPercent &&
+		candles[1].OpenPrice < candles[0].OpenPrice &&
+		candles[1].ClosePrice > candles[0].OpenPrice &&
+		candles[1].MaxPrice < candles[0].ClosePrice &&
+		//
+		candles[0].Trend() == models.TREND_UP &&
+		candles[0].LowerShadow().WeightPercent < minPercent {
+
+		if err := p.tgmController.Send(
+			fmt.Sprintf("[ Pattern Detected ]\n%s\n%+v", "Три белых солдата", candles)); err != nil {
+			p.logger.
+				WithField("func", "patternInvertedHammer").
+				WithField("method", "Pattern").
+				Debug(err)
+		}
+
+		return true
+	}
+
+	return false
+}
+
+func (p *Pattern) patternShootingStar(candles []models.Candle) bool {
 	// Падающая звезда
 
-	if candle.UpperShadow().WeightPercent > maxPercent &&
-		candle.LowerShadow().WeightPercent < minPercent &&
-		candle.Trend() == models.TREND_DOWN {
+	if candles[1].Trend() == models.TREND_UP &&
+		candles[0].UpperShadow().WeightPercent > maxPercent &&
+		candles[0].LowerShadow().WeightPercent < minPercent &&
+		candles[0].Trend() == models.TREND_DOWN {
+
+		if err := p.tgmController.Send(
+			fmt.Sprintf("[ Pattern Detected ]\n%s\n%+v", "Падающая звезда", candles)); err != nil {
+			p.logger.
+				WithField("func", "patternGallows").
+				WithField("method", "Pattern").
+				Debug(err)
+		}
+
 		return true
 	}
 
 	return false
 }
 
-func patternGallows(candle *models.Candle) bool {
+func (p *Pattern) patternGallows(candles []models.Candle) bool {
 	//Висельник
 
-	if candle.UpperShadow().WeightPercent < minPercent &&
-		candle.LowerShadow().WeightPercent > maxPercent &&
-		candle.Trend() == models.TREND_DOWN {
+	if candles[1].Trend() == models.TREND_UP &&
+		candles[0].UpperShadow().WeightPercent < minPercent &&
+		candles[0].LowerShadow().WeightPercent > maxPercent &&
+		candles[0].Trend() == models.TREND_DOWN {
+
+		if err := p.tgmController.Send(
+			fmt.Sprintf("[ Pattern Detected ]\n%s\n%+v", "Висельник", candles)); err != nil {
+			p.logger.
+				WithField("func", "patternGallows").
+				WithField("method", "Pattern").
+				Debug(err)
+		}
+
 		return true
 	}
 

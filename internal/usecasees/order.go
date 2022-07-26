@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/go-co-op/gocron"
 	"github.com/robfig/cron/v3"
 	"github.com/sirupsen/logrus"
 	"net/http"
@@ -41,13 +42,21 @@ const (
 
 	SIDE_SELL = "SELL"
 	SIDE_BUY  = "BUY"
-
-	TIME_FRAME    = 15 * time.Minute
-	CRON_JOB      = "0,15,30,45 * * * *"
-	TEST_CRON_JOB = "*/1 * * * *"
 )
 
 var (
+	TimeFrames = map[string]time.Duration{
+		"15min": 15 * time.Minute,
+		"1h":    1 * time.Hour,
+		"1min":  time.Minute,
+	}
+
+	CRONJobs = map[string]string{
+		"15min": "0,15,30,45 * * * *",
+		"1h":    "0 * * * *",
+		"1min":  "* * * * *",
+	}
+
 	Symbols = map[string][]string{
 		ETHRUB:  {ETH, RUB},
 		ETHBUSD: {ETH, BUSD},
@@ -61,15 +70,15 @@ var (
 	}
 
 	SymbolList = []string{
-		ETHRUB,
-		ETHBUSD,
-		ETHUSDT,
-
-		BTCRUB,
+		//ETHRUB,
+		//ETHBUSD,
+		//ETHUSDT,
+		//
+		//BTCRUB,
 		BTCBUSD,
-		BTCUSDT,
-
-		BNBBUSD,
+		//BTCUSDT,
+		//
+		//BNBBUSD,
 	}
 
 	SpotURLs = map[string]string{
@@ -85,15 +94,15 @@ var (
 	}
 
 	QuantityList = map[string]float64{
-		ETHRUB:  0.02,
-		ETHBUSD: 0.02,
-		ETHUSDT: 0.02,
-
-		BTCRUB:  0.002,
-		BTCBUSD: 0.002,
-		BTCUSDT: 0.002,
-
-		BNBBUSD: 0.3,
+		//ETHRUB: 0.25,
+		//ETHBUSD: 0.02,
+		//ETHUSDT: 0.02,
+		//
+		//BTCRUB:  0.002,
+		BTCBUSD: 0.0165,
+		//BTCUSDT: 0.002,
+		//
+		//BNBBUSD: 0.3,
 	}
 )
 
@@ -143,20 +152,30 @@ func NewOrderUseCase(
 
 func (u *orderUseCase) Monitoring(symbol string) error {
 	sTime := time.Now()
+	pattern := structs.NewPattern(u.tgmController, u.logger)
 
-	if _, err := u.cron.AddFunc(CRON_JOB, func() {
-		eTime := time.Now()
+	location, err := time.LoadLocation("Europe/Moscow")
+	if err != nil {
+		u.logger.
+			WithField("func", "LoadLocation").
+			WithField("useCase", "order").
+			WithField("method", "Monitoring").
+			Debug(err)
+	}
 
-		candle, err := u.candleRepo.GetLast(symbol)
+	s := gocron.NewScheduler(location)
+
+	if _, err := s.Every("15min").Do(func() {
+		candles, err := u.candleRepo.GetLastList(symbol, 3)
 		if err != nil {
 			u.logger.
-				WithField("func", "GetLast").
+				WithField("func", "GetLastList").
 				WithField("useCase", "order").
 				WithField("method", "Monitoring").
 				Debug(err)
 		}
 
-		avgPrice := (candle.MaxPrice + candle.MinPrice) / 2
+		avgPrice := (candles[0].MaxPrice + candles[0].MinPrice) / 2
 		delta := avgPrice / 100 * 0.15
 
 		if err := u.tgmController.Send(
@@ -178,22 +197,22 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					"Upper Shadow Weight Percent:\t%.2f\n"+
 					"Body Weight Percent:\t%.2f\n"+
 					"Lower Shadow Weight Percent:\t%.2f\n\n",
-				candle.ID,
-				candle.Symbol,
-				candle.Trend(),
-				candle.MaxPrice,
-				candle.MinPrice,
-				candle.OpenPrice,
-				candle.ClosePrice,
-				(candle.MaxPrice+candle.MinPrice)/2,
-				candle.OpenTime.Format(time.RFC822),
-				candle.CloseTime.Format(time.RFC822),
-				candle.UpperShadow().Weight,
-				candle.Body().Weight,
-				candle.LowerShadow().Weight,
-				candle.UpperShadow().WeightPercent,
-				candle.Body().WeightPercent,
-				candle.LowerShadow().WeightPercent,
+				candles[0].ID,
+				candles[0].Symbol,
+				candles[0].Trend(),
+				candles[0].MaxPrice,
+				candles[0].MinPrice,
+				candles[0].OpenPrice,
+				candles[0].ClosePrice,
+				(candles[0].MaxPrice+candles[0].MinPrice)/2,
+				candles[0].OpenTime.Format(time.RFC822),
+				candles[0].CloseTime.Format(time.RFC822),
+				candles[0].UpperShadow().Weight,
+				candles[0].Body().Weight,
+				candles[0].LowerShadow().Weight,
+				candles[0].UpperShadow().WeightPercent,
+				candles[0].Body().WeightPercent,
+				candles[0].LowerShadow().WeightPercent,
 			)); err != nil {
 			u.logger.
 				WithField("func", "tgmController.Send").
@@ -225,7 +244,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 		switch lastOrder.Side {
 		case "SELL":
-			if lastOrder.Price-candle.ClosePrice > delta && structs.BUYPatterns(candle) {
+			if lastOrder.Price-candles[0].ClosePrice > delta && pattern.BUYPatterns(candles) {
 				//if structs.BUYPatterns(candle) {
 				side = SIDE_BUY
 				if err := u.GetOrder(&structs.Order{
@@ -240,7 +259,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				}
 			}
 		case "BUY":
-			if candle.ClosePrice-lastOrder.Price > delta && structs.SELLPatterns(candle) {
+			if candles[0].ClosePrice-lastOrder.Price > delta && pattern.SELLPatterns(candles) {
 				//if structs.SELLPatterns(candle) {
 				side = SIDE_SELL
 				if err := u.GetOrder(&structs.Order{
@@ -256,7 +275,9 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 			}
 		}
 
-		max, min, err := u.priceRepo.GetMaxMinByCreatedByInterval(symbol, sTime, eTime)
+		eTime := time.Now()
+
+		openPrice, closePrice, maxPrice, minPrice, err := u.priceRepo.GetMaxMinByCreatedByInterval(symbol, sTime, eTime)
 		if err != nil {
 			u.logger.
 				WithField("func", "priceRepo.GetMaxMinByCreatedByInterval").
@@ -265,24 +286,15 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				Debug(err)
 		}
 
-		lastPrice, err := u.priceRepo.GetLast(symbol)
-		if err != nil {
-			u.logger.
-				WithField("func", "priceRepo.GetLast").
-				WithField("useCase", "order").
-				WithField("method", "Monitoring").
-				Debug(err)
-		}
-
 		if err := u.candleRepo.Store(&models.Candle{
 			Symbol:     symbol,
-			OpenPrice:  candle.ClosePrice,
-			ClosePrice: lastPrice.Price,
-			MaxPrice:   max,
-			MinPrice:   min,
-			TimeFrame:  TIME_FRAME.String(),
+			OpenPrice:  openPrice,
+			ClosePrice: closePrice,
+			MaxPrice:   maxPrice,
+			MinPrice:   minPrice,
+			TimeFrame:  "1h",
 			OpenTime:   sTime,
-			CloseTime:  time.Now(),
+			CloseTime:  eTime,
 		}); err != nil {
 			u.logger.
 				WithField("func", "candleRepo.Store").
@@ -300,6 +312,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 			WithField("method", "Monitoring").
 			Debug(err)
 	}
+
+	s.StartAsync()
 
 	return nil
 }
@@ -493,7 +507,7 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, orderTyp
 			OrderId:  out.OrderID,
 			Symbol:   out.Symbol,
 			Side:     out.Side,
-			Quantity: out.Fills[0].Qty,
+			Quantity: fmt.Sprintf("%.5f", QuantityList[order.Symbol]),
 			Price:    price,
 		}); err != nil {
 			return err
@@ -515,7 +529,7 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, orderTyp
 		return err
 	}
 
-	if err := u.tgmController.Send(fmt.Sprintf("[ Get Order ]\nError\n%s", errStruct.Msg)); err != nil {
+	if err := u.tgmController.Send(fmt.Sprintf("[ Get Order ]\nError\n%s\n%+v", errStruct.Msg, order)); err != nil {
 		return err
 	}
 

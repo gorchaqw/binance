@@ -134,6 +134,8 @@ func (u *priceUseCase) GetPrice(symbol string) (float64, error) {
 }
 
 func (u *priceUseCase) Monitoring(symbol string) error {
+	var lastPrice float64
+
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return err
@@ -175,11 +177,14 @@ func (u *priceUseCase) Monitoring(symbol string) error {
 					u.logger.WithField("method", "Monitoring").Debug(err)
 				}
 
-				if err := u.priceRepo.Store(&models.Price{
-					Symbol: out.Symbol,
-					Price:  price,
-				}); err != nil {
-					u.logger.WithField("method", "Monitoring").Debug(err)
+				if price != lastPrice {
+					if err := u.priceRepo.Store(&models.Price{
+						Symbol: out.Symbol,
+						Price:  price,
+					}); err != nil {
+						u.logger.WithField("method", "Monitoring").Debug(err)
+					}
+					lastPrice = price
 				}
 			}
 		}
