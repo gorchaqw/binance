@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/go-co-op/gocron"
 	"github.com/robfig/cron/v3"
 	"github.com/sirupsen/logrus"
 	"net/http"
@@ -54,6 +53,7 @@ var (
 	CRONJobs = map[string]string{
 		"15min": "0,15,30,45 * * * *",
 		"1h":    "0 * * * *",
+		"4h":    "0 0,4,8,12,16,20 * * *",
 		"1min":  "* * * * *",
 	}
 
@@ -99,7 +99,7 @@ var (
 		//ETHUSDT: 0.02,
 		//
 		//BTCRUB:  0.002,
-		BTCBUSD: 0.0165,
+		BTCBUSD: 0.014,
 		//BTCUSDT: 0.002,
 		//
 		//BNBBUSD: 0.3,
@@ -151,27 +151,194 @@ func NewOrderUseCase(
 }
 
 func (u *orderUseCase) Monitoring(symbol string) error {
+	ticker := time.NewTicker(5 * time.Second)
+	done := make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case _ = <-ticker.C:
+				//delta := float64(15)
+
+				//lastOrder, err := u.orderRepo.GetLast(symbol)
+				//if err != nil {
+				//	u.logger.Debug(err)
+				//}
+
+				actualPrice, err := u.priceUseCase.GetPrice(symbol)
+				if err != nil {
+					u.logger.Debug(err)
+				}
+
+				eTime := time.Now()
+				sTime := eTime.Add(-15 * time.Minute)
+
+				_, _, maxPrice, minPrice, err := u.priceRepo.GetMaxMinByCreatedByInterval(symbol, sTime, eTime)
+				if err != nil {
+					u.logger.
+						WithField("func", "priceRepo.GetMaxMinByCreatedByInterval").
+						WithField("useCase", "order").
+						WithField("method", "Monitoring").
+						Debug(err)
+				}
+
+				actualPricePercent := actualPrice / 100 * 0.5
+				actualStopPricePercent := actualPrice / 100 * 0.25
+
+				stopPriceBUY := actualPrice + actualStopPricePercent
+				stopPriceSELL := actualPrice - actualStopPricePercent
+
+				priceBUY := actualPrice - actualPricePercent
+				priceSELL := actualPrice + actualPricePercent
+
+				openOrders, err := u.GetOpenOrders(symbol)
+				if err != nil {
+					u.logger.Debug(err)
+				}
+
+				lastOrder, err := u.orderRepo.GetLast(symbol)
+				if err != nil {
+					u.logger.Debug(err)
+				}
+
+				//deltaOrderPrice := lastOrder.Price - actualPrice
+
+				haveNewOrders := func(orders []structs.Order) bool {
+					for _, o := range orders {
+						if o.Status == "NEW" {
+							return false
+						}
+					}
+					return true
+				}
+
+				sendStat := func() {
+					if err := u.tgmController.Send(fmt.Sprintf("[ Stat ]\n"+
+						"actualPrice:\t%.2f\n"+
+						"stopPriceBUY:\t%.2f\n"+
+						"stopPriceSELL:\t%.2f\n"+
+						"priceBUY:\t%.2f\n"+
+						"priceSELL:\t%.2f\n"+
+						"maxPrice:\t%.2f\n"+
+						"minPrice:\t%.2f\n"+
+						"openOrders:\t%+v\n"+
+						"lastOrder:\t%+v\n",
+						actualPrice,
+						stopPriceBUY,
+						stopPriceSELL,
+						priceBUY,
+						priceSELL,
+						maxPrice,
+						minPrice,
+						openOrders,
+						lastOrder)); err != nil {
+						u.logger.Debug(err)
+					}
+				}
+
+				//sendStat()
+
+				switch lastOrder.Side {
+				case SIDE_BUY:
+					if actualPrice > lastOrder.StopPrice {
+						if err := u.Cancel(symbol, fmt.Sprintf("%d", lastOrder.OrderId)); err != nil {
+							u.logger.Debug(err)
+							continue
+						}
+						if err := u.tgmController.Send(fmt.Sprintf("[ Cancel Order ]\n"+
+							"Side:\t%s\n"+
+							"OrderId:\t%d\n",
+							SIDE_BUY,
+							uint(lastOrder.OrderId))); err != nil {
+							u.logger.Debug(err)
+							continue
+						}
+
+						if err := u.GetOrder(&structs.Order{
+							Symbol:    symbol,
+							Side:      SIDE_BUY,
+							StopPrice: fmt.Sprintf("%.0f", stopPriceBUY),
+						}, QuantityList[symbol], "MARKET"); err != nil {
+							u.logger.Debug(err)
+							continue
+						}
+					}
+				case SIDE_SELL:
+					if actualPrice < lastOrder.StopPrice {
+						if err := u.Cancel(symbol, fmt.Sprintf("%d", lastOrder.OrderId)); err != nil {
+							u.logger.Debug(err)
+							continue
+						}
+
+						if err := u.tgmController.Send(fmt.Sprintf("[ Cancel Order ]\n"+
+							"Side:\t%s\n"+
+							"OrderId:\t%d\n",
+							SIDE_SELL,
+							uint(lastOrder.OrderId))); err != nil {
+							u.logger.Debug(err)
+							continue
+						}
+
+						if err := u.GetOrder(&structs.Order{
+							Symbol:    symbol,
+							Side:      SIDE_SELL,
+							StopPrice: fmt.Sprintf("%.0f", stopPriceSELL),
+						}, QuantityList[symbol], "MARKET"); err != nil {
+							u.logger.Debug(err)
+							continue
+						}
+					}
+				}
+
+				if haveNewOrders(openOrders) {
+					switch lastOrder.Side {
+					case SIDE_BUY:
+						sendStat()
+						if err := u.GetOrder(&structs.Order{
+							Symbol:    symbol,
+							Side:      SIDE_SELL,
+							Price:     fmt.Sprintf("%.0f", priceSELL),
+							StopPrice: fmt.Sprintf("%.0f", stopPriceSELL),
+						}, QuantityList[symbol], "LIMIT"); err != nil {
+							u.logger.
+								WithField("func", "u.GetOrder").
+								WithField("useCase", "order").
+								WithField("method", "Monitoring").
+								Debug(err)
+						}
+					case SIDE_SELL:
+						sendStat()
+						if err := u.GetOrder(&structs.Order{
+							Symbol:    symbol,
+							Side:      SIDE_BUY,
+							Price:     fmt.Sprintf("%.0f", priceBUY),
+							StopPrice: fmt.Sprintf("%.0f", stopPriceBUY),
+						}, QuantityList[symbol], "LIMIT"); err != nil {
+							u.logger.
+								WithField("func", "u.GetOrder").
+								WithField("useCase", "order").
+								WithField("method", "Monitoring").
+								Debug(err)
+						}
+					}
+				}
+			}
+		}
+	}()
+
 	sTime := time.Now()
 	pattern := structs.NewPattern(u.tgmController, u.logger)
 
-	location, err := time.LoadLocation("Europe/Moscow")
-	if err != nil {
-		u.logger.
-			WithField("func", "LoadLocation").
-			WithField("useCase", "order").
-			WithField("method", "Monitoring").
-			Debug(err)
-	}
-
-	s := gocron.NewScheduler(location)
-
-	if _, err := s.Every("15min").Do(func() {
+	if _, err := u.cron.AddFunc(CRONJobs["1h"], func() {
+		return
 		candles, err := u.candleRepo.GetLastList(symbol, 3)
 		if err != nil {
 			u.logger.
 				WithField("func", "GetLastList").
 				WithField("useCase", "order").
-				WithField("method", "Monitoring").
+				WithField("method", "MonitoringСудья Дредд 2012").
 				Debug(err)
 		}
 
@@ -313,8 +480,6 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 			Debug(err)
 	}
 
-	s.StartAsync()
-
 	return nil
 }
 
@@ -366,8 +531,6 @@ func (u *orderUseCase) GetOpenOrders(symbol string) ([]structs.Order, error) {
 	}
 
 	var out []structs.Order
-
-	fmt.Printf("%s", req)
 
 	if err := json.Unmarshal(req, &out); err != nil {
 		return nil, err
@@ -449,10 +612,14 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, orderTyp
 	q.Set("symbol", order.Symbol)
 	q.Set("side", order.Side)
 	q.Set("type", orderType)
-	//q.Set("type", "LIMIT")
-	//q.Set("timeInForce", "GTC")
 	q.Set("quantity", fmt.Sprintf("%.5f", quantity))
-	//q.Set("price", order.Price)
+	if orderType == "LIMIT" {
+
+		fmt.Println(order.Price)
+
+		q.Set("timeInForce", "GTC")
+		q.Set("price", order.Price)
+	}
 	q.Set("recvWindow", "60000")
 	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
 
@@ -465,6 +632,8 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, orderTyp
 	if err != nil {
 		return err
 	}
+
+	u.logger.Debugf("%s", req)
 
 	u.logger.WithField("method", "GetOrder").Debugf("%s", req)
 
@@ -497,39 +666,46 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, orderTyp
 		return err
 	}
 
-	if out.OrderID != 0 {
-		price, err := strconv.ParseFloat(out.Fills[0].Price, 64)
+	stopPrice, err := strconv.ParseFloat(order.StopPrice, 64)
+	if err != nil {
+		return err
+	}
+
+	o := models.Order{
+		OrderId:   out.OrderID,
+		Symbol:    out.Symbol,
+		Side:      out.Side,
+		StopPrice: stopPrice,
+		Quantity:  fmt.Sprintf("%.5f", QuantityList[order.Symbol]),
+	}
+
+	if orderType == "LIMIT" {
+		u.logger.Debug(out)
+		fmt.Println("LIMIT", out.Price)
+		priceLimit, err := strconv.ParseFloat(out.Price, 64)
 		if err != nil {
 			return err
 		}
 
-		if err := u.orderRepo.Store(&models.Order{
-			OrderId:  out.OrderID,
-			Symbol:   out.Symbol,
-			Side:     out.Side,
-			Quantity: fmt.Sprintf("%.5f", QuantityList[order.Symbol]),
-			Price:    price,
-		}); err != nil {
+		o.Price = priceLimit
+	}
+
+	if orderType == "MARKET" {
+		u.logger.Debug(out)
+		fmt.Println("MARKET", out.Fills[0].Price)
+		priceMarket, err := strconv.ParseFloat(out.Fills[0].Price, 64)
+		if err != nil {
 			return err
 		}
 
-		if err := u.tgmController.Send(fmt.Sprintf("%s", req)); err != nil {
-			return err
-		}
-
-		return nil
+		o.Price = priceMarket
 	}
 
-	var errStruct struct {
-		Code int    `json:"code"`
-		Msg  string `json:"msg"`
-	}
-
-	if err := json.Unmarshal(req, &errStruct); err != nil {
+	if err := u.orderRepo.Store(&o); err != nil {
 		return err
 	}
 
-	if err := u.tgmController.Send(fmt.Sprintf("[ Get Order ]\nError\n%s\n%+v", errStruct.Msg, order)); err != nil {
+	if err := u.tgmController.Send(fmt.Sprintf("%s", req)); err != nil {
 		return err
 	}
 
@@ -548,6 +724,7 @@ func (u *orderUseCase) Cancel(symbol, orderId string) error {
 	q.Set("symbol", symbol)
 	q.Set("orderId", orderId)
 	q.Set("recvWindow", "60000")
+	//q.Set("timeInForce", "GTC")
 	q.Set("timestamp", fmt.Sprintf("%d", time.Now().Unix()*1000))
 
 	sig := u.cryptoController.GetSignature(q.Encode())
