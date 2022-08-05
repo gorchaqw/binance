@@ -4,8 +4,10 @@ import (
 	"binance/internal/controllers"
 	"binance/internal/repository/sqlite"
 	"binance/internal/usecasees/structs"
+	"binance/models"
 	"fmt"
 	"github.com/sirupsen/logrus"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -75,7 +77,64 @@ func (u *tgmUseCase) CommandProcessor() {
 				u.statisticsProc()
 			case "calc_balance":
 				u.calculateBalanceProc()
+			case "open_orders":
+				u.openOrdersProc()
+
 			}
+		}
+	}
+}
+
+func (u *tgmUseCase) openOrdersProc() {
+	for _, symbol := range SymbolList {
+		openOrders, err := u.orderUseCase.GetOpenOrders(symbol)
+		if err != nil {
+			u.logger.WithField("method", "openOrdersProc").Debug(err)
+		}
+
+		actualPrice, err := u.priceUseCase.GetPrice(symbol)
+		if err != nil {
+			u.logger.
+				WithError(err).
+				Error(string(debug.Stack()))
+		}
+
+		price, err := strconv.ParseFloat(openOrders[0].Price, 64)
+		if err != nil {
+			u.logger.
+				WithError(err).
+				Error(string(debug.Stack()))
+		}
+
+		actualPricePercent := actualPrice / 100 * 0.75
+		actualStopPricePercent := actualPricePercent / 2
+
+		stopPriceBUY := actualPrice + actualStopPricePercent
+		stopPriceSELL := actualPrice - actualStopPricePercent
+
+		o := models.Order{
+			OrderId:  openOrders[0].OrderId,
+			Symbol:   openOrders[0].Symbol,
+			Side:     openOrders[0].Side,
+			Price:    price,
+			Quantity: fmt.Sprintf("%.5f", QuantityList[openOrders[0].Symbol]),
+		}
+
+		switch openOrders[0].Side {
+		case SIDE_BUY:
+			o.StopPrice = stopPriceBUY
+		case SIDE_SELL:
+			o.StopPrice = stopPriceSELL
+		}
+
+		if err := u.orderRepo.Store(&o); err != nil {
+			u.logger.
+				WithError(err).
+				Error(string(debug.Stack()))
+		}
+
+		if err := u.tgmController.Send(fmt.Sprintf("%+v", openOrders)); err != nil {
+			u.logger.WithField("method", "openOrdersProc").Debug(err)
 		}
 	}
 }
