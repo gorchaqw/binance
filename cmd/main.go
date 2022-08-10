@@ -94,9 +94,9 @@ func main() {
 			app.Logger.Error(err)
 		}
 
-		if err := priceUseCase.Monitoring(symbol); err != nil {
-			app.Logger.Error(err)
-		}
+		//if err := priceUseCase.Monitoring(symbol); err != nil {
+		//	app.Logger.Error(err)
+		//}
 	}
 
 	//if err := orderUseCase.GetOrder(&structs.Order{
