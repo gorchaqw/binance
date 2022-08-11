@@ -118,6 +118,7 @@ func (u *tgmUseCase) openOrdersProc() {
 			Side:     openOrders[0].Side,
 			Price:    price,
 			Quantity: fmt.Sprintf("%.5f", QuantityList[openOrders[0].Symbol]),
+			Status:   sqlite.ORDER_STATUS_NEW,
 		}
 
 		switch openOrders[0].Side {

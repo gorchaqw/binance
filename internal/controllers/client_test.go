@@ -2,12 +2,14 @@ package controllers_test
 
 import (
 	"binance/internal/controllers"
+	"binance/internal/usecasees/structs"
 	"encoding/json"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/url"
+	"path"
 	"strconv"
 	"testing"
 	"time"
@@ -26,6 +28,72 @@ func TestTimeFrame(t *testing.T) {
 
 	fmt.Printf("%.12f\n", v)
 
+}
+
+func TestGetOrders(t *testing.T) {
+	apiUrl := "https://api1.binance.com"
+	orderOpenUrlPath := "/api/v3/openOrders"
+	//orderAllUrlPath := "/api/v3/allOrders"
+	//queryOrder := "/api/v3/order"
+	symbol := "BTCBUSD"
+	secretKey := "H6kbAHyGNNUdpp1aFEQpqwcQgDLTEWCe45W46vDcWGRtcZuKLJ2g52MdqC6QjuI5"
+	apiKey := "40A1YfOXYUm85x5slZCL6TcVdB6S8im024Uk5t7Mmj2rQJ2DB0FBSWIpaOB9Zd7J"
+	client := &http.Client{}
+	logger := logrus.New()
+
+	cryptoController := controllers.NewCryptoController(secretKey)
+	clientController := controllers.NewClientController(client, apiKey, logger)
+
+	baseURL, err := url.Parse(apiUrl)
+	assert.NoError(t, err)
+
+	baseURL.Path = path.Join(orderOpenUrlPath)
+
+	q := baseURL.Query()
+	q.Set("symbol", symbol)
+	//q.Set("limit", "1")
+	//q.Set("orderId", "5661989138")
+	q.Set("recvWindow", "60000")
+	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Add(time.Second*60).Unix()))
+
+	sig := cryptoController.GetSignature(q.Encode())
+	q.Set("signature", sig)
+
+	baseURL.RawQuery = q.Encode()
+
+	req, err := clientController.Send(http.MethodGet, baseURL, nil, true)
+	assert.NoError(t, err)
+
+	var out []structs.Order
+
+	fmt.Printf("%s", req)
+
+	assert.NoError(t, json.Unmarshal(req, &out))
+
+	fmt.Printf("%+v", out)
+
+}
+
+func TestQ(t *testing.T) {
+	s := 0.001
+	l := 0.014
+	q := float64(0)
+
+	actualPrice := 24145.50
+	priceSELL := 24169.65
+
+	d := priceSELL - actualPrice
+	fmt.Printf("profit = %f\n", d*s)
+
+	for i := 1; i < 10; i++ {
+		q = s * float64(i) * 2
+		if q > l {
+			return
+		}
+
+		fmt.Printf("i = %d, q = %f \n", i, q)
+
+	}
 }
 
 func TestTicker24h(t *testing.T) {

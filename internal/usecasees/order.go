@@ -6,6 +6,7 @@ import (
 	"binance/internal/usecasees/structs"
 	"binance/models"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/robfig/cron/v3"
 	"github.com/sirupsen/logrus"
@@ -81,6 +82,8 @@ var (
 		//BNBBUSD,
 	}
 
+	// 24276
+
 	SpotURLs = map[string]string{
 		ETHRUB:  "https://www.binance.com/ru/trade/ETH_RUB?theme=dark&type=spot",
 		ETHBUSD: "https://www.binance.com/ru/trade/ETH_BUSD?theme=dark&type=spot",
@@ -94,7 +97,7 @@ var (
 	}
 
 	StepList = map[string]float64{
-		BTCBUSD: 75,
+		BTCBUSD: 0.001,
 		ETHBUSD: 8,
 	}
 
@@ -159,26 +162,15 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 	ticker := time.NewTicker(5 * time.Second)
 	done := make(chan bool)
 
+	quantity := StepList[symbol]
+	orderNum := float64(1)
+
 	go func() {
 		for {
 			select {
 			case <-done:
 				return
 			case _ = <-ticker.C:
-				stat, err := u.priceUseCase.GetPriceChangeStatistics(symbol)
-				if err != nil {
-					u.logger.
-						WithError(err).
-						Error(string(debug.Stack()))
-				}
-
-				priceChangePercent, err := strconv.ParseFloat(stat.PriceChangePercent, 64)
-				if err != nil {
-					u.logger.
-						WithError(err).
-						Error(string(debug.Stack()))
-				}
-
 				actualPrice, err := u.priceUseCase.GetPrice(symbol)
 				if err != nil {
 					u.logger.
@@ -193,8 +185,71 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						Error(string(debug.Stack()))
 				}
 
-				actualPricePercent := actualPrice / 100 * 0.25
-				actualStopPricePercent := actualPricePercent * 0.5
+				orderInfo, err := u.GetOrderInfo(lastOrder.OrderId, symbol)
+				if err != nil {
+					u.logger.
+						WithError(err).
+						Error(string(debug.Stack()))
+				}
+
+				if lastOrder.Status != orderInfo.Status {
+					if err := u.orderRepo.SetStatus(lastOrder.ID, orderInfo.Status); err != nil {
+						u.logger.
+							WithError(err).
+							Error(string(debug.Stack()))
+					}
+				}
+
+				//if err := u.tgmController.Send(fmt.Sprintf("[ Last Order Info]\n"+
+				//	"Side:\t%s\n"+
+				//	"Status:\t%s\n"+
+				//	"OrderId:\t%d\n",
+				//	lastOrder.Side,
+				//	lastOrder.Status,
+				//	lastOrder.OrderId)); err != nil {
+				//	u.logger.
+				//		WithError(err).
+				//		Error(string(debug.Stack()))
+				//}
+
+				sendOrderInfo := func() {
+					if err := u.tgmController.Send(fmt.Sprintf("[ Last Order Info Req]\n"+
+						"Price:\t%s\n"+
+						"Side:\t%s\n"+
+						"Status:\t%s\n"+
+						"Type:\t%s\n"+
+						"OrderId:\t%d\n",
+						orderInfo.Price,
+						orderInfo.Side,
+						orderInfo.Status,
+						orderInfo.Type,
+						orderInfo.OrderId)); err != nil {
+						u.logger.
+							WithError(err).
+							Error(string(debug.Stack()))
+					}
+				}
+
+				switch orderInfo.Type {
+				case "MARKET":
+					if orderInfo.Side == SIDE_SELL && orderInfo.Status == sqlite.ORDER_STATUS_FILLED {
+						orderNum++
+						quantity = StepList[symbol] * orderNum * 2
+
+						sendOrderInfo()
+					}
+
+				case "LIMIT":
+					if orderInfo.Side == SIDE_SELL && orderInfo.Status == sqlite.ORDER_STATUS_FILLED {
+						orderNum = 1
+						quantity = StepList[symbol]
+
+						sendOrderInfo()
+					}
+				}
+
+				actualPricePercent := actualPrice / 100 * 0.1
+				actualStopPricePercent := actualPricePercent
 
 				stopPriceBUY := actualPrice + actualStopPricePercent
 				stopPriceSELL := actualPrice - actualStopPricePercent
@@ -221,6 +276,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				sendStat := func(side string) {
 					if err := u.tgmController.Send(fmt.Sprintf("[ Stat ]\n"+
 						"side:\t%s\n"+
+						"quantity:\t%.5f\n"+
 						"actualPrice:\t%.2f\n"+
 						"stopPriceBUY:\t%.2f\n"+
 						"stopPriceSELL:\t%.2f\n"+
@@ -229,6 +285,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						"openOrders:\t%+v\n"+
 						"lastOrder:\t%+v\n",
 						side,
+						quantity,
 						actualPrice,
 						stopPriceBUY,
 						stopPriceSELL,
@@ -256,44 +313,21 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					}
 
 					if marketOrder {
+						q, err := strconv.ParseFloat(o.Quantity, 64)
+						if err != nil {
+							return err
+						}
+
 						if err := u.GetOrder(&structs.Order{
 							Symbol:    symbol,
 							Side:      side,
 							StopPrice: fmt.Sprintf("%.0f", stopPrice),
-						}, QuantityList[symbol], "MARKET"); err != nil {
+						}, q, "MARKET"); err != nil {
 							return err
 						}
 					}
 
 					return nil
-				}
-
-				if priceChangePercent < 0 && haveNewOrders(openOrders) == false {
-
-					if err := u.tgmController.Send(fmt.Sprintf("[ Price Change Percent ]\n"+
-						"price change percent:\t%.2f\n",
-						priceChangePercent)); err != nil {
-						u.logger.
-							WithError(err).
-							Error(string(debug.Stack()))
-					}
-
-					switch lastOrder.Side {
-					case SIDE_BUY:
-						if err := cancelOrder(lastOrder, symbol, SIDE_BUY, stopPriceBUY, false); err != nil {
-							u.logger.
-								WithError(err).
-								Error(string(debug.Stack()))
-							continue
-						}
-					case SIDE_SELL:
-						if err := cancelOrder(lastOrder, symbol, SIDE_SELL, stopPriceSELL, true); err != nil {
-							u.logger.
-								WithError(err).
-								Error(string(debug.Stack()))
-							continue
-						}
-					}
 				}
 
 				if haveNewOrders(openOrders) {
@@ -304,7 +338,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							Side:      SIDE_SELL,
 							Price:     fmt.Sprintf("%.0f", priceSELL),
 							StopPrice: fmt.Sprintf("%.0f", stopPriceSELL),
-						}, QuantityList[symbol], "LIMIT"); err != nil {
+						}, quantity, "LIMIT"); err != nil {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -317,11 +351,12 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							Side:      SIDE_BUY,
 							Price:     fmt.Sprintf("%.0f", priceBUY),
 							StopPrice: fmt.Sprintf("%.0f", stopPriceBUY),
-						}, QuantityList[symbol], "LIMIT"); err != nil {
+						}, quantity, "LIMIT"); err != nil {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
 						}
+
 						sendStat(SIDE_BUY)
 
 					}
@@ -523,6 +558,7 @@ func (u *orderUseCase) initSymbol(symbol string) error {
 		Side:     SIDE_BUY,
 		Quantity: fmt.Sprintf("%.5f", QuantityList[symbol]),
 		Price:    weightedAvgPrice,
+		Status:   sqlite.ORDER_STATUS_NEW,
 	}); err != nil {
 		return err
 	}
@@ -623,6 +659,39 @@ func (u *orderUseCase) GetAllOrders(symbol string) error {
 	return nil
 }
 
+func (u *orderUseCase) GetOrderInfo(orderID int64, symbol string) (*structs.Order, error) {
+	baseURL, err := url.Parse(u.url)
+	if err != nil {
+		return nil, err
+	}
+
+	baseURL.Path = path.Join(orderUrlPath)
+
+	q := baseURL.Query()
+	q.Set("symbol", symbol)
+	q.Set("orderId", fmt.Sprintf("%d", orderID))
+	q.Set("recvWindow", "60000")
+	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
+
+	sig := u.cryptoController.GetSignature(q.Encode())
+	q.Set("signature", sig)
+
+	baseURL.RawQuery = q.Encode()
+
+	req, err := u.clientController.Send(http.MethodGet, baseURL, nil, true)
+	if err != nil {
+		return nil, err
+	}
+
+	var out structs.Order
+
+	if err := json.Unmarshal(req, &out); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+}
+
 func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, orderType string) error {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
@@ -692,7 +761,9 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, orderTyp
 		Symbol:    out.Symbol,
 		Side:      out.Side,
 		StopPrice: stopPrice,
-		Quantity:  fmt.Sprintf("%.5f", QuantityList[order.Symbol]),
+		Quantity:  fmt.Sprintf("%.5f", quantity),
+		Type:      out.Type,
+		Status:    out.Status,
 	}
 
 	if orderType == "LIMIT" {
@@ -705,6 +776,10 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, orderTyp
 	}
 
 	if orderType == "MARKET" {
+		if len(out.Fills) == 0 {
+			return errors.New("out.Fills[0].Price")
+		}
+
 		priceMarket, err := strconv.ParseFloat(out.Fills[0].Price, 64)
 		if err != nil {
 			return err
@@ -768,10 +843,6 @@ func (u *orderUseCase) Cancel(symbol, orderId string) error {
 	}
 
 	if out.OrderId != 0 {
-		if err := u.tgmController.Send(fmt.Sprintf("%s", req)); err != nil {
-			return err
-		}
-
 		return nil
 	}
 

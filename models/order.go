@@ -11,5 +11,6 @@ type Order struct {
 	Price     float64   `db:"price"`
 	StopPrice float64   `db:"stop_price"`
 	Status    string    `db:"status"`
+	Type      string    `db:"type"`
 	CreatedAt time.Time `db:"created_at"`
 }
