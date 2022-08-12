@@ -97,7 +97,7 @@ var (
 	}
 
 	StepList = map[string]float64{
-		BTCBUSD: 0.001,
+		BTCBUSD: 0.0005,
 		ETHBUSD: 8,
 	}
 
@@ -212,8 +212,18 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				//		Error(string(debug.Stack()))
 				//}
 
+				sendQuantityLimit := func() {
+					if err := u.tgmController.Send(fmt.Sprintf("[ Quantity Limit ]\n"+
+						"Quantity:\t%f\n",
+						quantity)); err != nil {
+						u.logger.
+							WithError(err).
+							Error(string(debug.Stack()))
+					}
+				}
+
 				sendOrderInfo := func() {
-					if err := u.tgmController.Send(fmt.Sprintf("[ Last Order Info Req]\n"+
+					if err := u.tgmController.Send(fmt.Sprintf("[ Order Info ]\n"+
 						"Price:\t%s\n"+
 						"Side:\t%s\n"+
 						"Status:\t%s\n"+
@@ -233,8 +243,15 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				switch orderInfo.Type {
 				case "MARKET":
 					if orderInfo.Side == SIDE_SELL && orderInfo.Status == sqlite.ORDER_STATUS_FILLED {
+
 						orderNum++
 						quantity = StepList[symbol] * orderNum * 2
+
+						if quantity > QuantityList[symbol] {
+							sendQuantityLimit()
+
+							continue
+						}
 
 						sendOrderInfo()
 					}
@@ -301,6 +318,10 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				cancelOrder := func(o *models.Order, symbol, side string, stopPrice float64, marketOrder bool) error {
 					if err := u.Cancel(symbol, fmt.Sprintf("%d", o.OrderId)); err != nil {
+						return err
+					}
+
+					if err := u.orderRepo.SetStatus(o.ID, sqlite.ORDER_STATUS_CANCELED); err != nil {
 						return err
 					}
 

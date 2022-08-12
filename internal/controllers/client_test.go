@@ -75,24 +75,17 @@ func TestGetOrders(t *testing.T) {
 }
 
 func TestQ(t *testing.T) {
-	s := 0.001
+	s := 0.0005
 	l := 0.014
 	q := float64(0)
 
-	actualPrice := 24145.50
-	priceSELL := 24169.65
-
-	d := priceSELL - actualPrice
-	fmt.Printf("profit = %f\n", d*s)
-
-	for i := 1; i < 10; i++ {
+	for i := 1; i < 100; i++ {
 		q = s * float64(i) * 2
 		if q > l {
 			return
 		}
 
 		fmt.Printf("i = %d, q = %f \n", i, q)
-
 	}
 }
 
