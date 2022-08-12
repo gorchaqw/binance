@@ -1,0 +1,4 @@
+development:
+  dialect: postgres
+  datasource: host=localhost dbname=binance user=binance password=binance sslmode=disable
+  dir: ./migrations

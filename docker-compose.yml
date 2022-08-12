@@ -1,0 +1,12 @@
+version: "3.8"
+services:
+  binance-postgres:
+    image: postgres:14.5
+    environment:
+      POSTGRES_DB: "binance"
+      POSTGRES_USER: "binance"
+      POSTGRES_PASSWORD: "binance"
+    ports:
+      - "5432:5432"
+  binance:
+    build: .
