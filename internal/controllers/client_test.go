@@ -75,7 +75,7 @@ func TestGetOrders(t *testing.T) {
 }
 
 func TestQ(t *testing.T) {
-	s := 0.0005
+	s := 0.001
 	l := 0.014
 	q := float64(0)
 

@@ -82,8 +82,6 @@ var (
 		//BNBBUSD,
 	}
 
-	// 24276
-
 	SpotURLs = map[string]string{
 		ETHRUB:  "https://www.binance.com/ru/trade/ETH_RUB?theme=dark&type=spot",
 		ETHBUSD: "https://www.binance.com/ru/trade/ETH_BUSD?theme=dark&type=spot",
@@ -97,7 +95,7 @@ var (
 	}
 
 	StepList = map[string]float64{
-		BTCBUSD: 0.0005,
+		BTCBUSD: 0.001,
 		ETHBUSD: 8,
 	}
 
@@ -163,7 +161,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 	done := make(chan bool)
 
 	quantity := StepList[symbol]
-	orderNum := float64(1)
+	orderTry := 1
 
 	go func() {
 		for {
@@ -244,13 +242,16 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				case "MARKET":
 					if orderInfo.Side == SIDE_SELL && orderInfo.Status == sqlite.ORDER_STATUS_FILLED {
 
-						orderNum++
-						quantity = StepList[symbol] * orderNum * 2
+						orderTry++
+						quantity = StepList[symbol] * float64(orderTry) * 2
 
 						if quantity > QuantityList[symbol] {
 							sendQuantityLimit()
 
-							continue
+							orderTry = 1
+							quantity = StepList[symbol]
+
+							sendOrderInfo()
 						}
 
 						sendOrderInfo()
@@ -258,14 +259,14 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				case "LIMIT":
 					if orderInfo.Side == SIDE_SELL && orderInfo.Status == sqlite.ORDER_STATUS_FILLED {
-						orderNum = 1
+						orderTry = 1
 						quantity = StepList[symbol]
 
 						sendOrderInfo()
 					}
 				}
 
-				actualPricePercent := actualPrice / 100 * 0.1
+				actualPricePercent := float64(15)
 				actualStopPricePercent := actualPricePercent
 
 				stopPriceBUY := actualPrice + actualStopPricePercent
@@ -343,7 +344,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							Symbol:    symbol,
 							Side:      side,
 							StopPrice: fmt.Sprintf("%.0f", stopPrice),
-						}, q, "MARKET"); err != nil {
+						}, q, "MARKET", orderTry); err != nil {
 							return err
 						}
 					}
@@ -359,7 +360,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							Side:      SIDE_SELL,
 							Price:     fmt.Sprintf("%.0f", priceSELL),
 							StopPrice: fmt.Sprintf("%.0f", stopPriceSELL),
-						}, quantity, "LIMIT"); err != nil {
+						}, quantity, "LIMIT", orderTry); err != nil {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -372,7 +373,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							Side:      SIDE_BUY,
 							Price:     fmt.Sprintf("%.0f", priceBUY),
 							StopPrice: fmt.Sprintf("%.0f", stopPriceBUY),
-						}, quantity, "LIMIT"); err != nil {
+						}, quantity, "LIMIT", orderTry); err != nil {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -580,6 +581,7 @@ func (u *orderUseCase) initSymbol(symbol string) error {
 		Quantity: fmt.Sprintf("%.5f", QuantityList[symbol]),
 		Price:    weightedAvgPrice,
 		Status:   sqlite.ORDER_STATUS_NEW,
+		Try:      1,
 	}); err != nil {
 		return err
 	}
@@ -713,7 +715,7 @@ func (u *orderUseCase) GetOrderInfo(orderID int64, symbol string) (*structs.Orde
 	return &out, nil
 }
 
-func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, orderType string) error {
+func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, orderType string, try int) error {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return err
@@ -785,6 +787,7 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, orderTyp
 		Quantity:  fmt.Sprintf("%.5f", quantity),
 		Type:      out.Type,
 		Status:    out.Status,
+		Try:       try,
 	}
 
 	if orderType == "LIMIT" {

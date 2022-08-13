@@ -246,7 +246,7 @@ func (u *tgmUseCase) massOrderProc(side string, loc *time.Location) {
 			if err := u.orderUseCase.GetOrder(&structs.Order{
 				Symbol: symbol,
 				Side:   side,
-			}, QuantityList[symbol], "MARKET"); err != nil {
+			}, QuantityList[symbol], "MARKET", 1); err != nil {
 				u.logger.WithField("method", "massOrderProc").Debug(err)
 				continue
 			}
@@ -343,7 +343,7 @@ func (u *tgmUseCase) orderProc(side, symbol string, loc *time.Location) {
 		if err := u.orderUseCase.GetOrder(&structs.Order{
 			Symbol: symbol,
 			Side:   side,
-		}, QuantityList[symbol], "MARKET"); err != nil {
+		}, QuantityList[symbol], "MARKET", 1); err != nil {
 			u.logger.WithField("method", "orderProc").Debug(err)
 		}
 	}

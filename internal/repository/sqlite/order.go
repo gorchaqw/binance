@@ -23,7 +23,7 @@ func NewOrderRepository(conn *sqlx.DB) *OrderRepository {
 }
 
 func (r *OrderRepository) Store(m *models.Order) (err error) {
-	if _, err := r.conn.NamedExec("INSERT INTO orders (order_id,symbol,side,quantity,price,stop_price,status,type) VALUES (:order_id,:symbol,:side,:quantity,:price,:stop_price,:status,:type)", m); err != nil {
+	if _, err := r.conn.NamedExec("INSERT INTO orders (order_id,symbol,side,quantity,price,stop_price,status,type,try) VALUES (:order_id,:symbol,:side,:quantity,:price,:stop_price,:status,:type,:try)", m); err != nil {
 		return err
 	}
 
