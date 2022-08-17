@@ -3,13 +3,9 @@ package usecasees
 import (
 	"binance/internal/controllers"
 	"binance/internal/repository/sqlite"
-	"binance/internal/usecasees/structs"
-	"binance/models"
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"runtime/debug"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -43,15 +39,6 @@ func (u *tgmUseCase) CommandProcessor() {
 		u.logger.WithField("method", "CommandProcessor").Debug(err)
 	}
 
-	contains := func(s []string, e string) bool {
-		for _, a := range s {
-			if a == e {
-				return true
-			}
-		}
-		return false
-	}
-
 	for update := range u.tgmController.GetUpdates() {
 		if u.tgmController.CheckChatID(update.Message.Chat.ID) {
 
@@ -64,78 +51,11 @@ func (u *tgmUseCase) CommandProcessor() {
 				u.pingProc(loc)
 			case "last":
 				u.lastProc(loc)
-			case "sell_all":
-				u.massOrderProc(SIDE_SELL, loc)
-			case "buy_all":
-				u.massOrderProc(SIDE_BUY, loc)
-			case "order":
-				order := strings.Split(update.Message.CommandArguments(), " ")
-				if (order[0] == SIDE_BUY || order[0] == SIDE_SELL) && contains(SymbolList, order[1]) {
-					u.orderProc(order[0], order[1], loc)
-				}
 			case "statistics":
 				u.statisticsProc()
 			case "calc_balance":
 				u.calculateBalanceProc()
-			case "open_orders":
-				u.openOrdersProc()
-
 			}
-		}
-	}
-}
-
-func (u *tgmUseCase) openOrdersProc() {
-	for _, symbol := range SymbolList {
-		openOrders, err := u.orderUseCase.GetOpenOrders(symbol)
-		if err != nil {
-			u.logger.WithField("method", "openOrdersProc").Debug(err)
-		}
-
-		actualPrice, err := u.priceUseCase.GetPrice(symbol)
-		if err != nil {
-			u.logger.
-				WithError(err).
-				Error(string(debug.Stack()))
-		}
-
-		price, err := strconv.ParseFloat(openOrders[0].Price, 64)
-		if err != nil {
-			u.logger.
-				WithError(err).
-				Error(string(debug.Stack()))
-		}
-
-		actualPricePercent := actualPrice / 100 * 0.75
-		actualStopPricePercent := actualPricePercent / 2
-
-		stopPriceBUY := actualPrice + actualStopPricePercent
-		stopPriceSELL := actualPrice - actualStopPricePercent
-
-		o := models.Order{
-			OrderId:  openOrders[0].OrderId,
-			Symbol:   openOrders[0].Symbol,
-			Side:     openOrders[0].Side,
-			Price:    price,
-			Quantity: fmt.Sprintf("%.5f", QuantityList[openOrders[0].Symbol]),
-			Status:   sqlite.ORDER_STATUS_NEW,
-		}
-
-		switch openOrders[0].Side {
-		case SIDE_BUY:
-			o.StopPrice = stopPriceBUY
-		case SIDE_SELL:
-			o.StopPrice = stopPriceSELL
-		}
-
-		if err := u.orderRepo.Store(&o); err != nil {
-			u.logger.
-				WithError(err).
-				Error(string(debug.Stack()))
-		}
-
-		if err := u.tgmController.Send(fmt.Sprintf("%+v", openOrders)); err != nil {
-			u.logger.WithField("method", "openOrdersProc").Debug(err)
 		}
 	}
 }
@@ -235,34 +155,6 @@ func (u *tgmUseCase) statisticsProc() {
 	}
 }
 
-func (u *tgmUseCase) massOrderProc(side string, loc *time.Location) {
-	for _, symbol := range SymbolList {
-		order, err := u.orderRepo.GetLast(symbol)
-		if err != nil {
-			u.logger.WithField("method", "massOrderProc").Debug(err)
-		}
-
-		if order.Side != side {
-			if err := u.orderUseCase.GetOrder(&structs.Order{
-				Symbol: symbol,
-				Side:   side,
-			}, QuantityList[symbol], "MARKET", 1); err != nil {
-				u.logger.WithField("method", "massOrderProc").Debug(err)
-				continue
-			}
-		}
-	}
-
-	if err := u.tgmController.Send(
-		fmt.Sprintf(
-			"[ Orders updated ]\n"+
-				"Time:\t%s\n",
-			time.Now().In(loc).Format(time.RFC822),
-		)); err != nil {
-		u.logger.WithField("method", "massOrderProc").Debug(err)
-	}
-}
-
 func (u *tgmUseCase) setAvgProc(loc *time.Location) {
 
 	for _, symbol := range SymbolList {
@@ -330,31 +222,6 @@ func (u *tgmUseCase) pingProc(loc *time.Location) {
 			time.Now().In(loc).Format(time.RFC822),
 		)); err != nil {
 		u.logger.WithField("method", "pingProc").Debug(err)
-	}
-}
-
-func (u *tgmUseCase) orderProc(side, symbol string, loc *time.Location) {
-	order, err := u.orderRepo.GetLast(symbol)
-	if err != nil {
-		u.logger.WithField("method", "orderProc").Debug(err)
-	}
-
-	if order.Side != side {
-		if err := u.orderUseCase.GetOrder(&structs.Order{
-			Symbol: symbol,
-			Side:   side,
-		}, QuantityList[symbol], "MARKET", 1); err != nil {
-			u.logger.WithField("method", "orderProc").Debug(err)
-		}
-	}
-
-	if err := u.tgmController.Send(
-		fmt.Sprintf(
-			"[ Orders updated ]\n"+
-				"Time:\t%s\n",
-			time.Now().In(loc).Format(time.RFC822),
-		)); err != nil {
-		u.logger.WithField("method", "orderProc").Debug(err)
 	}
 }
 
