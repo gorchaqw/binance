@@ -4,6 +4,7 @@ import (
 	"binance/internal/controllers"
 	"binance/models"
 	"fmt"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -86,7 +87,7 @@ func (p *Pattern) basePattern(candles []models.Candle) bool {
 func (p *Pattern) patternHammer(candles []models.Candle) bool {
 	// Молот
 
-	if candles[1].Trend() == models.TREND_DOWN &&
+	if candles[1].Trend() == models.TrendDown &&
 		candles[0].UpperShadow().WeightPercent < minPercent &&
 		candles[0].LowerShadow().WeightPercent > maxPercent {
 
@@ -107,7 +108,7 @@ func (p *Pattern) patternHammer(candles []models.Candle) bool {
 func (p *Pattern) patternInvertedHammer(candles []models.Candle) bool {
 	// Перевернутый молот
 
-	if candles[1].Trend() == models.TREND_DOWN &&
+	if candles[1].Trend() == models.TrendDown &&
 		candles[0].UpperShadow().WeightPercent > maxPercent &&
 		candles[0].LowerShadow().WeightPercent < minPercent {
 
@@ -128,19 +129,19 @@ func (p *Pattern) patternInvertedHammer(candles []models.Candle) bool {
 func (p *Pattern) patternThreeWhiteSoldiers(candles []models.Candle) bool {
 	// Три белых солдата
 
-	if candles[2].Trend() == models.TREND_UP &&
+	if candles[2].Trend() == models.TrendUp &&
 		candles[2].LowerShadow().WeightPercent < minPercent &&
 		candles[2].OpenPrice < candles[1].OpenPrice &&
 		candles[2].ClosePrice > candles[1].OpenPrice &&
 		candles[2].MaxPrice < candles[1].ClosePrice &&
 		//
-		candles[1].Trend() == models.TREND_UP &&
+		candles[1].Trend() == models.TrendUp &&
 		candles[1].LowerShadow().WeightPercent < minPercent &&
 		candles[1].OpenPrice < candles[0].OpenPrice &&
 		candles[1].ClosePrice > candles[0].OpenPrice &&
 		candles[1].MaxPrice < candles[0].ClosePrice &&
 		//
-		candles[0].Trend() == models.TREND_UP &&
+		candles[0].Trend() == models.TrendUp &&
 		candles[0].LowerShadow().WeightPercent < minPercent {
 
 		if err := p.tgmController.Send(
@@ -160,10 +161,10 @@ func (p *Pattern) patternThreeWhiteSoldiers(candles []models.Candle) bool {
 func (p *Pattern) patternShootingStar(candles []models.Candle) bool {
 	// Падающая звезда
 
-	if candles[1].Trend() == models.TREND_UP &&
+	if candles[1].Trend() == models.TrendUp &&
 		candles[0].UpperShadow().WeightPercent > maxPercent &&
 		candles[0].LowerShadow().WeightPercent < minPercent &&
-		candles[0].Trend() == models.TREND_DOWN {
+		candles[0].Trend() == models.TrendDown {
 
 		if err := p.tgmController.Send(
 			fmt.Sprintf("[ Pattern Detected ]\n%s\n%+v", "Падающая звезда", candles)); err != nil {
@@ -182,10 +183,10 @@ func (p *Pattern) patternShootingStar(candles []models.Candle) bool {
 func (p *Pattern) patternGallows(candles []models.Candle) bool {
 	//Висельник
 
-	if candles[1].Trend() == models.TREND_UP &&
+	if candles[1].Trend() == models.TrendUp &&
 		candles[0].UpperShadow().WeightPercent < minPercent &&
 		candles[0].LowerShadow().WeightPercent > maxPercent &&
-		candles[0].Trend() == models.TREND_DOWN {
+		candles[0].Trend() == models.TrendDown {
 
 		if err := p.tgmController.Send(
 			fmt.Sprintf("[ Pattern Detected ]\n%s\n%+v", "Висельник", candles)); err != nil {

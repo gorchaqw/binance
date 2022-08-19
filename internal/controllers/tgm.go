@@ -1,14 +1,14 @@
 package controllers
 
-import tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+import tgmBotAPI "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
 type TgmController struct {
-	tgmBot *tgbotapi.BotAPI
+	tgmBot *tgmBotAPI.BotAPI
 	chatID int64
 }
 
 func NewTgmController(
-	tgmBot *tgbotapi.BotAPI,
+	tgmBot *tgmBotAPI.BotAPI,
 	chatID int64,
 ) *TgmController {
 	return &TgmController{
@@ -18,7 +18,7 @@ func NewTgmController(
 }
 
 func (c *TgmController) Send(text string) error {
-	msg := tgbotapi.NewMessage(c.chatID, text)
+	msg := tgmBotAPI.NewMessage(c.chatID, text)
 	msg.DisableWebPagePreview = true
 
 	if _, err := c.tgmBot.Send(msg); err != nil {
@@ -36,8 +36,8 @@ func (c *TgmController) CheckChatID(chatID int64) bool {
 }
 
 func (c *TgmController) Update(msgID int, text string) error {
-	msg := tgbotapi.EditMessageTextConfig{
-		BaseEdit: tgbotapi.BaseEdit{
+	msg := tgmBotAPI.EditMessageTextConfig{
+		BaseEdit: tgmBotAPI.BaseEdit{
 			ChatID:    c.chatID,
 			MessageID: msgID,
 		},
@@ -51,8 +51,8 @@ func (c *TgmController) Update(msgID int, text string) error {
 	return nil
 }
 
-func (c *TgmController) GetUpdates() tgbotapi.UpdatesChannel {
-	u := tgbotapi.NewUpdate(0)
+func (c *TgmController) GetUpdates() tgmBotAPI.UpdatesChannel {
+	u := tgmBotAPI.NewUpdate(0)
 	u.Timeout = 60
 
 	return c.tgmBot.GetUpdatesChan(u)

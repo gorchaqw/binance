@@ -51,3 +51,14 @@ type OrderList struct {
 		StopPrice           string `json:"stopPrice,omitempty"`
 	} `json:"orderReports"`
 }
+
+type PricePlan struct {
+	Quantity               float64
+	ActualPrice            float64
+	ActualPricePercent     float64
+	ActualStopPricePercent float64
+	StopPriceBUY           float64
+	StopPriceSELL          float64
+	PriceBUY               float64
+	PriceSELL              float64
+}

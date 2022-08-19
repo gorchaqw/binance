@@ -1,16 +1,10 @@
 package sqlite
 
 import (
+	"time"
+
 	"binance/models"
 	"github.com/jmoiron/sqlx"
-	"time"
-)
-
-const (
-	ORDER_STATUS_NEW      = "NEW"
-	ORDER_STATUS_CANCELED = "CANCELED"
-	ORDER_STATUS_COMPLETE = "COMPLETE"
-	ORDER_STATUS_FILLED   = "FILLED"
 )
 
 type OrderRepository struct {

@@ -7,9 +7,9 @@ import (
 type Trend string
 
 const (
-	TREND_UP     Trend = "UP"
-	TREND_DOWN   Trend = "DOWN"
-	TREND_MIDDLE Trend = "MIDDLE"
+	TrendUp     Trend = "UP"
+	TrendDown   Trend = "DOWN"
+	TrendMiddle Trend = "MIDDLE"
 )
 
 type Candle struct {
@@ -97,10 +97,10 @@ func (c *Candle) LowerShadow() *Shadow {
 func (c *Candle) Trend() Trend {
 	switch true {
 	case c.ClosePrice > c.OpenPrice:
-		return TREND_UP
+		return TrendUp
 	case c.ClosePrice < c.OpenPrice:
-		return TREND_DOWN
+		return TrendDown
 	default:
-		return TREND_MIDDLE
+		return TrendMiddle
 	}
 }

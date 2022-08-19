@@ -12,14 +12,12 @@ import (
 
 func main() {
 	var app App
-	var confFileName, dbFileName string
+	var confFileName string
 
 	flag.StringVar(&confFileName, "config", ".env", "")
-	flag.StringVar(&dbFileName, "db", "./store.db", "")
 	flag.Parse()
 
 	app.initLogger()
-	app.initCron()
 
 	if err := app.loadConfig(confFileName); err != nil {
 		panic(err)
@@ -75,7 +73,6 @@ func main() {
 		priceRepo,
 		candleRepo,
 		priceUseCase,
-		app.Cron,
 		app.Config.BinanceUrl,
 		app.Logger,
 	)
@@ -93,21 +90,7 @@ func main() {
 		if err := orderUseCase.Monitoring(symbol); err != nil {
 			app.Logger.Error(err)
 		}
-
-		//if err := priceUseCase.Monitoring(symbol); err != nil {
-		//	app.Logger.Error(err)
-		//}
 	}
-
-	//if err := orderUseCase.GetOrder(&structs.Order{
-	//	Symbol:    usecasees.BTCBUSD,
-	//	Side:      "BUY",
-	//	StopPrice: "12345",
-	//}, usecasees.QuantityList[usecasees.BTCBUSD], "MARKET"); err != nil {
-	//	app.Logger.Debug(err)
-	//}
-
-	app.Cron.Start()
 
 	if err := tgmController.Send(fmt.Sprintf("[ Started ]")); err != nil {
 		app.Logger.Error(err)

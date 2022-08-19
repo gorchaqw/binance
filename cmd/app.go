@@ -3,7 +3,6 @@ package main
 import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/jmoiron/sqlx"
-	"github.com/robfig/cron/v3"
 	"github.com/sirupsen/logrus"
 
 	"net/http"
@@ -15,5 +14,4 @@ type App struct {
 	HTTPClient *http.Client
 	TGM        *tgbotapi.BotAPI
 	DB         *sqlx.DB
-	Cron       *cron.Cron
 }
