@@ -5,7 +5,6 @@ import (
 	"binance/internal/repository/sqlite"
 	"binance/internal/usecasees/structs"
 	"binance/models"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -200,41 +199,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 			case <-done:
 				return
 			case _ = <-ticker.C:
-
-				actualPrice, err := u.priceUseCase.GetPrice(symbol)
-				if err != nil {
-					u.logger.
-						WithError(err).
-						Error(string(debug.Stack()))
-				}
-
-				actualPricePercent := actualPrice / 100 * 0.2
-				//actualPricePercent += float64(orderTry)
-
-				actualStopPricePercent := actualPricePercent
-
-				stopPriceBUY := actualPrice + actualStopPricePercent
-				stopPriceSELL := actualPrice - actualStopPricePercent
-
-				priceBUY := actualPrice - actualPricePercent
-				priceSELL := actualPrice + actualPricePercent
-
 				lastOrder, err := u.orderRepo.GetLast(symbol)
 				if err != nil {
-					if err == sql.ErrNoRows {
-						if err := u.GetOrder(&structs.Order{
-							Symbol:    symbol,
-							Side:      SIDE_BUY,
-							Price:     fmt.Sprintf("%.0f", priceBUY),
-							StopPrice: fmt.Sprintf("%.0f", stopPriceBUY),
-						}, quantity, orderTry); err != nil {
-							u.logger.
-								WithError(err).
-								Error(string(debug.Stack()))
-						}
-
-						continue
-					}
 					u.logger.
 						WithError(err).
 						Error(string(debug.Stack()))
@@ -294,6 +260,13 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					}
 				}
 
+				actualPrice, err := u.priceUseCase.GetPrice(symbol)
+				if err != nil {
+					u.logger.
+						WithError(err).
+						Error(string(debug.Stack()))
+				}
+
 				switch lastOrder.Status {
 				case "FILLED":
 					actualPrice = lastOrder.Price
@@ -302,6 +275,17 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				case "NEW":
 					continue
 				}
+
+				actualPricePercent := actualPrice / 100 * 1
+				//actualPricePercent += float64(orderTry)
+
+				actualStopPricePercent := actualPricePercent
+
+				stopPriceBUY := actualPrice + actualStopPricePercent
+				stopPriceSELL := actualPrice - actualStopPricePercent
+
+				priceBUY := actualPrice - actualPricePercent
+				priceSELL := actualPrice + actualPricePercent
 
 				openOrders, err := u.GetOpenOrders(symbol)
 				if err != nil {

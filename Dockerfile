@@ -1,4 +1,3 @@
-# builder image
 FROM golang:1.17-alpine3.14 as builder
 
 RUN apk add --no-cache \
