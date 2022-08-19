@@ -34,21 +34,19 @@ const (
 	BTC  = "BTC"
 	BNB  = "BNB"
 
-	ETHRUB  = "ETHRUB"
-	ETHBUSD = "ETHBUSD"
-	ETHUSDT = "ETHUSDT"
+	ETHRUB  = ETH + RUB
+	ETHBUSD = ETH + BUSD
+	ETHUSDT = ETH + USDT
 
-	BTCRUB  = "BTCRUB"
-	BTCBUSD = "BTCBUSD"
-	BTCUSDT = "BTCUSDT"
+	BTCRUB  = BTC + RUB
+	BTCBUSD = BTC + BUSD
+	BTCUSDT = BTC + USDT
 
-	BNBBUSD = "BNBBUSD"
+	BNBBUSD = BNB + BUSD
 
 	SideSell = "SELL"
 	SideBuy  = "BUY"
-)
 
-const (
 	OrderStatusNew      = "NEW"
 	OrderStatusCanceled = "CANCELED"
 	OrderStatusFilled   = "FILLED"
@@ -85,12 +83,10 @@ var (
 
 	StepList = map[string]float64{
 		BTCBUSD: 0.0005,
-		ETHBUSD: 8,
 	}
 
 	QuantityList = map[string]float64{
 		BTCBUSD: 0.014,
-		ETHBUSD: 0.1,
 	}
 )
 
@@ -210,7 +206,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					}
 				}
 
-				orderList, err := u.GetOrderList(lastOrder.OrderId)
+				orderList, err := u.getOrderList(lastOrder.OrderId)
 				if err != nil {
 					u.logger.
 						WithError(err).
@@ -220,7 +216,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				lastOrderStatus := OrderStatusNew
 
 				for _, o := range orderList.Orders {
-					orderInfo, err := u.GetOrderInfo(o.OrderID, symbol)
+					orderInfo, err := u.getOrderInfo(o.OrderID, symbol)
 					if err != nil {
 						u.logger.
 							WithError(err).
@@ -276,7 +272,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				pricePlan := u.fillPricePlan(actualPrice, quantity)
 
-				openOrders, err := u.GetOpenOrders(symbol)
+				openOrders, err := u.getOpenOrders(symbol)
 				if err != nil {
 					u.logger.
 						WithError(err).
@@ -288,7 +284,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					case SideBuy:
 						go sendStat(pricePlan)
 
-						if err := u.GetOrder(&structs.Order{
+						if err := u.createOrder(&structs.Order{
 							Symbol:    symbol,
 							Side:      SideSell,
 							Price:     fmt.Sprintf("%.0f", pricePlan.PriceSELL),
@@ -302,7 +298,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					case SideSell:
 						go sendStat(pricePlan)
 
-						if err := u.GetOrder(&structs.Order{
+						if err := u.createOrder(&structs.Order{
 							Symbol:    symbol,
 							Side:      SideBuy,
 							Price:     fmt.Sprintf("%.0f", pricePlan.PriceBUY),
@@ -347,7 +343,7 @@ func (u *orderUseCase) initOrder(symbol string, quantity float64, orderTry int) 
 
 	pricePlan := u.fillPricePlan(actualPrice, quantity)
 
-	if err := u.GetOrder(&structs.Order{
+	if err := u.createOrder(&structs.Order{
 		Symbol:    symbol,
 		Side:      SideBuy,
 		Price:     fmt.Sprintf("%.0f", pricePlan.PriceBUY),
@@ -359,7 +355,7 @@ func (u *orderUseCase) initOrder(symbol string, quantity float64, orderTry int) 
 	return nil
 }
 
-func (u *orderUseCase) GetOpenOrders(symbol string) ([]structs.Order, error) {
+func (u *orderUseCase) getOpenOrders(symbol string) ([]structs.Order, error) {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return nil, err
@@ -391,7 +387,7 @@ func (u *orderUseCase) GetOpenOrders(symbol string) ([]structs.Order, error) {
 	return out, nil
 }
 
-func (u *orderUseCase) GetAllOrders(symbol string) error {
+func (u *orderUseCase) getAllOrders(symbol string) error {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return err
@@ -451,7 +447,7 @@ func (u *orderUseCase) GetAllOrders(symbol string) error {
 
 	return nil
 }
-func (u *orderUseCase) GetOrderList(orderListID int64) (*structs.OrderList, error) {
+func (u *orderUseCase) getOrderList(orderListID int64) (*structs.OrderList, error) {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return nil, err
@@ -483,7 +479,7 @@ func (u *orderUseCase) GetOrderList(orderListID int64) (*structs.OrderList, erro
 	return &out, nil
 }
 
-func (u *orderUseCase) GetOrderInfo(orderID int64, symbol string) (*structs.Order, error) {
+func (u *orderUseCase) getOrderInfo(orderID int64, symbol string) (*structs.Order, error) {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return nil, err
@@ -516,7 +512,7 @@ func (u *orderUseCase) GetOrderInfo(orderID int64, symbol string) (*structs.Orde
 	return &out, nil
 }
 
-func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, try int) error {
+func (u *orderUseCase) createOrder(order *structs.Order, quantity float64, try int) error {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return err
@@ -593,7 +589,7 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, try int)
 			return err
 		}
 
-		if err := u.tgmController.Send(fmt.Sprintf("[ Err GetOrder ]\n"+
+		if err := u.tgmController.Send(fmt.Sprintf("[ Err createOrder ]\n"+
 			"Code:\t%d\n"+
 			"Msg:\t%s",
 			errMsg.Code,
@@ -634,7 +630,7 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, try int)
 	return nil
 }
 
-func (u *orderUseCase) Cancel(symbol, orderId string) error {
+func (u *orderUseCase) cancelOrder(symbol, orderId string) error {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return err
