@@ -29,7 +29,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := app.InitDB(dbFileName); err != nil {
+	if err := app.InitDB(); err != nil {
 		panic(err)
 	}
 

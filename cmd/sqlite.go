@@ -5,11 +5,10 @@ import (
 	"log"
 
 	_ "github.com/lib/pq"
-	_ "github.com/mattn/go-sqlite3"
 )
 
-func (a *App) InitDB(dbFileName string) error {
-	db, err := sqlx.Connect("postgres", "user=hello password=hello dbname=postgres sslmode=disable")
+func (a *App) InitDB() error {
+	db, err := sqlx.Connect("postgres", "host=binance-postgres user=binance password=binance dbname=binance sslmode=disable")
 	if err != nil {
 		log.Fatalln(err)
 	}

@@ -5,7 +5,9 @@ import (
 	"binance/internal/repository/sqlite"
 	"binance/internal/usecasees/structs"
 	"binance/models"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/robfig/cron/v3"
 	"github.com/sirupsen/logrus"
@@ -46,19 +48,6 @@ const (
 )
 
 var (
-	TimeFrames = map[string]time.Duration{
-		"15min": 15 * time.Minute,
-		"1h":    1 * time.Hour,
-		"1min":  time.Minute,
-	}
-
-	CRONJobs = map[string]string{
-		"15min": "0,15,30,45 * * * *",
-		"1h":    "0 * * * *",
-		"4h":    "0 0,4,8,12,16,20 * * *",
-		"1min":  "* * * * *",
-	}
-
 	Symbols = map[string][]string{
 		ETHRUB:  {ETH, RUB},
 		ETHBUSD: {ETH, BUSD},
@@ -158,11 +147,52 @@ func NewOrderUseCase(
 }
 
 func (u *orderUseCase) Monitoring(symbol string) error {
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
 	done := make(chan bool)
 
 	quantity := StepList[symbol]
 	orderTry := 1
+
+	type sendStatStruct struct {
+		Side               string
+		Quantity           float64
+		ActualPrice        float64
+		ActualPricePercent float64
+		StopPriceBUY       float64
+		StopPriceSELL      float64
+		PriceBUY           float64
+		PriceSELL          float64
+		OpenOrders         []structs.Order
+		LastOrder          *models.Order
+	}
+
+	sendStat := func(stat *sendStatStruct) {
+		if err := u.tgmController.Send(fmt.Sprintf("[ Stat ]\n"+
+			"side:\t%s\n"+
+			"quantity:\t%.5f\n"+
+			"actualPrice:\t%.5f\n"+
+			"actualPricePercent:\t%.5f\n"+
+			"stopPriceBUY:\t%.2f\n"+
+			"stopPriceSELL:\t%.2f\n"+
+			"priceBUY:\t%.2f\n"+
+			"priceSELL:\t%.2f\n"+
+			"openOrders:\t%+v\n"+
+			"lastOrder:\t%+v\n",
+			stat.Side,
+			stat.Quantity,
+			stat.ActualPrice,
+			stat.ActualPricePercent,
+			stat.StopPriceBUY,
+			stat.StopPriceSELL,
+			stat.PriceBUY,
+			stat.PriceSELL,
+			stat.OpenOrders,
+			stat.LastOrder)); err != nil {
+			u.logger.
+				WithError(err).
+				Error(string(debug.Stack()))
+		}
+	}
 
 	go func() {
 		for {
@@ -170,8 +200,41 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 			case <-done:
 				return
 			case _ = <-ticker.C:
+
+				actualPrice, err := u.priceUseCase.GetPrice(symbol)
+				if err != nil {
+					u.logger.
+						WithError(err).
+						Error(string(debug.Stack()))
+				}
+
+				actualPricePercent := actualPrice / 100 * 0.2
+				//actualPricePercent += float64(orderTry)
+
+				actualStopPricePercent := actualPricePercent
+
+				stopPriceBUY := actualPrice + actualStopPricePercent
+				stopPriceSELL := actualPrice - actualStopPricePercent
+
+				priceBUY := actualPrice - actualPricePercent
+				priceSELL := actualPrice + actualPricePercent
+
 				lastOrder, err := u.orderRepo.GetLast(symbol)
 				if err != nil {
+					if err == sql.ErrNoRows {
+						if err := u.GetOrder(&structs.Order{
+							Symbol:    symbol,
+							Side:      SIDE_BUY,
+							Price:     fmt.Sprintf("%.0f", priceBUY),
+							StopPrice: fmt.Sprintf("%.0f", stopPriceBUY),
+						}, quantity, orderTry); err != nil {
+							u.logger.
+								WithError(err).
+								Error(string(debug.Stack()))
+						}
+
+						continue
+					}
 					u.logger.
 						WithError(err).
 						Error(string(debug.Stack()))
@@ -185,6 +248,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				}
 
 				lastOrderStatus := "NEW"
+
 				for _, o := range orderList.Orders {
 					orderInfo, err := u.GetOrderInfo(o.OrderID, symbol)
 					if err != nil {
@@ -200,6 +264,15 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						if orderInfo.Side == SIDE_SELL {
 							orderTry++
 							quantity = StepList[symbol] * float64(orderTry) * 2
+
+							if quantity > QuantityList[symbol] {
+								orderTry--
+								quantity = StepList[symbol] * float64(orderTry) * 2
+							}
+						}
+
+						if orderInfo.Side == SIDE_BUY {
+							orderTry++
 						}
 
 					case orderInfo.Type == "LIMIT_MAKER" && orderInfo.Status == "FILLED":
@@ -221,6 +294,15 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					}
 				}
 
+				switch lastOrder.Status {
+				case "FILLED":
+					actualPrice = lastOrder.Price
+				case "CANCELED":
+					actualPrice = lastOrder.StopPrice
+				case "NEW":
+					continue
+				}
+
 				openOrders, err := u.GetOpenOrders(symbol)
 				if err != nil {
 					u.logger.
@@ -228,63 +310,22 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						Error(string(debug.Stack()))
 				}
 
-				type sendStatStruct struct {
-					Side          string
-					Quantity      float64
-					ActualPrice   float64
-					StopPriceBUY  float64
-					StopPriceSELL float64
-					PriceBUY      float64
-					PriceSELL     float64
-					OpenOrders    []structs.OrderList
-					LastOrder     *models.Order
-				}
-
-				sendStat := func(stat *sendStatStruct) {
-					if err := u.tgmController.Send(fmt.Sprintf("[ Stat ]\n"+
-						"side:\t%s\n"+
-						"quantity:\t%.5f\n"+
-						"actualPrice:\t%.2f\n"+
-						"stopPriceBUY:\t%.2f\n"+
-						"stopPriceSELL:\t%.2f\n"+
-						"priceBUY:\t%.2f\n"+
-						"priceSELL:\t%.2f\n"+
-						"openOrders:\t%+v\n"+
-						"lastOrder:\t%+v\n",
-						stat.Side,
-						stat.Quantity,
-						stat.ActualPrice,
-						stat.StopPriceBUY,
-						stat.StopPriceSELL,
-						stat.PriceBUY,
-						stat.PriceSELL,
-						stat.OpenOrders,
-						stat.LastOrder)); err != nil {
-						u.logger.
-							WithError(err).
-							Error(string(debug.Stack()))
-					}
-				}
-
-				actualPrice, err := u.priceUseCase.GetPrice(symbol)
-				if err != nil {
-					u.logger.
-						WithError(err).
-						Error(string(debug.Stack()))
-				}
-
-				actualPricePercent := float64(10)
-				actualStopPricePercent := actualPricePercent
-
-				stopPriceBUY := actualPrice + actualStopPricePercent
-				stopPriceSELL := actualPrice - actualStopPricePercent
-
-				priceBUY := actualPrice - actualPricePercent
-				priceSELL := actualPrice + actualPricePercent
-
 				if len(openOrders) == 0 {
 					switch lastOrder.Side {
 					case SIDE_BUY:
+						go sendStat(&sendStatStruct{
+							Side:               SIDE_SELL,
+							Quantity:           quantity,
+							ActualPrice:        actualPrice,
+							ActualPricePercent: actualPricePercent,
+							StopPriceBUY:       stopPriceBUY,
+							StopPriceSELL:      stopPriceSELL,
+							PriceBUY:           priceBUY,
+							PriceSELL:          priceSELL,
+							OpenOrders:         openOrders,
+							LastOrder:          lastOrder,
+						})
+
 						if err := u.GetOrder(&structs.Order{
 							Symbol:    symbol,
 							Side:      SIDE_SELL,
@@ -296,19 +337,20 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 								Error(string(debug.Stack()))
 						}
 
+					case SIDE_SELL:
 						go sendStat(&sendStatStruct{
-							Side:          SIDE_SELL,
-							Quantity:      quantity,
-							ActualPrice:   actualPrice,
-							StopPriceBUY:  stopPriceBUY,
-							StopPriceSELL: stopPriceSELL,
-							PriceBUY:      priceBUY,
-							PriceSELL:     priceSELL,
-							OpenOrders:    openOrders,
-							LastOrder:     lastOrder,
+							Side:               SIDE_BUY,
+							Quantity:           quantity,
+							ActualPrice:        actualPrice,
+							ActualPricePercent: actualPricePercent,
+							StopPriceBUY:       stopPriceBUY,
+							StopPriceSELL:      stopPriceSELL,
+							PriceBUY:           priceBUY,
+							PriceSELL:          priceSELL,
+							OpenOrders:         openOrders,
+							LastOrder:          lastOrder,
 						})
 
-					case SIDE_SELL:
 						if err := u.GetOrder(&structs.Order{
 							Symbol:    symbol,
 							Side:      SIDE_BUY,
@@ -320,40 +362,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 								Error(string(debug.Stack()))
 						}
 
-						go sendStat(&sendStatStruct{
-							Side:          SIDE_BUY,
-							Quantity:      quantity,
-							ActualPrice:   actualPrice,
-							StopPriceBUY:  stopPriceBUY,
-							StopPriceSELL: stopPriceSELL,
-							PriceBUY:      priceBUY,
-							PriceSELL:     priceSELL,
-							OpenOrders:    openOrders,
-							LastOrder:     lastOrder,
-						})
 					}
 				}
-
-				//switch lastOrder.Side {
-				//case SIDE_BUY:
-				//	if actualPrice > lastOrder.StopPrice {
-				//		if err := cancelOrder(lastOrder, symbol, SIDE_BUY, stopPriceBUY, true); err != nil {
-				//			u.logger.
-				//				WithError(err).
-				//				Error(string(debug.Stack()))
-				//			continue
-				//		}
-				//	}
-				//case SIDE_SELL:
-				//	if actualPrice < lastOrder.StopPrice {
-				//		if err := cancelOrder(lastOrder, symbol, SIDE_SELL, stopPriceSELL, true); err != nil {
-				//			u.logger.
-				//				WithError(err).
-				//				Error(string(debug.Stack()))
-				//			continue
-				//		}
-				//	}
-				//}
 			}
 		}
 	}()
@@ -361,33 +371,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 	return nil
 }
 
-func (u *orderUseCase) initSymbol(symbol string) error {
-	stat, err := u.priceUseCase.GetPriceChangeStatistics(symbol)
-	if err != nil {
-		return err
-	}
-
-	weightedAvgPrice, err := strconv.ParseFloat(stat.WeightedAvgPrice, 64)
-	if err != nil {
-		return err
-	}
-
-	if err := u.orderRepo.Store(&models.Order{
-		OrderId:  777,
-		Symbol:   symbol,
-		Side:     SIDE_BUY,
-		Quantity: fmt.Sprintf("%.5f", QuantityList[symbol]),
-		Price:    weightedAvgPrice,
-		Status:   sqlite.ORDER_STATUS_NEW,
-		Try:      1,
-	}); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (u *orderUseCase) GetOpenOrders(symbol string) ([]structs.OrderList, error) {
+func (u *orderUseCase) GetOpenOrders(symbol string) ([]structs.Order, error) {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return nil, err
@@ -410,7 +394,7 @@ func (u *orderUseCase) GetOpenOrders(symbol string) ([]structs.OrderList, error)
 		return nil, err
 	}
 
-	var out []structs.OrderList
+	var out []structs.Order
 
 	if err := json.Unmarshal(req, &out); err != nil {
 		return nil, err
@@ -573,6 +557,11 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, try int)
 		return err
 	}
 
+	type Err struct {
+		Code int    `json:"code"`
+		Msg  string `json:"msg"`
+	}
+
 	type OrderList struct {
 		OrderListID       int64  `json:"orderListId"`
 		ContingencyType   string `json:"contingencyType"`
@@ -604,12 +593,28 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, try int)
 		} `json:"orderReports"`
 	}
 
-	fmt.Printf("%s", req)
-
 	var oList OrderList
+	var errMsg Err
 
 	if err := json.Unmarshal(req, &oList); err != nil {
 		return err
+	}
+
+	if oList.OrderListID == 0 {
+		if err := json.Unmarshal(req, &errMsg); err != nil {
+			return err
+		}
+
+		if err := u.tgmController.Send(fmt.Sprintf("[ Err GetOrder ]\n"+
+			"Code:\t%d\n"+
+			"Msg:\t%s",
+			errMsg.Code,
+			errMsg.Msg,
+		)); err != nil {
+			return err
+		}
+
+		return errors.New(errMsg.Msg)
 	}
 
 	stopPrice, err := strconv.ParseFloat(order.StopPrice, 64)
@@ -617,9 +622,15 @@ func (u *orderUseCase) GetOrder(order *structs.Order, quantity float64, try int)
 		return err
 	}
 
+	price, err := strconv.ParseFloat(order.Price, 64)
+	if err != nil {
+		return err
+	}
+
 	o := models.Order{
 		OrderId:   oList.OrderListID,
 		Symbol:    oList.Symbol,
+		Price:     price,
 		Side:      order.Side,
 		StopPrice: stopPrice,
 		Quantity:  fmt.Sprintf("%.5f", quantity),

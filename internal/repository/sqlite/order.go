@@ -3,6 +3,7 @@ package sqlite
 import (
 	"binance/models"
 	"github.com/jmoiron/sqlx"
+	"time"
 )
 
 const (
@@ -32,11 +33,22 @@ func (r *OrderRepository) Store(m *models.Order) (err error) {
 
 func (r *OrderRepository) GetLast(symbol string) (*models.Order, error) {
 	var order models.Order
-	if err := r.conn.QueryRowx("SELECT * FROM orders WHERE symbol = $1 ORDER BY created_at DESC LIMIT 1", symbol).StructScan(&order); err != nil {
+	if err := r.conn.QueryRowx("SELECT * FROM orders WHERE symbol = $1 AND order_id != 0 ORDER BY id DESC LIMIT 1", symbol).StructScan(&order); err != nil {
 		return nil, err
 	}
 
 	return &order, nil
+}
+
+func (r *OrderRepository) GetLastWithInterval(symbol string, sTime, eTime time.Time) ([]models.Order, error) {
+	var orders []models.Order
+
+	if err := r.conn.Select(&orders, "SELECT * FROM orders where created_at > $1 AND created_at < $2 AND symbol = $3;", sTime.UTC(), eTime.UTC(), symbol); err != nil {
+		return nil, err
+	}
+
+	return orders, nil
+
 }
 
 func (r *OrderRepository) SetActualPrice(id int, price float64) error {

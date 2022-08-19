@@ -5,6 +5,7 @@ import (
 	"binance/internal/repository/sqlite"
 	"fmt"
 	"github.com/sirupsen/logrus"
+	"runtime/debug"
 	"strconv"
 	"time"
 )
@@ -55,8 +56,59 @@ func (u *tgmUseCase) CommandProcessor() {
 				u.statisticsProc()
 			case "calc_balance":
 				u.calculateBalanceProc()
+			case "stat":
+				u.orderStatProc()
 			}
 		}
+	}
+}
+
+func (u *tgmUseCase) orderStatProc() {
+	msg := "[ Orders Stat ]\n\n"
+
+	eTime := time.Now()
+	sTime := eTime.Add(-24 * time.Hour)
+
+	for _, symbol := range SymbolList {
+		orders, err := u.orderRepo.GetLastWithInterval(symbol, sTime, eTime)
+		if err != nil {
+			u.logger.
+				WithError(err).
+				Error(string(debug.Stack()))
+		}
+
+		var canceled, filled float64
+
+		for _, order := range orders {
+			switch order.Status {
+			case "FILLED":
+				filled++
+			case "CANCELED":
+				canceled++
+			}
+		}
+
+		total := canceled + filled
+
+		msg += fmt.Sprintf(
+			"Symbol:\t%s"+
+				"Total:\t%.0f\n"+
+				"Filled:\t%.0f\n"+
+				"Canceled:\t%.0f\n"+
+				"Filled/Canceled:\t%.0f/%.0f\n",
+			symbol,
+			total,
+			filled,
+			canceled,
+			filled/total*100,
+			canceled/total*100,
+		)
+	}
+
+	if err := u.tgmController.Send(msg); err != nil {
+		u.logger.
+			WithError(err).
+			Error(string(debug.Stack()))
 	}
 }
 
