@@ -1,13 +1,14 @@
 package main
 
 import (
-	"binance/internal/controllers"
-	"binance/internal/repository/sqlite"
-	"binance/internal/usecasees"
 	"flag"
 	"fmt"
 	"strconv"
 	"sync"
+
+	"binance/internal/controllers"
+	"binance/internal/repository/sqlite"
+	"binance/internal/usecasees"
 )
 
 func main() {

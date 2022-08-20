@@ -2,10 +2,11 @@ package controllers
 
 import (
 	"bytes"
-	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+
+	"github.com/sirupsen/logrus"
 )
 
 type ClientController struct {
