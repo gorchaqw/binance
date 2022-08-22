@@ -14,6 +14,8 @@ deploy(){
   version=$1
 
   export BINANCE_VERSION=$version
+  export BINANCE_PG_INIT_DB="/root/db.sql"
+
   docker-compose --context firstvds up --force-recreate -d
 }
 

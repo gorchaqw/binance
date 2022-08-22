@@ -7,9 +7,10 @@ services:
       POSTGRES_USER: "binance"
       POSTGRES_PASSWORD: "binance"
     volumes:
-      - /root/db.sql:/docker-entrypoint-initdb.d/db.sql
+      - ${BINANCE_PG_INIT_DB}:/docker-entrypoint-initdb.d/db.sql
     ports:
       - "5432:5432"
+
   binance:
     image: binance/binance:${BINANCE_VERSION}
     depends_on:

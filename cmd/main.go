@@ -24,11 +24,15 @@ func main() {
 		panic(err)
 	}
 
+	if err := app.initLoki(); err != nil {
+		panic(err)
+	}
+
 	if err := app.initTgBot(); err != nil {
 		panic(err)
 	}
 
-	if err := app.InitDB(); err != nil {
+	if err := app.InitDB(app.Config.DB); err != nil {
 		panic(err)
 	}
 

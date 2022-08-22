@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -16,12 +17,22 @@ type Config struct {
 	BinanceUrl1      string
 	BinanceUrl2      string
 	BinanceUrl3      string
+	DB               *DB
+}
+
+type DB struct {
+	Host     string
+	User     string
+	Password string
+	DBName   string
+	SSLMode  string
 }
 
 var ErrEnvNotFound = errors.New("err env not found")
 
 func (a *App) loadConfig(confFileName string) error {
 	var cfg Config
+	var db DB
 
 	err := godotenv.Load(confFileName)
 	if err != nil {
@@ -60,9 +71,40 @@ func (a *App) loadConfig(confFileName string) error {
 		return err
 	}
 
+	if db.Host, err = cfg.set("PG_HOST"); err != nil {
+		return err
+	}
+
+	if db.User, err = cfg.set("PG_USER"); err != nil {
+		return err
+	}
+
+	if db.Password, err = cfg.set("PG_PASSWORD"); err != nil {
+		return err
+	}
+
+	if db.DBName, err = cfg.set("PG_DBNAME"); err != nil {
+		return err
+	}
+
+	if db.SSLMode, err = cfg.set("PG_SSL_MODE"); err != nil {
+		return err
+	}
+
+	cfg.DB = &db
+
 	a.Config = &cfg
 
 	return nil
+}
+
+func (d *DB) DSN() string {
+	return fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=%s",
+		d.Host,
+		d.User,
+		d.Password,
+		d.DBName,
+		d.SSLMode)
 }
 
 func (c *Config) set(key string) (string, error) {
