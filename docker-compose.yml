@@ -11,6 +11,6 @@ services:
     ports:
       - "5432:5432"
   binance:
-    image: binance/binance:0.0.2
+    image: binance/binance:${BINANCE_VERSION}
     depends_on:
       - binance-postgres
