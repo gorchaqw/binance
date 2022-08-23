@@ -16,7 +16,7 @@ deploy(){
   export BINANCE_VERSION=$version
   export BINANCE_PG_INIT_DB="/root/db.sql"
 
-  docker-compose --context firstvds up --force-recreate --remove-orphans -d binance
+  docker-compose --context firstvds up --remove-orphans -d binance
 }
 
 gitRepo(){

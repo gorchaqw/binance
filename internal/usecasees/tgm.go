@@ -65,7 +65,7 @@ func (u *tgmUseCase) CommandProcessor() {
 }
 
 func (u *tgmUseCase) orderStatProc() {
-	msg := "[ Orders Stat ]\n\n"
+	msg := "[ Orders Stat ]\n"
 
 	eTime := time.Now()
 	sTime := eTime.Add(-24 * time.Hour)
