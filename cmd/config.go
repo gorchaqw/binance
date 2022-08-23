@@ -17,6 +17,7 @@ type Config struct {
 	BinanceUrl1      string
 	BinanceUrl2      string
 	BinanceUrl3      string
+	AppPort          string
 	DB               *DB
 }
 
@@ -68,6 +69,10 @@ func (a *App) loadConfig(confFileName string) error {
 	}
 
 	if cfg.BinanceUrl3, err = cfg.set("BINANCE_URL_3"); err != nil {
+		return err
+	}
+
+	if cfg.AppPort, err = cfg.set("APP_PORT"); err != nil {
 		return err
 	}
 

@@ -109,7 +109,7 @@ type orderUseCase struct {
 func NewOrderUseCase(
 	client *controllers.ClientController,
 	crypto *controllers.CryptoController,
-	tgmController *controllers.TgmController,
+	tgm *controllers.TgmController,
 	orderRepo *sqlite.OrderRepository,
 	priceRepo *sqlite.PriceRepository,
 	candleRepo *sqlite.CandleRepository,
@@ -120,7 +120,7 @@ func NewOrderUseCase(
 	return &orderUseCase{
 		clientController: client,
 		cryptoController: crypto,
-		tgmController:    tgmController,
+		tgmController:    tgm,
 		orderRepo:        orderRepo,
 		priceRepo:        priceRepo,
 		candleRepo:       candleRepo,

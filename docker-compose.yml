@@ -15,3 +15,5 @@ services:
     image: binance/binance:${BINANCE_VERSION}
     depends_on:
       - binance-postgres
+    ports:
+      - ${BINANCE_APP_PORT}:8080

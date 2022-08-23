@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"strconv"
-	"sync"
 
 	"binance/internal/controllers"
 	"binance/internal/repository/sqlite"
@@ -36,6 +35,7 @@ func main() {
 		panic(err)
 	}
 
+	app.initFiber()
 	app.initHTTPClient()
 
 	chatId, err := strconv.ParseInt(app.Config.TelegramChatID, 10, 64)
@@ -101,7 +101,9 @@ func main() {
 		app.Logger.Error(err)
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	wg.Wait()
+	app.registerHTTPEndpoints()
+
+	if err := app.Fiber.Listen(fmt.Sprintf(":%s", app.Config.AppPort)); err != nil {
+		panic(err)
+	}
 }
