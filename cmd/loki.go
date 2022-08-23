@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/afiskon/promtail-client/promtail"
 	"time"
+
+	"github.com/afiskon/promtail-client/promtail"
 )
 
 func (a *App) initLoki() error {
@@ -23,7 +24,7 @@ func (a *App) initLoki() error {
 		return err
 	}
 
-	a.Loki = &loki
+	a.Loki = loki
 
 	return nil
 }

@@ -4,10 +4,11 @@ import (
 	"binance/internal/controllers"
 	"binance/internal/repository/sqlite"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"runtime/debug"
 	"strconv"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 type tgmUseCase struct {
@@ -91,7 +92,7 @@ func (u *tgmUseCase) orderStatProc() {
 		total := canceled + filled
 
 		msg += fmt.Sprintf(
-			"Symbol:\t%s"+
+			"Symbol:\t%s\n"+
 				"Total:\t%.0f\n"+
 				"Filled:\t%.0f\n"+
 				"Canceled:\t%.0f\n"+
