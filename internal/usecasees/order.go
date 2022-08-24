@@ -213,7 +213,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						Error(string(debug.Stack()))
 				}
 
-				lastOrderStatus := OrderStatusNew
+				lastOrderStatus := lastOrder.Status
 
 				for _, o := range orderList.Orders {
 					orderInfo, err := u.getOrderInfo(o.OrderID, symbol)
