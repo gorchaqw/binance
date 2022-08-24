@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/jmoiron/sqlx"
@@ -9,8 +8,6 @@ import (
 )
 
 func (a *App) InitDB(dbConfig *DB) error {
-	fmt.Println(dbConfig.DSN())
-
 	db, err := sqlx.Connect("postgres", dbConfig.DSN())
 	if err != nil {
 		log.Fatalln(err)
