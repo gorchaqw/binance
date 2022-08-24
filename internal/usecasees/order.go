@@ -243,12 +243,6 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				}
 
-				if quantity > QuantityList[symbol] {
-					sendLimit(quantity)
-
-					continue
-				}
-
 				if lastOrder.Status != lastOrderStatus {
 					if err := u.orderRepo.SetStatus(lastOrder.ID, lastOrderStatus); err != nil {
 						u.logger.
@@ -257,6 +251,12 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					}
 				}
 
+				if quantity > QuantityList[symbol] {
+					sendLimit(quantity)
+
+					continue
+				}
+				
 				actualPrice := float64(0)
 
 				switch lastOrderStatus {
