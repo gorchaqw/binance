@@ -88,6 +88,8 @@ var (
 	QuantityList = map[string]float64{
 		BTCBUSD: 0.014,
 	}
+
+	deltaOrder = 0.3
 )
 
 type orderUseCase struct {
@@ -322,7 +324,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 func (u *orderUseCase) fillPricePlan(actualPrice, quantity float64) *structs.PricePlan {
 	var out structs.PricePlan
 
-	out.ActualPricePercent = actualPrice / 100 * 0.35
+	out.ActualPricePercent = actualPrice / 100 * deltaOrder
 	out.ActualStopPricePercent = out.ActualPricePercent
 
 	out.StopPriceBUY = actualPrice + out.ActualStopPricePercent
