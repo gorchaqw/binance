@@ -168,3 +168,48 @@ func Test_GetOpenOrders(t *testing.T) {
 	fmt.Printf("%+v", out)
 	fmt.Printf("%+v", len(out))
 }
+
+func Test_Calc(t *testing.T) {
+	k := float64(0.5)
+	priceBUY := float64(21640)
+	money := float64(328)
+	pricePercent := priceBUY / 100 * k
+	priceSELL := priceBUY + pricePercent
+	quantity := 0.0005
+	limit := money / priceBUY
+	count := float64(27)
+	rub := 60.20
+
+	fmt.Printf("limit:\t%.5f\n\n", limit)
+
+	try := 1
+	nQuantity := float64(0)
+
+	for {
+		nQuantity = quantity * float64(try) * 2
+		if nQuantity > limit {
+			return
+		}
+
+		fmt.Printf("[%d] %.5f\n", try, nQuantity)
+
+		buy := priceBUY * nQuantity
+		sell := priceSELL * nQuantity
+		delta := (sell - buy) * 3
+
+		fmt.Printf("buy:\t%.4f\n"+
+			"sell:\t%.4f\n"+
+			"delta:\t%.4f\n"+
+			"delta BUSD:\t%.4f\n"+
+			"total RUB:\t%.4f\n\n",
+			buy,
+			sell,
+			delta,
+			delta*count,
+			delta*count*rub,
+		)
+
+		try++
+	}
+
+}

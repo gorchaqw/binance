@@ -259,7 +259,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				actualPrice := float64(0)
 
-				switch lastOrder.Status {
+				switch lastOrderStatus {
 				case OrderStatusFilled:
 					actualPrice = lastOrder.Price
 				case OrderStatusCanceled:
@@ -321,7 +321,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 func (u *orderUseCase) fillPricePlan(actualPrice, quantity float64) *structs.PricePlan {
 	var out structs.PricePlan
 
-	out.ActualPricePercent = actualPrice / 100 * 0.5
+	out.ActualPricePercent = actualPrice / 100 * 0.4
 	out.ActualStopPricePercent = out.ActualPricePercent
 
 	out.StopPriceBUY = actualPrice + out.ActualStopPricePercent
