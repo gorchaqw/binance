@@ -170,7 +170,7 @@ func Test_GetOpenOrders(t *testing.T) {
 }
 
 func Test_Calc(t *testing.T) {
-	k := float64(0.5)
+	k := float64(0.35)
 	priceBUY := float64(21640)
 	money := float64(328)
 	pricePercent := priceBUY / 100 * k

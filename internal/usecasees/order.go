@@ -249,6 +249,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							WithError(err).
 							Error(string(debug.Stack()))
 					}
+					lastOrder.Status = lastOrderStatus
 				}
 
 				if quantity > QuantityList[symbol] {
@@ -256,10 +257,10 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 					continue
 				}
-				
+
 				actualPrice := float64(0)
 
-				switch lastOrderStatus {
+				switch lastOrder.Status {
 				case OrderStatusFilled:
 					actualPrice = lastOrder.Price
 				case OrderStatusCanceled:
