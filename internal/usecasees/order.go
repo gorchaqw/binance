@@ -67,7 +67,8 @@ var (
 	}
 
 	SymbolList = []string{
-		BTCBUSD,
+		ETHRUB,
+		//BTCBUSD,
 	}
 
 	SpotURLs = map[string]string{
@@ -83,11 +84,13 @@ var (
 	}
 
 	StepList = map[string]float64{
-		BTCBUSD: 0.0005,
+		//BTCBUSD: 0.0005,
+		ETHRUB: 0.0065,
 	}
 
 	QuantityList = map[string]float64{
-		BTCBUSD: 0.014,
+		//BTCBUSD: 0.014,
+		ETHRUB: 0.19,
 	}
 
 	deltaOrder = 0.5
