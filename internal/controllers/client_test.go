@@ -249,10 +249,13 @@ func Test_Calc(t *testing.T) {
 	nQuantity := float64(0)
 
 	for {
-
-		nQuantity = 2 * quantity * (float64(try) - 1)
-		if nQuantity > limit {
-			return
+		if try == 1 {
+			nQuantity = quantity
+		} else {
+			nQuantity = 2 * quantity * (float64(try) - 1)
+			if nQuantity > limit {
+				return
+			}
 		}
 
 		fmt.Printf("[%d] %.5f\n", try, nQuantity)
@@ -261,8 +264,6 @@ func Test_Calc(t *testing.T) {
 		sell := priceSELL * nQuantity
 
 		profit := sell - buy
-
-		//0.0320
 
 		fmt.Printf("buy price:\t%.4f\n"+
 			"sell price:\t%.4f\n"+
