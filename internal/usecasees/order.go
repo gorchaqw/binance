@@ -143,7 +143,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 	sendBalance := func(balance float64) {
 		if err := u.tgmController.Send(fmt.Sprintf("[ Balance ]\n"+
-			"t%.5f BUSD",
+			"%.5f BUSD",
 			balance)); err != nil {
 			u.logger.
 				WithError(err).

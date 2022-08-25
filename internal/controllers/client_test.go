@@ -90,7 +90,37 @@ func Test_GetOrderList(t *testing.T) {
 	var out structs.OrderList
 
 	assert.NoError(t, json.Unmarshal(req, &out))
+}
 
+func Test_Wallet(t *testing.T) {
+	client := &http.Client{}
+	apiKey := "40A1YfOXYUm85x5slZCL6TcVdB6S8im024Uk5t7Mmj2rQJ2DB0FBSWIpaOB9Zd7J"
+	logger := logrus.New()
+	secretKey := "H6kbAHyGNNUdpp1aFEQpqwcQgDLTEWCe45W46vDcWGRtcZuKLJ2g52MdqC6QjuI5"
+	baseURL, err := url.Parse("https://api.binance.com/sapi/v1/accountSnapshot")
+	assert.NoError(t, err)
+
+	cryptoController := controllers.NewCryptoController(secretKey)
+	clientController := controllers.NewClientController(
+		client,
+		apiKey,
+		logger,
+	)
+
+	q := baseURL.Query()
+	q.Set("type", fmt.Sprintf("%s", "SPOT"))
+	q.Set("recvWindow", "60000")
+	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Add(time.Second*60).Unix()))
+
+	sig := cryptoController.GetSignature(q.Encode())
+	q.Set("signature", sig)
+
+	baseURL.RawQuery = q.Encode()
+
+	req, err := clientController.Send(http.MethodGet, baseURL, nil, true)
+	assert.NoError(t, err)
+
+	fmt.Printf("%s", req)
 }
 
 func Test_GetOrderInfo(t *testing.T) {
@@ -177,7 +207,7 @@ func Test_Calc(t *testing.T) {
 	priceSELL := priceBUY + pricePercent
 	quantity := 0.0005
 	limit := money / priceBUY
-	count := float64(1)
+	count := float64(20)
 	rub := 60.20
 
 	fmt.Printf("limit:\t%.5f\n\n", limit)
