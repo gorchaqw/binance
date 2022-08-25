@@ -6,6 +6,7 @@ import (
 	"binance/internal/usecasees/structs"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"testing"
@@ -234,6 +235,17 @@ func Test_GetOpenOrders(t *testing.T) {
 	fmt.Printf("%+v", len(out))
 }
 
+func Test_POW(t *testing.T) {
+	quantity := 0.0005
+
+	x := quantity * 2
+	y := 3
+
+	nQuantity := math.Pow(x, float64(y))
+
+	fmt.Printf("%.10f", nQuantity)
+}
+
 func Test_Calc(t *testing.T) {
 	priceBUY := float64(21640)
 	priceSELL := float64(21704)
@@ -252,7 +264,8 @@ func Test_Calc(t *testing.T) {
 		if try == 1 {
 			nQuantity = quantity
 		} else {
-			nQuantity = 2 * quantity * (float64(try) - 1)
+			nQuantity = nQuantity + nQuantity
+
 			if nQuantity > limit {
 				return
 			}

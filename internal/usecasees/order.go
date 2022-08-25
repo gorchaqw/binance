@@ -89,7 +89,7 @@ var (
 		BTCBUSD: 0.014,
 	}
 
-	deltaOrder = 0.25
+	deltaOrder = 0.5
 )
 
 type orderUseCase struct {
@@ -139,17 +139,17 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 	orderTry := 1
 	quantity := StepList[symbol]
 
-	var balance float64
-
-	sendBalance := func(balance float64) {
-		if err := u.tgmController.Send(fmt.Sprintf("[ Balance ]\n"+
-			"%.5f BUSD",
-			balance)); err != nil {
-			u.logger.
-				WithError(err).
-				Error(string(debug.Stack()))
-		}
-	}
+	//var balance float64
+	//
+	//sendBalance := func(balance float64) {
+	//	if err := u.tgmController.Send(fmt.Sprintf("[ Balance ]\n"+
+	//		"%.5f BUSD",
+	//		balance)); err != nil {
+	//		u.logger.
+	//			WithError(err).
+	//			Error(string(debug.Stack()))
+	//	}
+	//}
 
 	sendOrderInfo := func(order *models.Order) {
 		if err := u.tgmController.Send(fmt.Sprintf("[ Last Order ]\n"+
@@ -246,7 +246,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						orderTry++
 
 						if orderInfo.Side == SideSell {
-							quantity = 2 * StepList[symbol] * (float64(orderTry) - 1)
+							quantity += quantity
 						}
 
 					case orderInfo.Type == "LIMIT_MAKER" && orderInfo.Status == OrderStatusFilled:
@@ -255,9 +255,6 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						if orderInfo.Side == SideSell {
 							orderTry = 1
 							quantity = StepList[symbol]
-							balance += (lastOrder.Price - lastOrder.ActualPrice) * quantity
-
-							sendBalance(balance)
 						}
 					}
 
