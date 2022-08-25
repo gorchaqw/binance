@@ -138,6 +138,17 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 	quantity := StepList[symbol]
 	orderTry := 1
+	balance := float64(0)
+
+	sendBalance := func(balance float64) {
+		if err := u.tgmController.Send(fmt.Sprintf("[ Balance ]\n"+
+			"t%.5f",
+			balance)); err != nil {
+			u.logger.
+				WithError(err).
+				Error(string(debug.Stack()))
+		}
+	}
 
 	sendOrderInfo := func(order *models.Order) {
 		if err := u.tgmController.Send(fmt.Sprintf("[ Last Order ]\n"+
@@ -240,6 +251,9 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						if orderInfo.Side == SideSell {
 							orderTry = 1
 							quantity = StepList[symbol]
+							balance += (lastOrder.ActualPrice - lastOrder.Price) * quantity
+
+							sendBalance(balance)
 						}
 					}
 
@@ -292,7 +306,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							Side:      SideSell,
 							Price:     fmt.Sprintf("%.0f", pricePlan.PriceSELL),
 							StopPrice: fmt.Sprintf("%.0f", pricePlan.StopPriceSELL),
-						}, quantity, orderTry); err != nil {
+						}, quantity, actualPrice, orderTry); err != nil {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -306,7 +320,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							Side:      SideBuy,
 							Price:     fmt.Sprintf("%.0f", pricePlan.PriceBUY),
 							StopPrice: fmt.Sprintf("%.0f", pricePlan.StopPriceBUY),
-						}, quantity, orderTry); err != nil {
+						}, quantity, actualPrice, orderTry); err != nil {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -351,7 +365,7 @@ func (u *orderUseCase) initOrder(symbol string, quantity float64, orderTry int) 
 		Side:      SideBuy,
 		Price:     fmt.Sprintf("%.0f", pricePlan.PriceBUY),
 		StopPrice: fmt.Sprintf("%.0f", pricePlan.StopPriceBUY),
-	}, quantity, orderTry); err != nil {
+	}, quantity, actualPrice, orderTry); err != nil {
 		return err
 	}
 
@@ -515,7 +529,7 @@ func (u *orderUseCase) getOrderInfo(orderID int64, symbol string) (*structs.Orde
 	return &out, nil
 }
 
-func (u *orderUseCase) createOrder(order *structs.Order, quantity float64, try int) error {
+func (u *orderUseCase) createOrder(order *structs.Order, quantity, actualPrice float64, try int) error {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return err
@@ -615,15 +629,16 @@ func (u *orderUseCase) createOrder(order *structs.Order, quantity float64, try i
 	}
 
 	o := models.Order{
-		OrderId:   oList.OrderListID,
-		Symbol:    oList.Symbol,
-		Price:     price,
-		Side:      order.Side,
-		StopPrice: stopPrice,
-		Quantity:  fmt.Sprintf("%.5f", quantity),
-		Type:      "OCO",
-		Status:    "NEW",
-		Try:       try,
+		OrderId:     oList.OrderListID,
+		Symbol:      oList.Symbol,
+		ActualPrice: actualPrice,
+		Price:       price,
+		Side:        order.Side,
+		StopPrice:   stopPrice,
+		Quantity:    fmt.Sprintf("%.5f", quantity),
+		Type:        "OCO",
+		Status:      "NEW",
+		Try:         try,
 	}
 
 	if err := u.orderRepo.Store(&o); err != nil {
