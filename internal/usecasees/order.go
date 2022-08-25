@@ -220,15 +220,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					}
 				}
 
-				lastOrderQuantity, err := strconv.ParseFloat(lastOrder.Quantity, 64)
-				if err != nil {
-					u.logger.
-						WithError(err).
-						Error(string(debug.Stack()))
-				}
-
 				orderTry = lastOrder.Try
-				quantity = lastOrderQuantity
+				quantity = lastOrder.Quantity
 
 				orderList, err := u.getOrderList(lastOrder.OrderId)
 				if err != nil {
@@ -651,7 +644,7 @@ func (u *orderUseCase) createOrder(order *structs.Order, quantity, actualPrice f
 		Price:       price,
 		Side:        order.Side,
 		StopPrice:   stopPrice,
-		Quantity:    fmt.Sprintf("%.5f", quantity),
+		Quantity:    quantity,
 		Type:        "OCO",
 		Status:      "NEW",
 		Try:         try,
