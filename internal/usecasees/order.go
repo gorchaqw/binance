@@ -142,7 +142,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 	sendBalance := func(balance float64) {
 		if err := u.tgmController.Send(fmt.Sprintf("[ Balance ]\n"+
-			"t%.5f",
+			"t%.5f BUSD",
 			balance)); err != nil {
 			u.logger.
 				WithError(err).
@@ -251,7 +251,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						if orderInfo.Side == SideSell {
 							orderTry = 1
 							quantity = StepList[symbol]
-							balance += (lastOrder.ActualPrice - lastOrder.Price) * quantity
+							balance += (lastOrder.Price - lastOrder.ActualPrice) * quantity
 
 							sendBalance(balance)
 						}
