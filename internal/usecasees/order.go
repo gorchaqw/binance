@@ -137,7 +137,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 	done := make(chan bool)
 
 	orderTry := 1
-	quantity := StepList[symbol] * float64(orderTry) * 2
+	quantity := StepList[symbol]
 
 	var balance float64
 
@@ -246,7 +246,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						orderTry++
 
 						if orderInfo.Side == SideSell {
-							quantity = StepList[symbol] * float64(orderTry) * 2
+							quantity = 2 * StepList[symbol] * (float64(orderTry) - 1)
 						}
 
 					case orderInfo.Type == "LIMIT_MAKER" && orderInfo.Status == OrderStatusFilled:
@@ -254,7 +254,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 						if orderInfo.Side == SideSell {
 							orderTry = 1
-							quantity = StepList[symbol] * float64(orderTry) * 2
+							quantity = StepList[symbol]
 							balance += (lastOrder.Price - lastOrder.ActualPrice) * quantity
 
 							sendBalance(balance)

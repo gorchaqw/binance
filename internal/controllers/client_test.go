@@ -250,7 +250,7 @@ func Test_Calc(t *testing.T) {
 
 	for {
 
-		nQuantity = quantity * float64(try) * 2
+		nQuantity = 2 * quantity * (float64(try) - 1)
 		if nQuantity > limit {
 			return
 		}
