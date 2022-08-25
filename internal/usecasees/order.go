@@ -138,7 +138,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 	quantity := StepList[symbol]
 	orderTry := 1
-	balance := float64(0)
+
+	var balance float64
 
 	sendBalance := func(balance float64) {
 		if err := u.tgmController.Send(fmt.Sprintf("[ Balance ]\n"+
@@ -274,7 +275,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					continue
 				}
 
-				actualPrice := float64(0)
+				var actualPrice float64
 
 				switch lastOrder.Status {
 				case OrderStatusFilled:

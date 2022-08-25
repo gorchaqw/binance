@@ -11,6 +11,10 @@ RUN go build -o binance ./cmd/
 
 
 FROM alpine:3.14
+
+RUN apk add --no-cache tzdata
+ENV TZ=Europe/Moscow
+
 COPY --from=builder /project/binance .
 COPY --from=builder /project/.env .
 
