@@ -136,8 +136,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 	ticker := time.NewTicker(2 * time.Second)
 	done := make(chan bool)
 
-	quantity := StepList[symbol]
 	orderTry := 1
+	quantity := StepList[symbol] * float64(orderTry) * 2
 
 	var balance float64
 
@@ -254,7 +254,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 						if orderInfo.Side == SideSell {
 							orderTry = 1
-							quantity = StepList[symbol]
+							quantity = StepList[symbol] * float64(orderTry) * 2
 							balance += (lastOrder.Price - lastOrder.ActualPrice) * quantity
 
 							sendBalance(balance)
