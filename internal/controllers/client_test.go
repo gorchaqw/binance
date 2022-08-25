@@ -236,14 +236,18 @@ func Test_GetOpenOrders(t *testing.T) {
 }
 
 func Test_POW(t *testing.T) {
-	quantity := 0.0005
+	quantity := float64(0.0005)
 
-	x := quantity * 2
-	y := 3
+	x := float64(2)
 
-	nQuantity := math.Pow(x, float64(y))
+	for y := 1; y < 10; y++ {
+		n := y - 1
+		nQuantity := math.Pow(x, float64(n))
+		//fmt.Printf("%.0f\n", nQuantity)
 
-	fmt.Printf("%.10f", nQuantity)
+		fmt.Printf("n:%d %.4f\n", y, quantity*nQuantity)
+	}
+
 }
 
 func Test_Calc(t *testing.T) {
@@ -264,7 +268,7 @@ func Test_Calc(t *testing.T) {
 		if try == 1 {
 			nQuantity = quantity
 		} else {
-			nQuantity = nQuantity + nQuantity
+			nQuantity *= 2
 
 			if nQuantity > limit {
 				return

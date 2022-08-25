@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"path"
@@ -246,7 +247,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						orderTry++
 
 						if orderInfo.Side == SideSell {
-							quantity += quantity
+							quantity = StepList[symbol] * math.Pow(2, float64(orderTry-1))
 						}
 
 					case orderInfo.Type == "LIMIT_MAKER" && orderInfo.Status == OrderStatusFilled:
