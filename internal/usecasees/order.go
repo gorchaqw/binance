@@ -89,7 +89,7 @@ var (
 		BTCBUSD: 0.014,
 	}
 
-	deltaOrder = 0.3
+	deltaOrder = 0.25
 )
 
 type orderUseCase struct {
@@ -220,6 +220,16 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					}
 				}
 
+				lastOrderQuantity, err := strconv.ParseFloat(lastOrder.Quantity, 64)
+				if err != nil {
+					u.logger.
+						WithError(err).
+						Error(string(debug.Stack()))
+				}
+
+				orderTry = lastOrder.Try
+				quantity = lastOrderQuantity
+
 				orderList, err := u.getOrderList(lastOrder.OrderId)
 				if err != nil {
 					u.logger.
@@ -266,7 +276,12 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							WithError(err).
 							Error(string(debug.Stack()))
 					}
-					lastOrder.Status = lastOrderStatus
+
+					if lastOrder, err = u.orderRepo.GetByID(lastOrder.ID); err != nil {
+						u.logger.
+							WithError(err).
+							Error(string(debug.Stack()))
+					}
 				}
 
 				if quantity > QuantityList[symbol] {

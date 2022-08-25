@@ -35,6 +35,15 @@ func (r *OrderRepository) GetLast(symbol string) (*models.Order, error) {
 	return &order, nil
 }
 
+func (r *OrderRepository) GetByID(id int) (*models.Order, error) {
+	var order models.Order
+	if err := r.conn.QueryRowx("SELECT * FROM orders WHERE id = $1 LIMIT 1", id).StructScan(&order); err != nil {
+		return nil, err
+	}
+
+	return &order, nil
+}
+
 func (r *OrderRepository) GetLastWithInterval(symbol string, sTime, eTime time.Time) ([]models.Order, error) {
 	var orders []models.Order
 
@@ -48,6 +57,14 @@ func (r *OrderRepository) GetLastWithInterval(symbol string, sTime, eTime time.T
 
 func (r *OrderRepository) SetActualPrice(id int, price float64) error {
 	if _, err := r.conn.Exec("UPDATE orders SET price = $1 where id = $2;", price, id); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *OrderRepository) SetTry(id, try int) error {
+	if _, err := r.conn.Exec("UPDATE orders SET try = $1 where id = $2;", try, id); err != nil {
 		return err
 	}
 

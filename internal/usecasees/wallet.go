@@ -76,11 +76,12 @@ func (u *walletUseCase) Snapshot() (*structs.WalletSnapshot, error) {
 	return &out, nil
 }
 
-func (u *walletUseCase) GetAllCoins() error {
+func (u *walletUseCase) GetAllCoins() (*structs.WalletGetAllCoins, error) {
+	var out structs.WalletGetAllCoins
 
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	baseURL.Path = path.Join(walletUrlPath)
@@ -94,25 +95,14 @@ func (u *walletUseCase) GetAllCoins() error {
 
 	baseURL.RawQuery = q.Encode()
 
-	ticker := time.NewTicker(10 * time.Second)
-	done := make(chan bool)
-	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			case t := <-ticker.C:
-				req, err := u.clientController.Send(http.MethodGet, baseURL, nil, true)
-				if err != nil {
-					u.logger.WithField("method", "GetAllCoins").Debug(err)
-				}
+	req, err := u.clientController.Send(http.MethodGet, baseURL, nil, true)
+	if err != nil {
+		u.logger.WithField("method", "GetAllCoins").Debug(err)
+	}
 
-				if err := u.tgmController.Send(fmt.Sprintf("%s\n%s", req, t.Format(time.RFC822))); err != nil {
-					u.logger.WithField("method", "GetAllCoins").Debug(err)
-				}
-			}
-		}
-	}()
+	if err := json.Unmarshal(req, &out); err != nil {
+		return nil, err
+	}
 
-	return nil
+	return &out, nil
 }
