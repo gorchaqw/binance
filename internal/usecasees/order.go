@@ -89,7 +89,7 @@ var (
 		BTCBUSD: 0.014,
 	}
 
-	deltaOrder = 0.25
+	deltaOrder = 0.27
 )
 
 type orderUseCase struct {
