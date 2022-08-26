@@ -197,7 +197,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				if err != nil {
 					switch err {
 					case sql.ErrNoRows:
-						if err := u.initOrder(symbol, quantity, settings.Delta, orderTry); err != nil {
+						if err := u.initOrder(sendStat, symbol, quantity, settings.Delta, orderTry); err != nil {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -348,7 +348,7 @@ func (u *orderUseCase) fillPricePlan(actualPrice, quantity, deltaOrder float64) 
 	return &out
 }
 
-func (u *orderUseCase) initOrder(symbol string, quantity, deltaOrder float64, orderTry int) error {
+func (u *orderUseCase) initOrder(sendStat func(stat *structs.PricePlan), symbol string, quantity, deltaOrder float64, orderTry int) error {
 	actualPrice, err := u.priceUseCase.GetPrice(symbol)
 	if err != nil {
 		return err
@@ -364,6 +364,8 @@ func (u *orderUseCase) initOrder(symbol string, quantity, deltaOrder float64, or
 	}, quantity, actualPrice, orderTry); err != nil {
 		return err
 	}
+
+	sendStat(pricePlan)
 
 	return nil
 }
