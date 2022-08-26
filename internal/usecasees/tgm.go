@@ -2,7 +2,7 @@ package usecasees
 
 import (
 	"binance/internal/controllers"
-	"binance/internal/repository/sqlite"
+	"binance/internal/repository/postgres"
 	"fmt"
 	"runtime/debug"
 	"strconv"
@@ -15,7 +15,7 @@ type tgmUseCase struct {
 	priceUseCase  *priceUseCase
 	orderUseCase  *orderUseCase
 	tgmController *controllers.TgmController
-	orderRepo     *sqlite.OrderRepository
+	orderRepo     *postgres.OrderRepository
 	logger        *logrus.Logger
 }
 
@@ -23,7 +23,7 @@ func NewTgmUseCase(
 	priceUseCase *priceUseCase,
 	orderUseCase *orderUseCase,
 	tgmController *controllers.TgmController,
-	orderRepo *sqlite.OrderRepository,
+	orderRepo *postgres.OrderRepository,
 	logger *logrus.Logger,
 ) *tgmUseCase {
 	return &tgmUseCase{

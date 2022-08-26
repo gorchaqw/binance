@@ -1,7 +1,8 @@
-package sqlite
+package postgres
 
 import (
 	"binance/models"
+
 	"github.com/jmoiron/sqlx"
 )
 

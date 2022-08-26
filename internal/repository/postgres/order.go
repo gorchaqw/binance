@@ -1,4 +1,4 @@
-package sqlite
+package postgres
 
 import (
 	"time"
@@ -19,7 +19,7 @@ func NewOrderRepository(conn *sqlx.DB) *OrderRepository {
 }
 
 func (r *OrderRepository) Store(m *models.Order) (err error) {
-	if _, err := r.conn.NamedExec("INSERT INTO orders (order_id,symbol,side,quantity,actual_price,price,stop_price,status,type,try) VALUES (:order_id,:symbol,:side,:quantity,:actual_price,:price,:stop_price,:status,:type,:try)", m); err != nil {
+	if _, err := r.conn.NamedExec("INSERT INTO orders (order_id,session_id,symbol,side,quantity,actual_price,price,stop_price,status,type,try) VALUES (:order_id,:session_id,:symbol,:side,:quantity,:actual_price,:price,:stop_price,:status,:type,:try)", m); err != nil {
 		return err
 	}
 
@@ -28,7 +28,7 @@ func (r *OrderRepository) Store(m *models.Order) (err error) {
 
 func (r *OrderRepository) GetLast(symbol string) (*models.Order, error) {
 	var order models.Order
-	if err := r.conn.QueryRowx("SELECT * FROM orders WHERE symbol = $1 AND order_id != 0 ORDER BY id DESC LIMIT 1", symbol).StructScan(&order); err != nil {
+	if err := r.conn.QueryRowx("SELECT * FROM orders WHERE symbol = $1 ORDER BY id DESC LIMIT 1", symbol).StructScan(&order); err != nil {
 		return nil, err
 	}
 

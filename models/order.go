@@ -4,7 +4,8 @@ import "time"
 
 type Order struct {
 	ID          int       `db:"id" json:"id,omitempty"`
-	OrderId     int64     `db:"order_id" json:"order_id,omitempty"`
+	OrderID     int64     `db:"order_id" json:"order_id,omitempty"`
+	SessionID   string    `db:"session_id" json:"session_id,omitempty"`
 	Symbol      string    `db:"symbol" json:"symbol,omitempty"`
 	Side        string    `db:"side" json:"side,omitempty"`
 	Quantity    float64   `db:"quantity" json:"quantity,omitempty"`

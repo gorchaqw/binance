@@ -1,13 +1,13 @@
 package main
 
 import (
+	"binance/internal/controllers"
 	"binance/internal/repository/mongo"
+	"binance/internal/repository/postgres"
 	"flag"
 	"fmt"
 	"strconv"
 
-	"binance/internal/controllers"
-	"binance/internal/repository/sqlite"
 	"binance/internal/usecasees"
 )
 
@@ -49,9 +49,9 @@ func main() {
 	}
 
 	// Init Repository
-	priceRepo := sqlite.NewPriceRepository(app.DB)
-	orderRepo := sqlite.NewOrderRepository(app.DB)
-	candleRepo := sqlite.NewCandlesRepository(app.DB)
+	priceRepo := postgres.NewPriceRepository(app.DB)
+	orderRepo := postgres.NewOrderRepository(app.DB)
+	candleRepo := postgres.NewCandlesRepository(app.DB)
 	mongoRepo := mongo.NewSettingsRepository(app.Mongo)
 
 	if err := mongoRepo.SetDefault(); err != nil {

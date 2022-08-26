@@ -2,7 +2,7 @@ package usecasees
 
 import (
 	"binance/internal/controllers"
-	"binance/internal/repository/sqlite"
+	"binance/internal/repository/postgres"
 	"binance/models"
 	"encoding/json"
 	"net/http"
@@ -23,7 +23,7 @@ type priceUseCase struct {
 	clientController *controllers.ClientController
 	tgmController    *controllers.TgmController
 
-	priceRepo *sqlite.PriceRepository
+	priceRepo *postgres.PriceRepository
 
 	url string
 
@@ -33,7 +33,7 @@ type priceUseCase struct {
 func NewPriceUseCase(
 	client *controllers.ClientController,
 	tgm *controllers.TgmController,
-	priceRepo *sqlite.PriceRepository,
+	priceRepo *postgres.PriceRepository,
 	url string,
 	logger *logrus.Logger,
 ) *priceUseCase {
