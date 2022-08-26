@@ -331,6 +331,9 @@ func (u *orderUseCase) initOrder(sendStat func(stat *structs.PricePlan), symbol 
 
 	pricePlan := u.fillPricePlan(actualPrice, quantity, deltaOrder, orderTry)
 
+	fmt.Println(pricePlan)
+	fmt.Println(symbol)
+
 	if err := u.createOrder(&structs.Order{
 		Symbol:    symbol,
 		Side:      SideBuy,
