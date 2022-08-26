@@ -254,7 +254,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				go sendOrderInfo(lastOrder)
 
-				pricePlan := u.fillPricePlan(actualPrice, quantity, settings.Delta)
+				pricePlan := u.fillPricePlan(actualPrice, quantity, settings.Delta, orderTry)
 
 				openOrders, err := u.getOpenOrders(symbol)
 				if err != nil {
@@ -302,10 +302,10 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 	return nil
 }
 
-func (u *orderUseCase) fillPricePlan(actualPrice, quantity, deltaOrder float64) *structs.PricePlan {
+func (u *orderUseCase) fillPricePlan(actualPrice, quantity, deltaOrder float64, orderTry int) *structs.PricePlan {
 	var out structs.PricePlan
 
-	out.ActualPricePercent = actualPrice / 100 * deltaOrder
+	out.ActualPricePercent = actualPrice / 100 * (deltaOrder + (0.025 * float64(orderTry)))
 	out.ActualStopPricePercent = out.ActualPricePercent
 
 	out.StopPriceBUY = actualPrice + out.ActualStopPricePercent
@@ -325,7 +325,7 @@ func (u *orderUseCase) initOrder(sendStat func(stat *structs.PricePlan), symbol 
 		return err
 	}
 
-	pricePlan := u.fillPricePlan(actualPrice, quantity, deltaOrder)
+	pricePlan := u.fillPricePlan(actualPrice, quantity, deltaOrder, orderTry)
 
 	if err := u.createOrder(&structs.Order{
 		Symbol:    symbol,
