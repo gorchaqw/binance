@@ -51,8 +51,6 @@ func (u *tgmUseCase) CommandProcessor() {
 				u.setAvgProc(loc)
 			case "ping":
 				u.pingProc(loc)
-			case "last":
-				u.lastProc(loc)
 			case "stat":
 				u.orderStatProc()
 			}
@@ -177,32 +175,4 @@ func (u *tgmUseCase) pingProc(loc *time.Location) {
 		)); err != nil {
 		u.logger.WithField("method", "pingProc").Debug(err)
 	}
-}
-
-func (u *tgmUseCase) lastProc(loc *time.Location) {
-	var msg string
-	for _, symbol := range SymbolList {
-		order, err := u.orderRepo.GetLast(symbol)
-		if err != nil {
-			u.logger.WithField("method", "lastProc").Debug(err)
-		}
-
-		msg += fmt.Sprintf(
-			"Symbol:\t%s\n"+
-				"Order Price:\t%.2f\n"+
-				"Order Side:\t%s\n"+
-				"URL:\t%s\n"+
-				"Order CreatedAt:\t%s\n\n",
-			symbol,
-			order.Price,
-			order.Side,
-			SpotURLs[symbol],
-			order.CreatedAt.In(loc).Format(time.RFC822),
-		)
-	}
-
-	if err := u.tgmController.Send(msg); err != nil {
-		u.logger.WithField("method", "lastProc").Debug(err)
-	}
-
 }

@@ -32,19 +32,9 @@ const (
 	ETH  = "ETH"
 	RUB  = "RUB"
 	BUSD = "BUSD"
-	USDT = "USDT"
-	BTC  = "BTC"
-	BNB  = "BNB"
 
 	ETHRUB  = ETH + RUB
 	ETHBUSD = ETH + BUSD
-	ETHUSDT = ETH + USDT
-
-	BTCRUB  = BTC + RUB
-	BTCBUSD = BTC + BUSD
-	BTCUSDT = BTC + USDT
-
-	BNBBUSD = BNB + BUSD
 
 	SideSell = "SELL"
 	SideBuy  = "BUY"
@@ -55,33 +45,8 @@ const (
 )
 
 var (
-	Symbols = map[string][]string{
-		ETHRUB:  {ETH, RUB},
-		ETHBUSD: {ETH, BUSD},
-		ETHUSDT: {ETH, USDT},
-
-		BTCRUB:  {BTC, RUB},
-		BTCBUSD: {BTC, BUSD},
-		BTCUSDT: {BTC, USDT},
-
-		BNBBUSD: {BNB, BUSD},
-	}
-
 	SymbolList = []string{
-		ETHRUB,
-		//BTCBUSD,
-	}
-
-	SpotURLs = map[string]string{
-		ETHRUB:  "https://www.binance.com/ru/trade/ETH_RUB?theme=dark&type=spot",
-		ETHBUSD: "https://www.binance.com/ru/trade/ETH_BUSD?theme=dark&type=spot",
-		ETHUSDT: "https://www.binance.com/ru/trade/ETH_USDT?theme=dark&type=spot",
-
-		BTCRUB:  "https://www.binance.com/ru/trade/BTC_RUB?theme=dark&type=spot",
-		BTCBUSD: "https://www.binance.com/ru/trade/BTC_BUSD?theme=dark&type=spot",
-		BTCUSDT: "https://www.binance.com/ru/trade/BTC_USDT?theme=dark&type=spot",
-
-		BNBBUSD: "https://www.binance.com/ru/trade/BNB_BUSD?theme=dark&type=spot",
+		ETHBUSD,
 	}
 )
 
