@@ -14,11 +14,9 @@ type Config struct {
 	BinanceApiKey    string
 	BinanceSecretKey string
 	BinanceUrl       string
-	BinanceUrl1      string
-	BinanceUrl2      string
-	BinanceUrl3      string
 	AppPort          string
 	DB               *DB
+	Mongo            *Mongo
 }
 
 type DB struct {
@@ -29,11 +27,19 @@ type DB struct {
 	SSLMode  string
 }
 
+type Mongo struct {
+	Host     string
+	User     string
+	Password string
+	DBName   string
+}
+
 var ErrEnvNotFound = errors.New("err env not found")
 
 func (a *App) loadConfig(confFileName string) error {
 	var cfg Config
 	var db DB
+	var mongo Mongo
 
 	err := godotenv.Load(confFileName)
 	if err != nil {
@@ -57,18 +63,6 @@ func (a *App) loadConfig(confFileName string) error {
 	}
 
 	if cfg.BinanceUrl, err = cfg.set("BINANCE_URL"); err != nil {
-		return err
-	}
-
-	if cfg.BinanceUrl1, err = cfg.set("BINANCE_URL_1"); err != nil {
-		return err
-	}
-
-	if cfg.BinanceUrl2, err = cfg.set("BINANCE_URL_2"); err != nil {
-		return err
-	}
-
-	if cfg.BinanceUrl3, err = cfg.set("BINANCE_URL_3"); err != nil {
 		return err
 	}
 
@@ -98,9 +92,31 @@ func (a *App) loadConfig(confFileName string) error {
 
 	cfg.DB = &db
 
+	if mongo.Host, err = cfg.set("MONGO_HOST"); err != nil {
+		return err
+	}
+
+	if mongo.User, err = cfg.set("MONGO_USER"); err != nil {
+		return err
+	}
+
+	if mongo.Password, err = cfg.set("MONGO_PASSWORD"); err != nil {
+		return err
+	}
+
+	if mongo.DBName, err = cfg.set("MONGO_DBNAME"); err != nil {
+		return err
+	}
+
+	cfg.Mongo = &mongo
+
 	a.Config = &cfg
 
 	return nil
+}
+
+func (m *Mongo) DSN() string {
+	return fmt.Sprintf("mongodb://%s:27017", m.Host)
 }
 
 func (d *DB) DSN() string {

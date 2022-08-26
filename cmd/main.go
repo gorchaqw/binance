@@ -1,6 +1,7 @@
 package main
 
 import (
+	"binance/internal/repository/mongo"
 	"flag"
 	"fmt"
 	"strconv"
@@ -27,6 +28,10 @@ func main() {
 		panic(err)
 	}
 
+	if err := app.initMongo(); err != nil {
+		panic(err)
+	}
+
 	if err := app.initTgBot(); err != nil {
 		panic(err)
 	}
@@ -47,6 +52,11 @@ func main() {
 	priceRepo := sqlite.NewPriceRepository(app.DB)
 	orderRepo := sqlite.NewOrderRepository(app.DB)
 	candleRepo := sqlite.NewCandlesRepository(app.DB)
+	mongoRepo := mongo.NewSettingsRepository(app.Mongo)
+
+	if err := mongoRepo.SetDefault(); err != nil {
+		panic(err)
+	}
 
 	// Init Controllers
 	clientController := controllers.NewClientController(
@@ -74,6 +84,7 @@ func main() {
 		clientController,
 		cryptoController,
 		tgmController,
+		mongoRepo,
 		orderRepo,
 		priceRepo,
 		candleRepo,

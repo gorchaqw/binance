@@ -53,10 +53,6 @@ func (u *tgmUseCase) CommandProcessor() {
 				u.pingProc(loc)
 			case "last":
 				u.lastProc(loc)
-			case "statistics":
-				u.statisticsProc()
-			case "calc_balance":
-				u.calculateBalanceProc()
 			case "stat":
 				u.orderStatProc()
 			}
@@ -110,101 +106,6 @@ func (u *tgmUseCase) orderStatProc() {
 		u.logger.
 			WithError(err).
 			Error(string(debug.Stack()))
-	}
-}
-
-func (u *tgmUseCase) calculateBalanceProc() {
-	msg := "[ Calculate Balance ]\n\n"
-	total := make(map[string]float64)
-	var totalInRUB float64
-
-	for _, symbol := range SymbolList {
-		actualPrice, err := u.priceUseCase.GetPrice(symbol)
-		if err != nil {
-			u.logger.WithField("method", "calculateBalanceProc").Debug(err)
-		}
-
-		sum := actualPrice * QuantityList[symbol]
-		s := Symbols[symbol][1]
-
-		RUBSymbol := fmt.Sprintf("%s%s", Symbols[symbol][0], RUB)
-		actualPriceInRUB, err := u.priceUseCase.GetPrice(RUBSymbol)
-		if err != nil {
-			u.logger.WithField("method", "calculateBalanceProc").Debug(err)
-		}
-
-		capacityInRUB := actualPriceInRUB * QuantityList[symbol]
-
-		msg += fmt.Sprintf(
-			"Symbol:\t%s\n"+
-				"Quantity:\t%.5f\n"+
-				"Capacity:\t%.2f %s\n"+
-				"Capacity RUB:\t%.2f RUB\n\n",
-			symbol,
-			QuantityList[symbol],
-			sum,
-			s,
-			capacityInRUB,
-		)
-
-		totalInRUB += actualPriceInRUB * QuantityList[symbol]
-		total[s] += sum
-	}
-
-	msg += fmt.Sprintf(
-		"Total in RUB:\t%.2f\n",
-		totalInRUB,
-	)
-
-	if err := u.tgmController.Send(msg); err != nil {
-		u.logger.WithField("method", "calculateBalanceProc").Debug(err)
-	}
-
-	msg = "[ Total ]\n\n"
-	for symbol, weight := range total {
-		msg += fmt.Sprintf(
-			"Symbol:\t%s\n"+
-				"weight:\t%.2f\n\n",
-			symbol,
-			weight,
-		)
-	}
-
-	if err := u.tgmController.Send(msg); err != nil {
-		u.logger.WithField("method", "calculateBalanceProc").Debug(err)
-	}
-}
-
-func (u *tgmUseCase) statisticsProc() {
-	msg := "[ Statistics ]\n\n"
-
-	for _, symbol := range SymbolList {
-		stat, err := u.priceUseCase.GetPriceChangeStatistics(symbol)
-		if err != nil {
-			u.logger.WithField("method", "statisticsProc").Debug(err)
-		}
-
-		weightedAvgPrice, err := strconv.ParseFloat(stat.WeightedAvgPrice, 64)
-		if err != nil {
-			u.logger.WithField("method", "statisticsProc").Debug(err)
-		}
-
-		msg += fmt.Sprintf(
-			"Symbol:\t%s\n"+
-				"Quantity:\t%.5f\n"+
-				"AvgPrice:\t%.5f\n"+
-				"PriceChange:\t%s\n"+
-				"PriceChangePercent:\t%s\n\n",
-			symbol,
-			QuantityList[symbol],
-			weightedAvgPrice,
-			stat.PriceChange,
-			stat.PriceChangePercent,
-		)
-	}
-
-	if err := u.tgmController.Send(msg); err != nil {
-		u.logger.WithField("method", "statisticsProc").Debug(err)
 	}
 }
 

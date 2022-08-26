@@ -11,9 +11,18 @@ services:
     ports:
       - "5432:5432"
 
+  binance-mongodb:
+    image: mongo:4.2
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: "binance"
+      MONGO_INITDB_ROOT_PASSWORD: "binance"
+    ports:
+      - "27017:27017"
+
   binance:
     image: binance/binance:${BINANCE_VERSION}
     depends_on:
       - binance-postgres
+      - binance-mongodb
     ports:
       - ${BINANCE_APP_PORT}:8080

@@ -1,6 +1,7 @@
 package usecasees
 
 import (
+	"binance/internal/repository/mongo"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -82,24 +83,14 @@ var (
 
 		BNBBUSD: "https://www.binance.com/ru/trade/BNB_BUSD?theme=dark&type=spot",
 	}
-
-	StepList = map[string]float64{
-		//BTCBUSD: 0.0005,
-		ETHRUB: 0.0065,
-	}
-
-	QuantityList = map[string]float64{
-		//BTCBUSD: 0.014,
-		ETHRUB: 0.19,
-	}
-
-	deltaOrder = 0.5
 )
 
 type orderUseCase struct {
 	clientController *controllers.ClientController
 	cryptoController *controllers.CryptoController
 	tgmController    *controllers.TgmController
+
+	settingsRepo *mongo.SettingsRepository
 
 	orderRepo  *sqlite.OrderRepository
 	priceRepo  *sqlite.PriceRepository
@@ -116,6 +107,7 @@ func NewOrderUseCase(
 	client *controllers.ClientController,
 	crypto *controllers.CryptoController,
 	tgm *controllers.TgmController,
+	settingsRepo *mongo.SettingsRepository,
 	orderRepo *sqlite.OrderRepository,
 	priceRepo *sqlite.PriceRepository,
 	candleRepo *sqlite.CandleRepository,
@@ -127,6 +119,7 @@ func NewOrderUseCase(
 		clientController: client,
 		cryptoController: crypto,
 		tgmController:    tgm,
+		settingsRepo:     settingsRepo,
 		orderRepo:        orderRepo,
 		priceRepo:        priceRepo,
 		candleRepo:       candleRepo,
@@ -140,20 +133,13 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 	ticker := time.NewTicker(2 * time.Second)
 	done := make(chan bool)
 
-	orderTry := 1
-	quantity := StepList[symbol]
+	settings, err := u.settingsRepo.Load(symbol)
+	if err != nil {
+		return err
+	}
 
-	//var balance float64
-	//
-	//sendBalance := func(balance float64) {
-	//	if err := u.tgmController.Send(fmt.Sprintf("[ Balance ]\n"+
-	//		"%.5f BUSD",
-	//		balance)); err != nil {
-	//		u.logger.
-	//			WithError(err).
-	//			Error(string(debug.Stack()))
-	//	}
-	//}
+	orderTry := 1
+	quantity := settings.Step
 
 	sendOrderInfo := func(order *models.Order) {
 		if err := u.tgmController.Send(fmt.Sprintf("[ Last Order ]\n"+
@@ -211,7 +197,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				if err != nil {
 					switch err {
 					case sql.ErrNoRows:
-						if err := u.initOrder(symbol, quantity, orderTry); err != nil {
+						if err := u.initOrder(symbol, quantity, settings.Delta, orderTry); err != nil {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -250,7 +236,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						orderTry++
 
 						if orderInfo.Side == SideSell {
-							quantity = StepList[symbol] * math.Pow(2, float64(orderTry-1))
+							quantity = settings.Step * math.Pow(2, float64(orderTry-1))
 						}
 
 					case orderInfo.Type == "LIMIT_MAKER" && orderInfo.Status == OrderStatusFilled:
@@ -258,7 +244,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 						if orderInfo.Side == SideSell {
 							orderTry = 1
-							quantity = StepList[symbol]
+							quantity = settings.Step
 						}
 					}
 
@@ -278,7 +264,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					}
 				}
 
-				if quantity > QuantityList[symbol] {
+				if quantity > settings.Limit {
 					sendLimit(quantity)
 
 					continue
@@ -297,7 +283,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				go sendOrderInfo(lastOrder)
 
-				pricePlan := u.fillPricePlan(actualPrice, quantity)
+				pricePlan := u.fillPricePlan(actualPrice, quantity, settings.Delta)
 
 				openOrders, err := u.getOpenOrders(symbol)
 				if err != nil {
@@ -345,7 +331,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 	return nil
 }
 
-func (u *orderUseCase) fillPricePlan(actualPrice, quantity float64) *structs.PricePlan {
+func (u *orderUseCase) fillPricePlan(actualPrice, quantity, deltaOrder float64) *structs.PricePlan {
 	var out structs.PricePlan
 
 	out.ActualPricePercent = actualPrice / 100 * deltaOrder
@@ -362,13 +348,13 @@ func (u *orderUseCase) fillPricePlan(actualPrice, quantity float64) *structs.Pri
 	return &out
 }
 
-func (u *orderUseCase) initOrder(symbol string, quantity float64, orderTry int) error {
+func (u *orderUseCase) initOrder(symbol string, quantity, deltaOrder float64, orderTry int) error {
 	actualPrice, err := u.priceUseCase.GetPrice(symbol)
 	if err != nil {
 		return err
 	}
 
-	pricePlan := u.fillPricePlan(actualPrice, quantity)
+	pricePlan := u.fillPricePlan(actualPrice, quantity, deltaOrder)
 
 	if err := u.createOrder(&structs.Order{
 		Symbol:    symbol,
