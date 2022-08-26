@@ -25,16 +25,18 @@ func NewSettingsRepository(conn *mongo.Client) *SettingsRepository {
 func (r *SettingsRepository) SetDefault() error {
 	symbols := []structs.Settings{
 		{
-			Symbol: "BTCBUSD",
-			Limit:  0.014,
-			Step:   0.0005,
-			Delta:  0.5,
+			Symbol:  "BTCBUSD",
+			Limit:   0.014,
+			Step:    0.0005,
+			Delta:   0.5,
+			SpotURL: "https://www.binance.com/ru/trade/BTC_BUSD?theme=dark&type=spot",
 		},
 		{
-			Symbol: "ETHRUB",
-			Limit:  0.19,
-			Step:   0.0065,
-			Delta:  0.5,
+			Symbol:  "ETHRUB",
+			Limit:   0.19,
+			Step:    0.007,
+			Delta:   0.7,
+			SpotURL: "https://www.binance.com/ru/trade/ETH_RUB?theme=dark&type=spot",
 		},
 	}
 
