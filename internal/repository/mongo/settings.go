@@ -33,7 +33,7 @@ func (r *SettingsRepository) SetDefault() error {
 		},
 		{
 			Symbol:  "BTCUSDT",
-			Limit:   0.014,
+			Limit:   0.015,
 			Step:    0.0005,
 			Delta:   0.5,
 			SpotURL: "https://www.binance.com/ru/trade/BTC_USDT?theme=dark&type=spot",
