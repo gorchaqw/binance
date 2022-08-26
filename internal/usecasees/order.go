@@ -158,6 +158,12 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 			case <-done:
 				return
 			case _ = <-ticker.C:
+				if err := u.settingsRepo.ReLoad(settings); err != nil {
+					u.logger.
+						WithError(err).
+						Error(string(debug.Stack()))
+				}
+
 				lastOrder, err := u.orderRepo.GetLast(symbol)
 				if err != nil {
 					switch err {

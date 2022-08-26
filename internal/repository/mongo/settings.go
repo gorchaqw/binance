@@ -42,8 +42,8 @@ func (r *SettingsRepository) SetDefault() error {
 			Symbol:  "ETHBUSD",
 			Limit:   0.19,
 			Step:    0.007,
-			Delta:   0.7,
-			SpotURL: "https://www.binance.com/ru/trade/ETH_RUB?theme=dark&type=spot",
+			Delta:   0.5,
+			SpotURL: "https://www.binance.com/ru/trade/ETH_BUSD?theme=dark&type=spot",
 		},
 	}
 
@@ -74,5 +74,13 @@ func (r *SettingsRepository) Load(symbol string) (*structs.Settings, error) {
 	}
 
 	return &result, nil
+}
 
+func (r *SettingsRepository) ReLoad(settings *structs.Settings) error {
+
+	if err := r.collection.FindOne(context.TODO(), bson.D{{"symbol", settings.Symbol}}).Decode(&settings); err != nil {
+		return err
+	}
+
+	return nil
 }

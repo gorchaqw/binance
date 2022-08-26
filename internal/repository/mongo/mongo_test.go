@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -26,6 +27,14 @@ func TestSetDefault(t *testing.T) {
 
 	s, err := repo.Load("BTCBUSD")
 	assert.NoError(t, err)
+
+	fmt.Println("Wait")
+
+	time.Sleep(20 * time.Second)
+
+	fmt.Println("Go")
+
+	assert.NoError(t, repo.ReLoad(s))
 
 	fmt.Println(s)
 }
