@@ -135,9 +135,9 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 	sendStat := func(stat *structs.PricePlan) {
 		if err := u.tgmController.Send(fmt.Sprintf("[ Stat ]\n"+
-			"quantity:\t%.5f\n"+
-			"actualPrice:\t%.5f\n"+
-			"actualPricePercent:\t%.5f\n"+
+			"quantity:\t%.4f\n"+
+			"actualPrice:\t%.2f\n"+
+			"actualPricePercent:\t%.2f\n"+
 			"stopPriceBUY:\t%.2f\n"+
 			"stopPriceSELL:\t%.2f\n"+
 			"priceBUY:\t%.2f\n"+

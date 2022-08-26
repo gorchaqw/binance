@@ -23,6 +23,20 @@ func NewSettingsRepository(conn *mongo.Client) *SettingsRepository {
 }
 
 func (r *SettingsRepository) SetDefault() error {
+	//[
+	//	{
+	//	"symbol": "BTCBUSD"
+	//	},
+	//	{
+	//	"symbol": "ETHRUB"
+	//	},
+	//	{
+	//	"symbol": "ETHBUSD"
+	//	},
+	//	{
+	//	"symbol": "BTCUSDT"
+	//	}
+	//	]
 	symbols := []structs.Settings{
 		{
 			Symbol:  "BTCBUSD",
