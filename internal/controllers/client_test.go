@@ -236,10 +236,10 @@ func Test_GetOpenOrders(t *testing.T) {
 }
 
 func Test_POW(t *testing.T) {
-	quantity := float64(0.6)
+	quantity := float64(0.5)
 
 	for y := 1; y < 10; y++ {
-		nQuantity := quantity + (0.025 * float64(y))
+		nQuantity := quantity + (0.03 * float64(y))
 		//fmt.Printf("%.0f\n", nQuantity)
 
 		fmt.Printf("n:%d %.4f\n", y, nQuantity)
