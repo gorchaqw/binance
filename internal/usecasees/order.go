@@ -33,10 +33,11 @@ const (
 	ETH  = "ETH"
 	RUB  = "RUB"
 	BUSD = "BUSD"
+	USDT = "USDT"
 
 	ETHRUB  = ETH + RUB
 	ETHBUSD = ETH + BUSD
-	BTCUSDT = BTC + BUSD
+	BTCUSDT = BTC + USDT
 
 	SideSell = "SELL"
 	SideBuy  = "BUY"
