@@ -29,12 +29,14 @@ const (
 	orderOpenUrlPath = "/api/v3/openOrders"
 	orderOCO         = "/api/v3/order/oco"
 
+	BTC  = "BTC"
 	ETH  = "ETH"
 	RUB  = "RUB"
 	BUSD = "BUSD"
 
 	ETHRUB  = ETH + RUB
 	ETHBUSD = ETH + BUSD
+	BTCUSDT = BTC + BUSD
 
 	SideSell = "SELL"
 	SideBuy  = "BUY"
@@ -46,7 +48,7 @@ const (
 
 var (
 	SymbolList = []string{
-		ETHBUSD,
+		BTCUSDT,
 	}
 )
 
