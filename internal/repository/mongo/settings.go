@@ -38,6 +38,13 @@ func (r *SettingsRepository) SetDefault() error {
 			Delta:   0.7,
 			SpotURL: "https://www.binance.com/ru/trade/ETH_RUB?theme=dark&type=spot",
 		},
+		{
+			Symbol:  "ETHBUSD",
+			Limit:   0.19,
+			Step:    0.007,
+			Delta:   0.7,
+			SpotURL: "https://www.binance.com/ru/trade/ETH_RUB?theme=dark&type=spot",
+		},
 	}
 
 	for _, symbol := range symbols {
