@@ -305,14 +305,16 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 func (u *orderUseCase) fillPricePlan(actualPrice, quantity, deltaOrder float64, orderTry int) *structs.PricePlan {
 	var out structs.PricePlan
 
-	out.ActualPricePercent = actualPrice / 100 * (deltaOrder + (0.03 * float64(orderTry)))
+	out.ActualPrice = actualPrice
+
+	out.ActualPricePercent = out.ActualPrice / 100 * (deltaOrder + (0.03 * float64(orderTry)))
 	out.ActualStopPricePercent = out.ActualPricePercent
 
-	out.StopPriceBUY = actualPrice + out.ActualStopPricePercent
-	out.StopPriceSELL = actualPrice - out.ActualStopPricePercent
+	out.StopPriceBUY = out.ActualPrice + out.ActualStopPricePercent
+	out.StopPriceSELL = out.ActualPrice - out.ActualStopPricePercent
 
-	out.PriceBUY = actualPrice - out.ActualPricePercent
-	out.PriceSELL = actualPrice + out.ActualPricePercent
+	out.PriceBUY = out.ActualPrice - out.ActualPricePercent
+	out.PriceSELL = out.ActualPrice + out.ActualPricePercent
 
 	out.Quantity = quantity
 
