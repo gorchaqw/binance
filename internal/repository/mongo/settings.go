@@ -3,7 +3,6 @@ package mongo
 import (
 	"binance/internal/repository/mongo/structs"
 	"context"
-	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
@@ -23,20 +22,6 @@ func NewSettingsRepository(conn *mongo.Client) *SettingsRepository {
 }
 
 func (r *SettingsRepository) SetDefault() error {
-	//[
-	//	{
-	//	"symbol": "BTCBUSD"
-	//	},
-	//	{
-	//	"symbol": "ETHRUB"
-	//	},
-	//	{
-	//	"symbol": "ETHBUSD"
-	//	},
-	//	{
-	//	"symbol": "BTCUSDT"
-	//	}
-	//	]
 	symbols := []structs.Settings{
 		{
 			Symbol:  "BTCBUSD",
@@ -44,6 +29,15 @@ func (r *SettingsRepository) SetDefault() error {
 			Step:    0.0005,
 			Delta:   0.5,
 			SpotURL: "https://www.binance.com/ru/trade/BTC_BUSD?theme=dark&type=spot",
+			Status:  structs.Disabled.ToString(),
+		},
+		{
+			Symbol:  "BTCUSDT",
+			Limit:   0.014,
+			Step:    0.0005,
+			Delta:   0.5,
+			SpotURL: "https://www.binance.com/ru/trade/BTC_USDT?theme=dark&type=spot",
+			Status:  structs.Enabled.ToString(),
 		},
 		{
 			Symbol:  "ETHRUB",
@@ -51,6 +45,7 @@ func (r *SettingsRepository) SetDefault() error {
 			Step:    0.007,
 			Delta:   0.7,
 			SpotURL: "https://www.binance.com/ru/trade/ETH_RUB?theme=dark&type=spot",
+			Status:  structs.Disabled.ToString(),
 		},
 		{
 			Symbol:  "ETHBUSD",
@@ -58,6 +53,7 @@ func (r *SettingsRepository) SetDefault() error {
 			Step:    0.007,
 			Delta:   0.5,
 			SpotURL: "https://www.binance.com/ru/trade/ETH_BUSD?theme=dark&type=spot",
+			Status:  structs.Disabled.ToString(),
 		},
 	}
 
@@ -68,12 +64,10 @@ func (r *SettingsRepository) SetDefault() error {
 		}
 
 		if primitive.ObjectID.IsZero(check.ID) {
-			result, err := r.collection.InsertOne(context.TODO(), symbol)
+			_, err := r.collection.InsertOne(context.TODO(), symbol)
 			if err != nil {
 				return err
 			}
-
-			fmt.Println(result.InsertedID)
 		}
 	}
 
@@ -93,6 +87,19 @@ func (r *SettingsRepository) Load(symbol string) (*structs.Settings, error) {
 func (r *SettingsRepository) ReLoad(settings *structs.Settings) error {
 
 	if err := r.collection.FindOne(context.TODO(), bson.D{{"symbol", settings.Symbol}}).Decode(&settings); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *SettingsRepository) UpdateStatus(id primitive.ObjectID, status structs.SymbolStatus) error {
+	_, err := r.collection.UpdateOne(
+		context.TODO(),
+		bson.D{{"_id", id}},
+		bson.D{{"$set", bson.D{{"status", status}}}},
+	)
+	if err != nil {
 		return err
 	}
 

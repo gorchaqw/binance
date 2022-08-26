@@ -248,11 +248,6 @@ func Test_POW(t *testing.T) {
 }
 
 func Test_Calc(t *testing.T) {
-	sum := 0.0320 + 0.0544 + 0.0925 + 0.1572 + 0.2673 + 0.4544
-	last := 0.7724
-
-	fmt.Printf("sum: %.2f, last: %.2f, delta: %.2f \n", sum, last, last-sum)
-
 	priceBUY := float64(21640)
 	priceSELL := float64(21704)
 

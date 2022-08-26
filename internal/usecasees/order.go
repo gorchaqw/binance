@@ -2,6 +2,7 @@ package usecasees
 
 import (
 	"binance/internal/repository/mongo"
+	mongoStructs "binance/internal/repository/mongo/structs"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -167,6 +168,29 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						Error(string(debug.Stack()))
 				}
 
+				switch settings.Status {
+				case mongoStructs.Disabled.ToString():
+
+					continue
+				case mongoStructs.Liquidation.ToString():
+					firstOrder, err := u.orderRepo.GetFirst(symbol)
+					if err != nil {
+						u.logger.
+							WithError(err).
+							Error(string(debug.Stack()))
+					}
+
+					sendOrderInfo(firstOrder)
+
+					if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.Disabled); err != nil {
+						u.logger.
+							WithError(err).
+							Error(string(debug.Stack()))
+					}
+
+					continue
+				}
+
 				lastOrder, err := u.orderRepo.GetLast(symbol)
 				if err != nil {
 					switch err {
@@ -240,6 +264,12 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				if quantity > settings.Limit {
 					sendLimit(quantity)
+
+					if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.Liquidation); err != nil {
+						u.logger.
+							WithError(err).
+							Error(string(debug.Stack()))
+					}
 
 					continue
 				}
@@ -338,6 +368,31 @@ func (u *orderUseCase) initOrder(sendStat func(stat *structs.PricePlan), symbol 
 	if err := u.createOrder(&structs.Order{
 		Symbol:    symbol,
 		Side:      SideBuy,
+		Price:     fmt.Sprintf("%.0f", pricePlan.PriceBUY),
+		StopPrice: fmt.Sprintf("%.0f", pricePlan.StopPriceBUY),
+	}, quantity, actualPrice, orderTry); err != nil {
+		return err
+	}
+
+	sendStat(pricePlan)
+
+	return nil
+}
+
+func (u *orderUseCase) liquidOrder(sendStat func(stat *structs.PricePlan), symbol string, quantity, deltaOrder float64, orderTry int) error {
+	actualPrice, err := u.priceUseCase.GetPrice(symbol)
+	if err != nil {
+		return err
+	}
+
+	pricePlan := u.fillPricePlan(actualPrice, quantity, deltaOrder, orderTry)
+
+	fmt.Println(pricePlan)
+	fmt.Println(symbol)
+
+	if err := u.createOrder(&structs.Order{
+		Symbol:    symbol,
+		Side:      SideSell,
 		Price:     fmt.Sprintf("%.0f", pricePlan.PriceBUY),
 		StopPrice: fmt.Sprintf("%.0f", pricePlan.StopPriceBUY),
 	}, quantity, actualPrice, orderTry); err != nil {

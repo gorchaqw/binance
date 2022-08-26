@@ -35,6 +35,15 @@ func (r *OrderRepository) GetLast(symbol string) (*models.Order, error) {
 	return &order, nil
 }
 
+func (r *OrderRepository) GetFirst(symbol string) (*models.Order, error) {
+	var order models.Order
+	if err := r.conn.QueryRowx("SELECT * FROM orders WHERE symbol = $1 AND side = $2 AND try = $3 ORDER BY id DESC LIMIT 1", symbol, "BUY", 1).StructScan(&order); err != nil {
+		return nil, err
+	}
+
+	return &order, nil
+}
+
 func (r *OrderRepository) GetByID(id int) (*models.Order, error) {
 	var order models.Order
 	if err := r.conn.QueryRowx("SELECT * FROM orders WHERE id = $1 LIMIT 1", id).StructScan(&order); err != nil {
