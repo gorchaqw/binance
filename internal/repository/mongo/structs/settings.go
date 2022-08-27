@@ -19,11 +19,12 @@ func (s SymbolStatus) ToString() string {
 }
 
 type Settings struct {
-	ID      primitive.ObjectID `bson:"_id,omitempty"`
-	Symbol  string             `bson:"symbol"`
-	Limit   float64            `bson:"limit"`
-	Step    float64            `bson:"step"`
-	Delta   float64            `bson:"delta"`
-	SpotURL string             `bson:"spot_url"`
-	Status  string             `bson:"status"`
+	ID        primitive.ObjectID `bson:"_id,omitempty"`
+	Symbol    string             `bson:"symbol"`
+	Limit     float64            `bson:"limit"`
+	Step      float64            `bson:"step"`
+	Delta     float64            `bson:"delta"`
+	DeltaStep float64            `bson:"delta_step"`
+	SpotURL   string             `bson:"spot_url"`
+	Status    string             `bson:"status"`
 }

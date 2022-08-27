@@ -198,7 +198,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				if err != nil {
 					switch err {
 					case sql.ErrNoRows:
-						if err := u.initOrder(sendStat, symbol, quantity, settings.Delta, orderTry, sessionID); err != nil {
+						if err := u.initOrder(sendStat, symbol, quantity, settings, orderTry, sessionID); err != nil {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -291,7 +291,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				go sendOrderInfo(lastOrder)
 
-				pricePlan := u.fillPricePlan(actualPrice, quantity, settings.Delta, orderTry)
+				pricePlan := u.fillPricePlan(actualPrice, quantity, settings, orderTry)
 
 				openOrders, err := u.getOpenOrders(symbol)
 				if err != nil {
@@ -339,12 +339,12 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 	return nil
 }
 
-func (u *orderUseCase) fillPricePlan(actualPrice, quantity, deltaOrder float64, orderTry int) *structs.PricePlan {
+func (u *orderUseCase) fillPricePlan(actualPrice, quantity float64, settings *mongoStructs.Settings, orderTry int) *structs.PricePlan {
 	var out structs.PricePlan
 
 	out.ActualPrice = actualPrice
 
-	out.ActualPricePercent = out.ActualPrice / 100 * (deltaOrder + (0.03 * float64(orderTry)))
+	out.ActualPricePercent = out.ActualPrice / 100 * (settings.Delta + (settings.DeltaStep * float64(orderTry)))
 	out.ActualStopPricePercent = out.ActualPricePercent
 
 	out.StopPriceBUY = out.ActualPrice + out.ActualStopPricePercent
@@ -358,13 +358,13 @@ func (u *orderUseCase) fillPricePlan(actualPrice, quantity, deltaOrder float64, 
 	return &out
 }
 
-func (u *orderUseCase) initOrder(sendStat func(stat *structs.PricePlan), symbol string, quantity, deltaOrder float64, orderTry int, sessionID string) error {
+func (u *orderUseCase) initOrder(sendStat func(stat *structs.PricePlan), symbol string, quantity float64, settings *mongoStructs.Settings, orderTry int, sessionID string) error {
 	actualPrice, err := u.priceUseCase.GetPrice(symbol)
 	if err != nil {
 		return err
 	}
 
-	pricePlan := u.fillPricePlan(actualPrice, quantity, deltaOrder, orderTry)
+	pricePlan := u.fillPricePlan(actualPrice, quantity, settings, orderTry)
 
 	if err := u.createOrder(&structs.Order{
 		Symbol:    symbol,
@@ -380,13 +380,13 @@ func (u *orderUseCase) initOrder(sendStat func(stat *structs.PricePlan), symbol 
 	return nil
 }
 
-func (u *orderUseCase) liquidOrder(sendStat func(stat *structs.PricePlan), symbol string, quantity, deltaOrder float64, orderTry int, sessionID string) error {
+func (u *orderUseCase) liquidOrder(sendStat func(stat *structs.PricePlan), symbol, sessionID string, quantity float64, settings *mongoStructs.Settings, orderTry int) error {
 	actualPrice, err := u.priceUseCase.GetPrice(symbol)
 	if err != nil {
 		return err
 	}
 
-	pricePlan := u.fillPricePlan(actualPrice, quantity, deltaOrder, orderTry)
+	pricePlan := u.fillPricePlan(actualPrice, quantity, settings, orderTry)
 
 	if err := u.createOrder(&structs.Order{
 		Symbol:    symbol,
