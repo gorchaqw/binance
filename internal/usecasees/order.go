@@ -177,14 +177,32 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 					continue
 				case mongoStructs.Liquidation.ToString():
-					firstOrder, err := u.orderRepo.GetFirst(symbol)
+					lastOrder, err := u.orderRepo.GetFirst(symbol)
 					if err != nil {
 						u.logger.
 							WithError(err).
 							Error(string(debug.Stack()))
 					}
 
-					sendOrderInfo(firstOrder)
+					sendOrderInfo(lastOrder)
+
+					var liquidDelta float64
+					for i := 0; i < lastOrder.Try; i++ {
+						actualPricePercent := lastOrder.StopPrice / 100 * (settings.Delta + (settings.DeltaStep * float64(i)))
+						liquidDelta += actualPricePercent
+					}
+
+					priceBUY := lastOrder.StopPrice - liquidDelta
+
+					if err := u.createLimitOrder(&structs.Order{
+						Symbol: symbol,
+						Side:   SideBuy,
+						Price:  fmt.Sprintf("%.0f", priceBUY),
+					}, quantity, lastOrder.StopPrice, orderTry, sessionID); err != nil {
+						u.logger.
+							WithError(err).
+							Error(string(debug.Stack()))
+					}
 
 					if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.Disabled); err != nil {
 						u.logger.
@@ -560,6 +578,84 @@ func (u *orderUseCase) getOrderInfo(orderID int64, symbol string) (*structs.Orde
 	return &out, nil
 }
 
+func (u *orderUseCase) createLimitOrder(order *structs.Order, quantity, actualPrice float64, try int, sessionID string) error {
+	baseURL, err := url.Parse(u.url)
+	if err != nil {
+		return err
+	}
+
+	baseURL.Path = path.Join(orderUrlPath)
+
+	q := baseURL.Query()
+	q.Set("symbol", order.Symbol)
+	q.Set("side", "BUY")
+	q.Set("type", "LIMIT")
+	q.Set("quantity", fmt.Sprintf("%.5f", quantity))
+	q.Set("price", order.Price)
+	q.Set("recvWindow", "60000")
+	q.Set("timeInForce", "GTC")
+	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
+
+	sig := u.cryptoController.GetSignature(q.Encode())
+	q.Set("signature", sig)
+
+	baseURL.RawQuery = q.Encode()
+
+	req, err := u.clientController.Send(http.MethodPost, baseURL, nil, true)
+	if err != nil {
+		return err
+	}
+
+	var o structs.LimitOrder
+	if err := json.Unmarshal(req, &o); err != nil {
+		return err
+	}
+
+	if o.OrderID == 0 {
+		var errMsg structs.Err
+
+		if err := json.Unmarshal(req, &errMsg); err != nil {
+			return err
+		}
+
+		if err := u.tgmController.Send(fmt.Sprintf("[ Err createOrder ]\n"+
+			"Code:\t%d\n"+
+			"Msg:\t%s",
+			errMsg.Code,
+			errMsg.Msg,
+		)); err != nil {
+			return err
+		}
+
+		return errors.New(errMsg.Msg)
+	}
+
+	price, err := strconv.ParseFloat(order.Price, 64)
+	if err != nil {
+		return err
+	}
+
+	orderModel := models.Order{
+		OrderID:     o.OrderID,
+		SessionID:   sessionID,
+		Symbol:      o.Symbol,
+		ActualPrice: actualPrice,
+		Price:       price,
+		Side:        o.Side,
+		StopPrice:   0,
+		Quantity:    quantity,
+		Type:        "LIMIT",
+		Status:      "NEW",
+		Try:         try,
+	}
+
+	if err := u.orderRepo.Store(&orderModel); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (u *orderUseCase) createOrder(order *structs.Order, quantity, actualPrice float64, try int, sessionID string) error {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
@@ -594,38 +690,7 @@ func (u *orderUseCase) createOrder(order *structs.Order, quantity, actualPrice f
 		Msg  string `json:"msg"`
 	}
 
-	type OrderList struct {
-		OrderListID       int64  `json:"orderListId"`
-		ContingencyType   string `json:"contingencyType"`
-		ListStatusType    string `json:"listStatusType"`
-		ListOrderStatus   string `json:"listOrderStatus"`
-		ListClientOrderID string `json:"listClientOrderId"`
-		TransactionTime   int64  `json:"transactionTime"`
-		Symbol            string `json:"symbol"`
-		Orders            []struct {
-			Symbol        string `json:"symbol"`
-			OrderID       int64  `json:"orderId"`
-			ClientOrderID string `json:"clientOrderId"`
-		} `json:"orders"`
-		OrderReports []struct {
-			Symbol              string `json:"symbol"`
-			OrderID             int64  `json:"orderId"`
-			OrderListID         int    `json:"orderListId"`
-			ClientOrderID       string `json:"clientOrderId"`
-			TransactTime        int64  `json:"transactTime"`
-			Price               string `json:"price"`
-			OrigQty             string `json:"origQty"`
-			ExecutedQty         string `json:"executedQty"`
-			CummulativeQuoteQty string `json:"cummulativeQuoteQty"`
-			Status              string `json:"status"`
-			TimeInForce         string `json:"timeInForce"`
-			Type                string `json:"type"`
-			Side                string `json:"side"`
-			StopPrice           string `json:"stopPrice,omitempty"`
-		} `json:"orderReports"`
-	}
-
-	var oList OrderList
+	var oList structs.OrderList
 	var errMsg Err
 
 	if err := json.Unmarshal(req, &oList); err != nil {

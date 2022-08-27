@@ -16,6 +16,48 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func Test_CreateLimitOrder(t *testing.T) {
+	client := &http.Client{}
+	apiKey := "40A1YfOXYUm85x5slZCL6TcVdB6S8im024Uk5t7Mmj2rQJ2DB0FBSWIpaOB9Zd7J"
+	logger := logrus.New()
+	secretKey := "H6kbAHyGNNUdpp1aFEQpqwcQgDLTEWCe45W46vDcWGRtcZuKLJ2g52MdqC6QjuI5"
+	symbol := "BTCUSDT"
+	baseURL, err := url.Parse("https://api.binance.com/api/v3/order")
+	assert.NoError(t, err)
+	quantity := 0.00055
+	price := float64(20000)
+
+	cryptoController := controllers.NewCryptoController(secretKey)
+	clientController := controllers.NewClientController(
+		client,
+		apiKey,
+		logger,
+	)
+
+	q := baseURL.Query()
+	q.Set("symbol", symbol)
+	q.Set("side", "BUY")
+	q.Set("type", "LIMIT")
+	q.Set("quantity", fmt.Sprintf("%.5f", quantity))
+	q.Set("price", fmt.Sprintf("%.2f", price))
+	q.Set("recvWindow", "60000")
+	q.Set("timeInForce", "GTC")
+	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Add(60*time.Second).Unix()))
+
+	sig := cryptoController.GetSignature(q.Encode())
+	q.Set("signature", sig)
+
+	baseURL.RawQuery = q.Encode()
+
+	req, err := clientController.Send(http.MethodPost, baseURL, nil, true)
+	assert.NoError(t, err)
+
+	var o structs.LimitOrder
+	assert.NoError(t, json.Unmarshal(req, &o))
+
+	fmt.Printf("%+v", o)
+
+}
 func Test_OSO(t *testing.T) {
 	client := &http.Client{}
 	apiKey := "40A1YfOXYUm85x5slZCL6TcVdB6S8im024Uk5t7Mmj2rQJ2DB0FBSWIpaOB9Zd7J"
@@ -236,15 +278,41 @@ func Test_GetOpenOrders(t *testing.T) {
 }
 
 func Test_POW(t *testing.T) {
-	quantity := float64(0.5)
+	deltaP := float64(100)
 
-	for y := 1; y < 10; y++ {
-		nQuantity := quantity + (0.03 * float64(y))
-		//fmt.Printf("%.0f\n", nQuantity)
+	priceBUY := float64(21640)
+	priceSELL := priceBUY + deltaP
+	priceSELLTest := priceSELL + deltaP
 
-		fmt.Printf("n:%d %.4f\n", y, nQuantity)
+	fmt.Println(0.05500 - 0.02750)
+	fmt.Println(0.00055 * 5 * priceBUY)
+
+	step := 0.00055 * 5
+
+	Q := priceBUY * step
+	s1 := priceSELL * step
+	s2 := priceSELLTest * step
+
+	fmt.Printf("Q = %.5f\ns1 = %.5f\ns2 = %.5f\ndeltaS = %.5f\ndeltaP = %.5f\n", Q, s1, s2, s2-s1, priceSELLTest-priceSELL)
+}
+
+func TestStep(t *testing.T) {
+	step := 0.00055
+	delta := 0.35
+	deltaStep := 0.03
+	actualPrice := float64(21640)
+
+	lim := float64(0)
+
+	for i := 0; i < 5; i++ {
+		actualPricePercent := actualPrice / 100 * (delta + (deltaStep * float64(i)))
+		s := actualPricePercent * step
+		lim += actualPricePercent
+
+		fmt.Printf("%d]\t%.5fBUSD\t%.5fBTC\n", i, s, actualPricePercent)
 	}
 
+	fmt.Printf("%.5f\n", lim)
 }
 
 func Test_Calc(t *testing.T) {

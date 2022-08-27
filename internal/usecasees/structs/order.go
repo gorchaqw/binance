@@ -21,8 +21,25 @@ type Order struct {
 	OrigQuoteOrderQty   string `json:"origQuoteOrderQty"`
 }
 
+type LimitOrder struct {
+	Symbol              string        `json:"symbol"`
+	OrderID             int64         `json:"orderId"`
+	OrderListID         int           `json:"orderListId"`
+	ClientOrderID       string        `json:"clientOrderId"`
+	TransactTime        int64         `json:"transactTime"`
+	Price               string        `json:"price"`
+	OrigQty             string        `json:"origQty"`
+	ExecutedQty         string        `json:"executedQty"`
+	CummulativeQuoteQty string        `json:"cummulativeQuoteQty"`
+	Status              string        `json:"status"`
+	TimeInForce         string        `json:"timeInForce"`
+	Type                string        `json:"type"`
+	Side                string        `json:"side"`
+	Fills               []interface{} `json:"fills"`
+}
+
 type OrderList struct {
-	OrderListID       int    `json:"orderListId"`
+	OrderListID       int64  `json:"orderListId"`
 	ContingencyType   string `json:"contingencyType"`
 	ListStatusType    string `json:"listStatusType"`
 	ListOrderStatus   string `json:"listOrderStatus"`
@@ -50,6 +67,11 @@ type OrderList struct {
 		Side                string `json:"side"`
 		StopPrice           string `json:"stopPrice,omitempty"`
 	} `json:"orderReports"`
+}
+
+type Err struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
 }
 
 type PricePlan struct {

@@ -5,7 +5,6 @@ import (
 	"binance/internal/repository/postgres"
 	"fmt"
 	"runtime/debug"
-	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -45,10 +44,6 @@ func (u *tgmUseCase) CommandProcessor() {
 		if u.tgmController.CheckChatID(update.Message.Chat.ID) {
 
 			switch update.Message.Command() {
-			case "set_actual":
-				u.setActualProc(loc)
-			case "set_avg_price":
-				u.setAvgProc(loc)
 			case "ping":
 				u.pingProc(loc)
 			case "stat":
@@ -104,66 +99,6 @@ func (u *tgmUseCase) orderStatProc() {
 		u.logger.
 			WithError(err).
 			Error(string(debug.Stack()))
-	}
-}
-
-func (u *tgmUseCase) setAvgProc(loc *time.Location) {
-
-	for _, symbol := range SymbolList {
-		stat, err := u.priceUseCase.GetPriceChangeStatistics(symbol)
-		if err != nil {
-			u.logger.WithField("method", "setAvgProc").Debug(err)
-		}
-
-		weightedAvgPrice, err := strconv.ParseFloat(stat.WeightedAvgPrice, 64)
-		if err != nil {
-			u.logger.WithField("method", "setAvgProc").Debug(err)
-		}
-
-		order, err := u.orderRepo.GetLast(symbol)
-		if err != nil {
-			u.logger.WithField("method", "setAvgProc").Debug(err)
-		}
-
-		if err := u.orderRepo.SetActualPrice(order.ID, weightedAvgPrice); err != nil {
-			u.logger.WithField("method", "setAvgProc").Debug(err)
-		}
-	}
-
-	if err := u.tgmController.Send(
-		fmt.Sprintf(
-			"[ Orders updated ]\n"+
-				"Time:\t%s\n",
-			time.Now().In(loc).Format(time.RFC822),
-		)); err != nil {
-		u.logger.WithField("method", "setAvgProc").Debug(err)
-	}
-}
-
-func (u *tgmUseCase) setActualProc(loc *time.Location) {
-	for _, symbol := range SymbolList {
-		actualPrice, err := u.priceUseCase.GetPrice(symbol)
-		if err != nil {
-			u.logger.WithField("method", "setActualProc").Debug(err)
-		}
-
-		order, err := u.orderRepo.GetLast(symbol)
-		if err != nil {
-			u.logger.WithField("method", "setActualProc").Debug(err)
-		}
-
-		if err := u.orderRepo.SetActualPrice(order.ID, actualPrice); err != nil {
-			u.logger.WithField("method", "setActualProc").Debug(err)
-		}
-	}
-
-	if err := u.tgmController.Send(
-		fmt.Sprintf(
-			"[ Orders updated ]\n"+
-				"Time:\t%s\n",
-			time.Now().In(loc).Format(time.RFC822),
-		)); err != nil {
-		u.logger.WithField("method", "setActualProc").Debug(err)
 	}
 }
 
