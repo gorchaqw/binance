@@ -54,6 +54,10 @@ func main() {
 	candleRepo := postgres.NewCandlesRepository(app.DB)
 	mongoRepo := mongo.NewSettingsRepository(app.Mongo)
 
+	if err := mongoRepo.SetDefault(); err != nil {
+		panic(err)
+	}
+
 	// Init Controllers
 	clientController := controllers.NewClientController(
 		app.HTTPClient,
