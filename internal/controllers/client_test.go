@@ -296,23 +296,27 @@ func Test_POW(t *testing.T) {
 	fmt.Printf("Q = %.5f\ns1 = %.5f\ns2 = %.5f\ndeltaS = %.5f\ndeltaP = %.5f\n", Q, s1, s2, s2-s1, priceSELLTest-priceSELL)
 }
 
+func TestLimit(t *testing.T) {
+	ap := 20200.00
+	limit := 420.00
+
+	fmt.Println(limit / ap)
+}
+
 func TestStep(t *testing.T) {
-	step := 0.00055
-	delta := 0.35
-	deltaStep := 0.03
-	actualPrice := float64(21640)
+	step := 0.001
+	lim := 0.15
+	quantity := 0.00
 
-	lim := float64(0)
+	for i := 1; ; i++ {
+		quantity = step * math.Pow(2, float64(i-1))
 
-	for i := 0; i < 5; i++ {
-		actualPricePercent := actualPrice / 100 * (delta + (deltaStep * float64(i)))
-		s := actualPricePercent * step
-		lim += actualPricePercent
+		if quantity > lim {
+			return
+		}
 
-		fmt.Printf("%d]\t%.5fBUSD\t%.5fBTC\n", i, s, actualPricePercent)
+		fmt.Printf("%d]\t%.5f\n", i, quantity)
 	}
-
-	fmt.Printf("%.5f\n", lim)
 }
 
 func Test_Calc(t *testing.T) {
