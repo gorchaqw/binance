@@ -25,10 +25,10 @@ func (r *SettingsRepository) SetDefault() error {
 	symbols := []structs.Settings{
 		{
 			Symbol:    "BTCUSDT",
-			Limit:     0.015,
-			Step:      0.00055,
-			Delta:     0.5,
-			DeltaStep: 0.05,
+			Limit:     0.02,
+			Step:      0.0006,
+			Delta:     0.25,
+			DeltaStep: 0.065,
 			SpotURL:   "https://www.binance.com/ru/trade/BTC_USDT?theme=dark&type=spot",
 			Status:    structs.Enabled.ToString(),
 		},
