@@ -304,8 +304,8 @@ func TestLimit(t *testing.T) {
 }
 
 func TestStep(t *testing.T) {
-	step := 0.001
-	lim := 0.15
+	step := 0.003
+	lim := 0.2
 	quantity := 0.00
 
 	for i := 1; ; i++ {

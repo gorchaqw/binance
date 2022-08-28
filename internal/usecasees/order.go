@@ -192,7 +192,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						liquidDelta += actualPricePercent
 					}
 
-					priceBUY := lastOrder.StopPrice - liquidDelta
+					priceBUY := lastOrder.StopPrice - (liquidDelta / 2)
 
 					if err := u.createLimitOrder(&structs.Order{
 						Symbol: symbol,
