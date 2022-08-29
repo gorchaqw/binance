@@ -317,6 +317,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					u.logger.
 						WithError(err).
 						Error(string(debug.Stack()))
+					continue
 				}
 
 				if len(openOrders) == 0 {
@@ -333,6 +334,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
+							continue
 						}
 
 					case SideSell:
@@ -347,6 +349,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
+							continue
 						}
 
 					}
@@ -366,8 +369,8 @@ func (u *orderUseCase) fillPricePlan(actualPrice, quantity float64, settings *mo
 	out.ActualPricePercent = out.ActualPrice / 100 * (settings.Delta + (settings.DeltaStep * float64(orderTry)))
 	out.ActualStopPricePercent = out.ActualPricePercent
 
-	out.StopPriceBUY = out.ActualPrice + (out.ActualStopPricePercent * 0.9)
-	out.StopPriceSELL = out.ActualPrice - (out.ActualStopPricePercent * 0.9)
+	out.StopPriceBUY = out.ActualPrice + out.ActualStopPricePercent
+	out.StopPriceSELL = out.ActualPrice - out.ActualStopPricePercent
 
 	out.PriceBUY = out.ActualPrice - out.ActualPricePercent
 	out.PriceSELL = out.ActualPrice + out.ActualPricePercent
