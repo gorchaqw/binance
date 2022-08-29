@@ -53,6 +53,16 @@ func (r *OrderRepository) GetByID(id int) (*models.Order, error) {
 	return &order, nil
 }
 
+func (r *OrderRepository) GetBySessionID(sessionID string) ([]models.Order, error) {
+	var orders []models.Order
+
+	if err := r.conn.Select(&orders, "SELECT * FROM orders where orders.session_id = $1 ORDER BY id DESC;", sessionID); err != nil {
+		return nil, err
+	}
+
+	return orders, nil
+}
+
 func (r *OrderRepository) GetLastWithInterval(symbol string, sTime, eTime time.Time) ([]models.Order, error) {
 	var orders []models.Order
 
@@ -61,7 +71,6 @@ func (r *OrderRepository) GetLastWithInterval(symbol string, sTime, eTime time.T
 	}
 
 	return orders, nil
-
 }
 
 func (r *OrderRepository) SetActualPrice(id int, price float64) error {

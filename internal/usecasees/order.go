@@ -366,8 +366,8 @@ func (u *orderUseCase) fillPricePlan(actualPrice, quantity float64, settings *mo
 	out.ActualPricePercent = out.ActualPrice / 100 * (settings.Delta + (settings.DeltaStep * float64(orderTry)))
 	out.ActualStopPricePercent = out.ActualPricePercent
 
-	out.StopPriceBUY = out.ActualPrice + out.ActualStopPricePercent
-	out.StopPriceSELL = out.ActualPrice - out.ActualStopPricePercent
+	out.StopPriceBUY = out.ActualPrice + (out.ActualStopPricePercent * 0.9)
+	out.StopPriceSELL = out.ActualPrice - (out.ActualStopPricePercent * 0.9)
 
 	out.PriceBUY = out.ActualPrice - out.ActualPricePercent
 	out.PriceSELL = out.ActualPrice + out.ActualPricePercent

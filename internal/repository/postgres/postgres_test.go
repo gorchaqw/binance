@@ -3,6 +3,7 @@ package postgres_test
 import (
 	"binance/internal/repository/postgres"
 	"binance/models"
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -30,6 +31,16 @@ func initPGTest() *PGTest {
 	out.conn = db
 
 	return &out
+}
+
+func Test_GetBySessionID(t *testing.T) {
+	c := initPGTest()
+	pgStore := postgres.NewOrderRepository(c.conn)
+
+	oList, err := pgStore.GetBySessionID("cc3336da-432f-4e9e-9152-d976732f9b8d")
+	assert.NoError(t, err)
+
+	fmt.Printf("%+v", oList)
 }
 
 func Test_OrderStore(t *testing.T) {

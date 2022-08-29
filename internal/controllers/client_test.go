@@ -296,7 +296,7 @@ func Test_POW(t *testing.T) {
 	fmt.Printf("Q = %.5f\ns1 = %.5f\ns2 = %.5f\ndeltaS = %.5f\ndeltaP = %.5f\n", Q, s1, s2, s2-s1, priceSELLTest-priceSELL)
 }
 
-func TestLimit(t *testing.T) {
+func Test_Limit(t *testing.T) {
 	price := 21704.00
 	pStep := 0.0006
 
@@ -321,9 +321,30 @@ func TestLimit(t *testing.T) {
 	}
 }
 
+func Test_Ticker(t *testing.T) {
+	ticker := time.NewTicker(1 * time.Second)
+	done := make(chan bool)
+	wait := make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case _ = <-ticker.C:
+				fmt.Println("1")
+
+				continue
+			}
+		}
+	}()
+
+	<-wait
+}
+
 func TestStep(t *testing.T) {
-	step := 0.0006
-	lim := 0.02
+	step := 0.00075
+	lim := 0.025
 	quantity := 0.00
 
 	for i := 1; ; i++ {
