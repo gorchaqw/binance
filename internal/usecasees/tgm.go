@@ -48,6 +48,8 @@ func (u *tgmUseCase) CommandProcessor() {
 				u.pingProc(loc)
 			case "stat":
 				u.orderStatProc()
+			case "set_":
+
 			}
 		}
 	}

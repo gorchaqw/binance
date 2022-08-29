@@ -297,21 +297,39 @@ func Test_POW(t *testing.T) {
 }
 
 func TestLimit(t *testing.T) {
-	ap := 20200.00
-	limit := 420.00
+	price := 21704.00
+	pStep := 0.0006
 
-	fmt.Println(limit / ap)
+	delta := 0.25
+	deltaStep := 0.065
+	lim := 0.02
+
+	for i := 1; i <= 7; i++ {
+		p := price / 100 * (delta + (deltaStep * float64(i)))
+		fmt.Printf("%d]\t%.2f\n", i, p)
+	}
+
+	fmt.Println()
+
+	n := 0
+	s := lim
+	for s >= pStep {
+		fmt.Printf("%d]\t%.5f\n", n, s)
+
+		n++
+		s = s / 2
+	}
 }
 
 func TestStep(t *testing.T) {
-	step := 0.003
-	lim := 0.2
+	step := 0.0006
+	lim := 0.02
 	quantity := 0.00
 
 	for i := 1; ; i++ {
 		quantity = step * math.Pow(2, float64(i-1))
 
-		if quantity > lim {
+		if lim < quantity {
 			return
 		}
 
@@ -325,7 +343,7 @@ func Test_Calc(t *testing.T) {
 
 	money := float64(328)
 
-	quantity := 0.0005
+	quantity := 0.0006
 	limit := money / priceBUY
 
 	fmt.Printf("limit:\t%.5f\n\n", limit)
