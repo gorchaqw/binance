@@ -57,15 +57,12 @@ var (
 )
 
 type orderUseCase struct {
-	clientController *controllers.ClientController
-	cryptoController *controllers.CryptoController
-	tgmController    *controllers.TgmController
+	clientController controllers.ClientCtrl
+	cryptoController controllers.CryptoCtrl
+	tgmController    controllers.TgmCtrl
 
-	settingsRepo *mongo.SettingsRepository
-
-	orderRepo  *postgres.OrderRepository
-	priceRepo  *postgres.PriceRepository
-	candleRepo *postgres.CandleRepository
+	settingsRepo mongo.SettingsRepo
+	orderRepo    postgres.OrderRepo
 
 	priceUseCase *priceUseCase
 
@@ -75,13 +72,11 @@ type orderUseCase struct {
 }
 
 func NewOrderUseCase(
-	client *controllers.ClientController,
-	crypto *controllers.CryptoController,
-	tgm *controllers.TgmController,
-	settingsRepo *mongo.SettingsRepository,
-	orderRepo *postgres.OrderRepository,
-	priceRepo *postgres.PriceRepository,
-	candleRepo *postgres.CandleRepository,
+	client controllers.ClientCtrl,
+	crypto controllers.CryptoCtrl,
+	tgm controllers.TgmCtrl,
+	settingsRepo mongo.SettingsRepo,
+	orderRepo postgres.OrderRepo,
 	priceUseCase *priceUseCase,
 	url string,
 	logger *logrus.Logger,
@@ -92,8 +87,6 @@ func NewOrderUseCase(
 		tgmController:    tgm,
 		settingsRepo:     settingsRepo,
 		orderRepo:        orderRepo,
-		priceRepo:        priceRepo,
-		candleRepo:       candleRepo,
 		priceUseCase:     priceUseCase,
 		url:              url,
 		logger:           logger,
@@ -173,11 +166,76 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				}
 
 				switch settings.Status {
-				case mongoStructs.Disabled.ToString():
+				case mongoStructs.New.ToString():
+					lastOrder, err := u.orderRepo.GetLast(symbol)
+					if err != nil {
+						u.logger.
+							WithError(err).
+							Error(string(debug.Stack()))
+					}
 
-					continue
-				case mongoStructs.Liquidation.ToString():
-					lastOrder, err := u.orderRepo.GetFirst(symbol)
+					orderInfo, err := u.getOrderInfo(lastOrder.OrderID, symbol)
+					if err != nil {
+						u.logger.
+							WithError(err).
+							Error(string(debug.Stack()))
+					}
+
+					if orderInfo.Status == OrderStatusFilled {
+						orderTry = 1
+						quantity = settings.Step
+						sessionID = uuid.New().String()
+
+						if err := u.initOrder(sendStat, symbol, quantity, settings, orderTry, sessionID); err != nil {
+							u.logger.
+								WithError(err).
+								Error(string(debug.Stack()))
+						}
+					}
+
+					if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.Enabled); err != nil {
+						u.logger.
+							WithError(err).
+							Error(string(debug.Stack()))
+					}
+				case mongoStructs.LiquidationSELL.ToString():
+					lastOrder, err := u.orderRepo.GetLast(symbol)
+					if err != nil {
+						u.logger.
+							WithError(err).
+							Error(string(debug.Stack()))
+					}
+
+					orderInfo, err := u.getOrderInfo(lastOrder.OrderID, symbol)
+					if err != nil {
+						u.logger.
+							WithError(err).
+							Error(string(debug.Stack()))
+					}
+
+					if orderInfo.Status == OrderStatusFilled {
+						sendOrderInfo(lastOrder)
+
+						priceSELL := lastOrder.Price + ((lastOrder.Price) / 100 * 1.5)
+
+						if err := u.CreateLimitOrder(&structs.Order{
+							Symbol: symbol,
+							Side:   SideSell,
+							Price:  fmt.Sprintf("%.0f", priceSELL),
+						}, settings.Limit, lastOrder.StopPrice, orderTry, sessionID); err != nil {
+							u.logger.
+								WithError(err).
+								Error(string(debug.Stack()))
+						}
+
+						if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.New); err != nil {
+							u.logger.
+								WithError(err).
+								Error(string(debug.Stack()))
+						}
+					}
+				case mongoStructs.LiquidationBUY.ToString():
+					lastOrder, err := u.orderRepo.GetLast(symbol)
 					if err != nil {
 						u.logger.
 							WithError(err).
@@ -198,17 +256,18 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						Symbol: symbol,
 						Side:   SideBuy,
 						Price:  fmt.Sprintf("%.0f", priceBUY),
-					}, quantity, lastOrder.StopPrice, orderTry, sessionID); err != nil {
+					}, settings.Limit, lastOrder.StopPrice, orderTry, sessionID); err != nil {
 						u.logger.
 							WithError(err).
 							Error(string(debug.Stack()))
 					}
 
-					if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.Disabled); err != nil {
+					if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.LiquidationSELL); err != nil {
 						u.logger.
 							WithError(err).
 							Error(string(debug.Stack()))
 					}
+				case mongoStructs.Disabled.ToString():
 
 					continue
 				}
@@ -288,7 +347,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				if quantity > settings.Limit {
 					sendLimit(quantity)
 
-					if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.Liquidation); err != nil {
+					if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.LiquidationBUY); err != nil {
 						u.logger.
 							WithError(err).
 							Error(string(debug.Stack()))

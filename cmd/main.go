@@ -51,7 +51,7 @@ func main() {
 	// Init Repository
 	priceRepo := postgres.NewPriceRepository(app.DB)
 	orderRepo := postgres.NewOrderRepository(app.DB)
-	candleRepo := postgres.NewCandlesRepository(app.DB)
+
 	mongoRepo := mongo.NewSettingsRepository(app.Mongo)
 
 	if err := mongoRepo.SetDefault(); err != nil {
@@ -86,8 +86,6 @@ func main() {
 		tgmController,
 		mongoRepo,
 		orderRepo,
-		priceRepo,
-		candleRepo,
 		priceUseCase,
 		app.Config.BinanceUrl,
 		app.Logger,
@@ -96,8 +94,8 @@ func main() {
 		priceUseCase,
 		orderUseCase,
 		mongoRepo,
-		tgmController,
 		orderRepo,
+		tgmController,
 		app.Logger,
 	)
 

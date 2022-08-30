@@ -20,10 +20,10 @@ const (
 )
 
 type priceUseCase struct {
-	clientController *controllers.ClientController
-	tgmController    *controllers.TgmController
+	clientController controllers.ClientCtrl
+	tgmController    controllers.TgmCtrl
 
-	priceRepo *postgres.PriceRepository
+	priceRepo postgres.PriceRepo
 
 	url string
 
@@ -31,9 +31,9 @@ type priceUseCase struct {
 }
 
 func NewPriceUseCase(
-	client *controllers.ClientController,
-	tgm *controllers.TgmController,
-	priceRepo *postgres.PriceRepository,
+	client controllers.ClientCtrl,
+	tgm controllers.TgmCtrl,
+	priceRepo postgres.PriceRepo,
 	url string,
 	logger *logrus.Logger,
 ) *priceUseCase {

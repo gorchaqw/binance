@@ -12,13 +12,13 @@ type OrderRepository struct {
 	conn *sqlx.DB
 }
 
-func NewOrderRepository(conn *sqlx.DB) *OrderRepository {
+func NewOrderRepository(conn *sqlx.DB) OrderRepo {
 	return &OrderRepository{
 		conn: conn,
 	}
 }
 
-func (r *OrderRepository) Store(m *models.Order) (err error) {
+func (r *OrderRepository) Store(m *models.Order) error {
 	if _, err := r.conn.NamedExec("INSERT INTO orders (order_id,session_id,symbol,side,quantity,actual_price,price,stop_price,status,type,try) VALUES (:order_id,:session_id,:symbol,:side,:quantity,:actual_price,:price,:stop_price,:status,:type,:try)", m); err != nil {
 		return err
 	}

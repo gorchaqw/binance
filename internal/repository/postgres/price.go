@@ -12,7 +12,7 @@ type PriceRepository struct {
 	conn *sqlx.DB
 }
 
-func NewPriceRepository(conn *sqlx.DB) *PriceRepository {
+func NewPriceRepository(conn *sqlx.DB) PriceRepo {
 	return &PriceRepository{
 		conn: conn,
 	}

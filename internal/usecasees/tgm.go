@@ -18,18 +18,18 @@ import (
 type tgmUseCase struct {
 	priceUseCase  *priceUseCase
 	orderUseCase  *orderUseCase
-	settingsRepo  *mongo.SettingsRepository
+	settingsRepo  mongo.SettingsRepo
+	orderRepo     postgres.OrderRepo
 	tgmController *controllers.TgmController
-	orderRepo     *postgres.OrderRepository
 	logger        *logrus.Logger
 }
 
 func NewTgmUseCase(
 	priceUseCase *priceUseCase,
 	orderUseCase *orderUseCase,
-	settingsRepo *mongo.SettingsRepository,
+	settingsRepo mongo.SettingsRepo,
+	orderRepo postgres.OrderRepo,
 	tgmController *controllers.TgmController,
-	orderRepo *postgres.OrderRepository,
 	logger *logrus.Logger,
 ) *tgmUseCase {
 	return &tgmUseCase{

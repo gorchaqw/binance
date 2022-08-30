@@ -15,7 +15,7 @@ type SettingsRepository struct {
 	collection *mongo.Collection
 }
 
-func NewSettingsRepository(conn *mongo.Client) *SettingsRepository {
+func NewSettingsRepository(conn *mongo.Client) SettingsRepo {
 	collection := conn.Database("settings").Collection("symbols")
 
 	return &SettingsRepository{conn: conn, collection: collection}

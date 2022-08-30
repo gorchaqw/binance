@@ -9,9 +9,12 @@ import (
 type SymbolStatus string
 
 const (
-	Disabled    SymbolStatus = "DISABLED"
-	Enabled     SymbolStatus = "ENABLED"
-	Liquidation SymbolStatus = "LIQUIDATION"
+	Disabled        SymbolStatus = "DISABLED"
+	Enabled         SymbolStatus = "ENABLED"
+	Liquidation     SymbolStatus = "LIQUIDATION"
+	LiquidationBUY  SymbolStatus = "LIQUIDATION_BUY"
+	LiquidationSELL SymbolStatus = "LIQUIDATION_SELL"
+	New             SymbolStatus = "NEW"
 )
 
 func (s SymbolStatus) ToString() string {
