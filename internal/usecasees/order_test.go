@@ -1,11 +1,10 @@
-package usecasees_test
+package usecasees
 
 import (
 	ctrlMocks "binance/internal/controllers/mocks"
 	mongoMocks "binance/internal/repository/mongo/mocks"
 	"binance/internal/repository/mongo/structs"
 	pgMocks "binance/internal/repository/postgres/mocks"
-	"binance/internal/usecasees"
 	orderStructs "binance/internal/usecasees/structs"
 	"binance/models"
 	"os"
@@ -22,12 +21,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-const testCaseSELLOrder = "SELLOrder"
-
-type mockGen struct {
-	clientCtrl *ctrlMocks.ClientCtrl
-}
-
 type mockGenSELLOrder struct {
 	clientCtrl   *ctrlMocks.ClientCtrl
 	cryptoCtrl   *ctrlMocks.CryptoCtrl
@@ -35,18 +28,40 @@ type mockGenSELLOrder struct {
 	orderRepo    *pgMocks.OrderRepo
 	settingsRepo *mongoMocks.SettingsRepo
 	priceRepo    *pgMocks.PriceRepo
+
+	logger *logrus.Logger
 }
 
-func Test_OrderUseCase_SELLOrder(t *testing.T) {
-	var wg sync.WaitGroup
-	var mockGen mockGenSELLOrder
+func Test_OrderUseCase(t *testing.T) {
+	t.Run("SELL Order", func(t *testing.T) {
+		sellOrder(newMockGenSELLOrder(), t)
+	})
+}
+func newMockGenSELLOrder() *mockGenSELLOrder {
+	return &mockGenSELLOrder{
+		clientCtrl:   &ctrlMocks.ClientCtrl{},
+		cryptoCtrl:   &ctrlMocks.CryptoCtrl{},
+		tgmCtrl:      &ctrlMocks.TgmCtrl{},
+		orderRepo:    &pgMocks.OrderRepo{},
+		settingsRepo: &mongoMocks.SettingsRepo{},
+		priceRepo:    &pgMocks.PriceRepo{},
+	}
 
-	wg.Add(1)
+}
 
-	logger := &logrus.Logger{
+func (mockGen *mockGenSELLOrder) initLogger() {
+	mockGen.logger = &logrus.Logger{
 		Out:   os.Stderr,
 		Level: logrus.DebugLevel,
 	}
+}
+
+func sellOrder(mockGen *mockGenSELLOrder, t *testing.T) {
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+
+	mockGen.initLogger()
 
 	mockGen.clientMocks()
 	mockGen.tgmMocks()
@@ -54,35 +69,12 @@ func Test_OrderUseCase_SELLOrder(t *testing.T) {
 	mockGen.orderMocks()
 	mockGen.settingsMocks()
 
-	priceRepo := &pgMocks.PriceRepo{}
-
-	priceUseCase := usecasees.NewPriceUseCase(
-		mockGen.clientCtrl,
-		mockGen.tgmCtrl,
-		priceRepo,
-		"https://api.binance.com",
-		logger,
-	)
-
-	orderUseCase := usecasees.NewOrderUseCase(
-		mockGen.clientCtrl,
-		mockGen.cryptoCtrl,
-		mockGen.tgmCtrl,
-		mockGen.settingsRepo,
-		mockGen.orderRepo,
-		priceUseCase,
-		"https://api.binance.com",
-		logger,
-	)
-
-	assert.NoError(t, orderUseCase.Monitoring("BTCBUSD"))
+	assert.NoError(t, mockGen.initOrderUseCase().Monitoring("BTCBUSD"))
 
 	wg.Wait()
 }
 
-func (m *mockGenSELLOrder) clientMocks() {
-	m.clientCtrl = &ctrlMocks.ClientCtrl{}
-
+func (mockGen *mockGenSELLOrder) clientMocks() {
 	orderListStruct := orderStructs.OrderList{
 		OrderListID: 1,
 	}
@@ -97,40 +89,33 @@ func (m *mockGenSELLOrder) clientMocks() {
 	openOrdersStruct := []orderStructs.Order{}
 	openOrdersJson, _ := json.Marshal(&openOrdersStruct)
 
-	m.clientCtrl.On("Send", "GET", mock.MatchedBy(func(input *url.URL) bool {
+	mockGen.clientCtrl.On("Send", "GET", mock.MatchedBy(func(input *url.URL) bool {
 		return input.Path == "/api/v3/orderList"
 	}), []byte(nil), true).Return(orderListJson, nil)
 
-	m.clientCtrl.On("Send", "GET", mock.MatchedBy(func(input *url.URL) bool {
+	mockGen.clientCtrl.On("Send", "GET", mock.MatchedBy(func(input *url.URL) bool {
 		return input.Path == "/api/v3/order"
 	}), []byte(nil), true).Return(orderJson, nil)
 
-	m.clientCtrl.On("Send", "GET", mock.MatchedBy(func(input *url.URL) bool {
+	mockGen.clientCtrl.On("Send", "GET", mock.MatchedBy(func(input *url.URL) bool {
 		return input.Path == "/api/v3/openOrders"
 	}), []byte(nil), true).Return(openOrdersJson, nil)
 
-	m.clientCtrl.On("Send", "POST", mock.MatchedBy(func(input *url.URL) bool {
+	mockGen.clientCtrl.On("Send", "POST", mock.MatchedBy(func(input *url.URL) bool {
 		return input.Path == "/api/v3/order/oco"
 	}), []byte(nil), true).Return(orderListJson, nil)
 
 }
-
-func (m *mockGenSELLOrder) tgmMocks() {
-	m.tgmCtrl = &ctrlMocks.TgmCtrl{}
-
-	m.tgmCtrl.On("Send", mock.AnythingOfType("string")).Return(nil)
+func (mockGen *mockGenSELLOrder) tgmMocks() {
+	mockGen.tgmCtrl.On("Send", mock.AnythingOfType("string")).Return(nil)
 }
-
-func (m *mockGenSELLOrder) cryptoMocks() {
-	m.cryptoCtrl = &ctrlMocks.CryptoCtrl{}
-	m.cryptoCtrl.On("GetSignature", mock.AnythingOfType("string")).Return("630e26f39d6728d0e7feffb9", nil)
+func (mockGen *mockGenSELLOrder) cryptoMocks() {
+	mockGen.cryptoCtrl.On("GetSignature", mock.AnythingOfType("string")).Return("630e26f39d6728d0e7feffb9", nil)
 
 }
-func (m *mockGenSELLOrder) orderMocks() {
-	m.orderRepo = &pgMocks.OrderRepo{}
-
-	m.orderRepo.On("Store", mock.AnythingOfType("*models.Order")).Return(nil)
-	m.orderRepo.On("GetLast", "BTCBUSD").Return(&models.Order{
+func (mockGen *mockGenSELLOrder) orderMocks() {
+	mockGen.orderRepo.On("Store", mock.AnythingOfType("*models.Order")).Return(nil)
+	mockGen.orderRepo.On("GetLast", "BTCBUSD").Return(&models.Order{
 		ID:          8,
 		OrderID:     3145000133794585251,
 		SessionID:   "cc3336da-432f-4e9e-9152-d976732f9b8d",
@@ -146,11 +131,8 @@ func (m *mockGenSELLOrder) orderMocks() {
 		CreatedAt:   time.Now().Add(-2 * time.Hour),
 	}, nil)
 }
-
-func (m *mockGenSELLOrder) settingsMocks() {
-	m.settingsRepo = &mongoMocks.SettingsRepo{}
-
-	m.settingsRepo.On("Load", "BTCBUSD").Return(&structs.Settings{
+func (mockGen *mockGenSELLOrder) settingsMocks() {
+	mockGen.settingsRepo.On("Load", "BTCBUSD").Return(&structs.Settings{
 		ID:        primitive.NewObjectID(),
 		Symbol:    "BTCBUSD",
 		Limit:     0.02,
@@ -162,6 +144,24 @@ func (m *mockGenSELLOrder) settingsMocks() {
 	}, nil)
 }
 
-func (m *mockGenSELLOrder) priceMocks() {
-	m.priceRepo = &pgMocks.PriceRepo{}
+func (mockGen *mockGenSELLOrder) initOrderUseCase() *orderUseCase {
+	return NewOrderUseCase(
+		mockGen.clientCtrl,
+		mockGen.cryptoCtrl,
+		mockGen.tgmCtrl,
+		mockGen.settingsRepo,
+		mockGen.orderRepo,
+		mockGen.initPriceUseCase(),
+		"https://api.binance.com",
+		mockGen.logger,
+	)
+}
+func (mockGen *mockGenSELLOrder) initPriceUseCase() *priceUseCase {
+	return NewPriceUseCase(
+		mockGen.clientCtrl,
+		mockGen.tgmCtrl,
+		mockGen.priceRepo,
+		"https://api.binance.com",
+		mockGen.logger,
+	)
 }
