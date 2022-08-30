@@ -119,7 +119,6 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				Error(string(debug.Stack()))
 		}
 	}
-
 	sendLimit := func(quantity float64) {
 		if err := u.tgmController.Send(fmt.Sprintf("[ Limit ]\n"+
 			"quantity:\t%.5f\n",
@@ -129,7 +128,6 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				Error(string(debug.Stack()))
 		}
 	}
-
 	sendStat := func(stat *structs.PricePlan) {
 		if err := u.tgmController.Send(fmt.Sprintf("[ Stat ]\n"+
 			"quantity:\t%.4f\n"+
@@ -164,6 +162,10 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						WithError(err).
 						Error(string(debug.Stack()))
 				}
+
+				u.logger.
+					WithField("settings", settings.Status).
+					Debug("settings")
 
 				switch settings.Status {
 				case mongoStructs.New.ToString():
@@ -329,6 +331,14 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					}
 
 				}
+
+				u.logger.
+					WithField("lastOrderStatus", lastOrder.Status).
+					WithField("newOrderStatus", lastOrderStatus).
+					WithField("orderTry", orderTry).
+					WithField("quantity", quantity).
+					WithField("sessionID", sessionID).
+					Debug("update status")
 
 				if lastOrder.Status != lastOrderStatus {
 					if err := u.orderRepo.SetStatus(lastOrder.ID, lastOrderStatus); err != nil {

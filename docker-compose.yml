@@ -21,6 +21,8 @@ services:
 
   binance:
     image: binance/binance:${BINANCE_VERSION}
+    environment:
+      LOG_LEVEL: ${BINANCE_LOG_LEVEL}
     depends_on:
       - binance-postgres
       - binance-mongodb

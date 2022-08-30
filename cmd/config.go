@@ -15,6 +15,7 @@ type Config struct {
 	BinanceSecretKey string
 	BinanceUrl       string
 	AppPort          string
+	LogLevel         string
 	DB               *DB
 	Mongo            *Mongo
 }
@@ -33,8 +34,6 @@ type Mongo struct {
 	Password string
 	DBName   string
 }
-
-var ErrEnvNotFound = errors.New("err env not found")
 
 func (a *App) loadConfig(confFileName string) error {
 	var cfg Config
@@ -67,6 +66,10 @@ func (a *App) loadConfig(confFileName string) error {
 	}
 
 	if cfg.AppPort, err = cfg.set("APP_PORT"); err != nil {
+		return err
+	}
+
+	if cfg.LogLevel, err = cfg.set("LOG_LEVEL"); err != nil {
 		return err
 	}
 
@@ -130,7 +133,7 @@ func (d *DB) DSN() string {
 
 func (c *Config) set(key string) (string, error) {
 	if os.Getenv(key) == "" {
-		return "", ErrEnvNotFound
+		return "", errors.New(fmt.Sprintf("not found '%s' env", key))
 	}
 
 	return os.Getenv(key), nil
