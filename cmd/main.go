@@ -95,6 +95,7 @@ func main() {
 	tgmUseCase := usecasees.NewTgmUseCase(
 		priceUseCase,
 		orderUseCase,
+		mongoRepo,
 		tgmController,
 		orderRepo,
 		app.Logger,

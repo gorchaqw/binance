@@ -194,7 +194,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 					priceBUY := lastOrder.StopPrice - (liquidDelta / 2)
 
-					if err := u.createLimitOrder(&structs.Order{
+					if err := u.CreateLimitOrder(&structs.Order{
 						Symbol: symbol,
 						Side:   SideBuy,
 						Price:  fmt.Sprintf("%.0f", priceBUY),
@@ -366,7 +366,8 @@ func (u *orderUseCase) fillPricePlan(actualPrice, quantity float64, settings *mo
 
 	out.ActualPrice = actualPrice
 
-	out.ActualPricePercent = out.ActualPrice / 100 * (settings.Delta + (settings.DeltaStep * float64(orderTry)))
+	out.ActualPricePercent = out.ActualPrice / 100 * settings.Delta
+	//out.ActualPricePercent = out.ActualPrice / 100 * (settings.Delta + (settings.DeltaStep * float64(orderTry)))
 	out.ActualStopPricePercent = out.ActualPricePercent
 
 	out.StopPriceBUY = out.ActualPrice + out.ActualStopPricePercent
@@ -581,7 +582,7 @@ func (u *orderUseCase) getOrderInfo(orderID int64, symbol string) (*structs.Orde
 	return &out, nil
 }
 
-func (u *orderUseCase) createLimitOrder(order *structs.Order, quantity, actualPrice float64, try int, sessionID string) error {
+func (u *orderUseCase) CreateLimitOrder(order *structs.Order, quantity, actualPrice float64, try int, sessionID string) error {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return err

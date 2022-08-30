@@ -2,10 +2,15 @@ package usecasees
 
 import (
 	"binance/internal/controllers"
+	"binance/internal/repository/mongo"
+	mongoStructs "binance/internal/repository/mongo/structs"
 	"binance/internal/repository/postgres"
+	"binance/internal/usecasees/structs"
 	"fmt"
 	"runtime/debug"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/sirupsen/logrus"
 )
@@ -13,6 +18,7 @@ import (
 type tgmUseCase struct {
 	priceUseCase  *priceUseCase
 	orderUseCase  *orderUseCase
+	settingsRepo  *mongo.SettingsRepository
 	tgmController *controllers.TgmController
 	orderRepo     *postgres.OrderRepository
 	logger        *logrus.Logger
@@ -21,6 +27,7 @@ type tgmUseCase struct {
 func NewTgmUseCase(
 	priceUseCase *priceUseCase,
 	orderUseCase *orderUseCase,
+	settingsRepo *mongo.SettingsRepository,
 	tgmController *controllers.TgmController,
 	orderRepo *postgres.OrderRepository,
 	logger *logrus.Logger,
@@ -28,6 +35,7 @@ func NewTgmUseCase(
 	return &tgmUseCase{
 		priceUseCase:  priceUseCase,
 		orderUseCase:  orderUseCase,
+		settingsRepo:  settingsRepo,
 		orderRepo:     orderRepo,
 		tgmController: tgmController,
 		logger:        logger,
@@ -48,10 +56,57 @@ func (u *tgmUseCase) CommandProcessor() {
 				u.pingProc(loc)
 			case "stat":
 				u.orderStatProc()
-			case "set_":
-
+			case "enable":
+				u.enableProc()
 			}
 		}
+	}
+}
+
+func (u *tgmUseCase) enableProc() {
+	for _, symbol := range SymbolList {
+		lastOrder, err := u.orderRepo.GetFirst(symbol)
+		if err != nil {
+			u.logger.
+				WithError(err).
+				Error(string(debug.Stack()))
+		}
+
+		settings, err := u.settingsRepo.Load(symbol)
+		if err != nil {
+			u.logger.
+				WithError(err).
+				Error(string(debug.Stack()))
+		}
+
+		var liquidDelta float64
+		for i := 0; i < lastOrder.Try; i++ {
+			actualPricePercent := lastOrder.StopPrice / 100 * (settings.Delta + (settings.DeltaStep * float64(i)))
+			liquidDelta += actualPricePercent
+		}
+
+		priceBUY := lastOrder.StopPrice - (liquidDelta / 2)
+
+		orderTry := 1
+		sessionID := uuid.New().String()
+
+		if err := u.orderUseCase.CreateLimitOrder(&structs.Order{
+			Symbol: symbol,
+			Side:   SideBuy,
+			Price:  fmt.Sprintf("%.0f", priceBUY),
+		}, settings.Step, lastOrder.StopPrice, orderTry, sessionID); err != nil {
+			u.logger.
+				WithError(err).
+				Error(string(debug.Stack()))
+		}
+
+		if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.Disabled); err != nil {
+			u.logger.
+				WithError(err).
+				Error(string(debug.Stack()))
+		}
+
+		continue
 	}
 }
 
