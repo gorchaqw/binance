@@ -7,7 +7,7 @@ build(){
   image_name=$1
   version=$2
 
-  docker --context firstvds build -t "$image_name":"$version" .
+  docker --context beget build -t "$image_name":"$version" .
 }
 
 deploy(){
@@ -17,7 +17,7 @@ deploy(){
   export BINANCE_VERSION=$version
   export BINANCE_PG_INIT_DB="/root/db.sql"
 
-  docker-compose --context firstvds up --remove-orphans -d
+  docker-compose --context beget up --remove-orphans -d
 }
 
 gitRepo(){
