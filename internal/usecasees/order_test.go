@@ -5,19 +5,19 @@ import (
 )
 
 func Test_OrderUseCase(t *testing.T) {
-	t.Run("SELL Order", func(t *testing.T) {
-		newMockGenSELLOrder().run(t)
+	t.Run("order SELL", func(t *testing.T) {
+		newMonitoring(testCaseOrderSELL).run(t)
 	})
 
-	t.Run("Settings status NEW", func(t *testing.T) {
-		newMockGenSettingsStatusNew().run(t)
+	t.Run("liquidation BUY", func(t *testing.T) {
+		newMonitoring(testCaseLiquidationBUY).run(t)
 	})
 
-	t.Run("Settings status LiquidationSELL", func(t *testing.T) {
-		newMockGenSettingsStatusLiquidationSELL().run(t)
+	t.Run("liquidation SELL", func(t *testing.T) {
+		newMonitoring(testCaseLiquidationSELL).run(t)
 	})
 
-	t.Run("Settings status LiquidationBUY", func(t *testing.T) {
-		newMockGenSettingsStatusLiquidationBUY().run(t)
+	t.Run("settings status NEW", func(t *testing.T) {
+		newMonitoring(testSettingsStatusNEW).run(t)
 	})
 }
