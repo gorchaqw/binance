@@ -449,7 +449,6 @@ func (u *orderUseCase) fillPricePlan(actualPrice, quantity float64, settings *mo
 
 	return &out
 }
-
 func (u *orderUseCase) initOrder(sendStat func(stat *structs.PricePlan), symbol string, quantity float64, settings *mongoStructs.Settings, orderTry int, sessionID string) error {
 	actualPrice, err := u.priceUseCase.GetPrice(symbol)
 	if err != nil {
@@ -471,7 +470,6 @@ func (u *orderUseCase) initOrder(sendStat func(stat *structs.PricePlan), symbol 
 
 	return nil
 }
-
 func (u *orderUseCase) liquidOrder(sendStat func(stat *structs.PricePlan), symbol, sessionID string, quantity float64, settings *mongoStructs.Settings, orderTry int) error {
 	actualPrice, err := u.priceUseCase.GetPrice(symbol)
 	if err != nil {
@@ -493,7 +491,6 @@ func (u *orderUseCase) liquidOrder(sendStat func(stat *structs.PricePlan), symbo
 
 	return nil
 }
-
 func (u *orderUseCase) getOpenOrders(symbol string) ([]structs.Order, error) {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
@@ -525,7 +522,6 @@ func (u *orderUseCase) getOpenOrders(symbol string) ([]structs.Order, error) {
 
 	return out, nil
 }
-
 func (u *orderUseCase) getAllOrders(symbol string) error {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
@@ -617,7 +613,6 @@ func (u *orderUseCase) getOrderList(orderListID int64) (*structs.OrderList, erro
 
 	return &out, nil
 }
-
 func (u *orderUseCase) getOrderInfo(orderID int64, symbol string) (*structs.Order, error) {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
@@ -650,7 +645,6 @@ func (u *orderUseCase) getOrderInfo(orderID int64, symbol string) (*structs.Orde
 
 	return &out, nil
 }
-
 func (u *orderUseCase) CreateLimitOrder(order *structs.Order, quantity, actualPrice float64, try int, sessionID string) error {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
@@ -728,7 +722,6 @@ func (u *orderUseCase) CreateLimitOrder(order *structs.Order, quantity, actualPr
 
 	return nil
 }
-
 func (u *orderUseCase) createOrder(order *structs.Order, quantity, actualPrice float64, try int, sessionID string) error {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
@@ -817,7 +810,6 @@ func (u *orderUseCase) createOrder(order *structs.Order, quantity, actualPrice f
 
 	return nil
 }
-
 func (u *orderUseCase) cancelOrder(symbol, orderId string) error {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
