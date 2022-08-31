@@ -224,7 +224,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							Symbol: symbol,
 							Side:   SideSell,
 							Price:  fmt.Sprintf("%.0f", priceSELL),
-						}, settings.Limit, lastOrder.StopPrice, orderTry, sessionID); err != nil {
+						}, settings.Limit, lastOrder.Price, orderTry, sessionID); err != nil {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -258,6 +258,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						u.logger.
 							WithError(err).
 							Error(string(debug.Stack()))
+						continue
 					}
 
 					if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.LiquidationSELL); err != nil {
