@@ -192,13 +192,14 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 								WithError(err).
 								Error(string(debug.Stack()))
 						}
+
+						if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.Enabled); err != nil {
+							u.logger.
+								WithError(err).
+								Error(string(debug.Stack()))
+						}
 					}
 
-					if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.Enabled); err != nil {
-						u.logger.
-							WithError(err).
-							Error(string(debug.Stack()))
-					}
 				case mongoStructs.LiquidationSELL.ToString():
 					lastOrder, err := u.orderRepo.GetLast(symbol)
 					if err != nil {
