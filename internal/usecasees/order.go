@@ -246,13 +246,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 					sendOrderInfo(lastOrder)
 
-					var liquidDelta float64
-					for i := 0; i < lastOrder.Try; i++ {
-						actualPricePercent := lastOrder.StopPrice / 100 * (settings.Delta + (settings.DeltaStep * float64(i)))
-						liquidDelta += actualPricePercent
-					}
-
-					priceBUY := lastOrder.StopPrice - (liquidDelta / 2)
+					priceBUY := lastOrder.Price + ((lastOrder.Price) / 100 * 1.5)
 
 					if err := u.CreateLimitOrder(&structs.Order{
 						Symbol: symbol,

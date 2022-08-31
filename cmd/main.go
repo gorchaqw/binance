@@ -18,11 +18,11 @@ func main() {
 	flag.StringVar(&confFileName, "config", ".env", "")
 	flag.Parse()
 
-	app.initLogger()
-
 	if err := app.loadConfig(confFileName); err != nil {
 		panic(err)
 	}
+
+	app.initLogger()
 
 	if err := app.initLoki(); err != nil {
 		panic(err)
