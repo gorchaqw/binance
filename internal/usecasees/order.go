@@ -218,7 +218,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					if orderInfo.Status == OrderStatusFilled && orderInfo.Side == SideBuy && orderInfo.Type == "LIMIT" {
 						sendOrderInfo(lastOrder)
 
-						priceSELL := lastOrder.Price + ((lastOrder.Price) / 100 * 1.5)
+						priceSELL := lastOrder.Price + ((lastOrder.Price) / 100 * 0.25)
 
 						if err := u.CreateLimitOrder(&structs.Order{
 							Symbol: symbol,
@@ -228,6 +228,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
+
+							continue
 						}
 
 						if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.New); err != nil {
