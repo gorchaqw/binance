@@ -248,7 +248,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 					sendOrderInfo(lastOrder)
 
-					priceBUY := lastOrder.Price + ((lastOrder.Price) / 100 * 1.5)
+					priceBUY := lastOrder.Price + ((lastOrder.Price) / 100 * 0.25)
 
 					if err := u.CreateLimitOrder(&structs.Order{
 						Symbol: symbol,
@@ -664,7 +664,7 @@ func (u *orderUseCase) CreateLimitOrder(order *structs.Order, quantity, actualPr
 
 	q := baseURL.Query()
 	q.Set("symbol", order.Symbol)
-	q.Set("side", "BUY")
+	q.Set("side", order.Side)
 	q.Set("type", "LIMIT")
 	q.Set("quantity", fmt.Sprintf("%.5f", quantity))
 	q.Set("price", order.Price)
