@@ -296,33 +296,47 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				lastOrderStatus := lastOrder.Status
 
-				for _, o := range orderList.Orders {
-					orderInfo, err := u.getOrderInfo(o.OrderID, symbol)
+				switch lastOrder.Type {
+				case "LIMIT":
+					orderInfo, err := u.getOrderInfo(lastOrder.OrderID, symbol)
 					if err != nil {
 						u.logger.
 							WithError(err).
 							Error(string(debug.Stack()))
 					}
 
-					switch true {
-					case orderInfo.Type == "STOP_LOSS_LIMIT" && orderInfo.Status == OrderStatusFilled:
-						lastOrderStatus = OrderStatusCanceled
-						orderTry++
-
-						if orderInfo.Side == SideSell {
-							quantity = settings.Step * math.Pow(2, float64(orderTry-1))
-						}
-
-					case orderInfo.Type == "LIMIT_MAKER" && orderInfo.Status == OrderStatusFilled:
+					if orderInfo.Status == OrderStatusFilled {
 						lastOrderStatus = OrderStatusFilled
-
-						if orderInfo.Side == SideSell {
-							orderTry = 1
-							quantity = settings.Step
-							sessionID = uuid.New().String()
-						}
 					}
 
+				case "OCO":
+					for _, o := range orderList.Orders {
+						orderInfo, err := u.getOrderInfo(o.OrderID, symbol)
+						if err != nil {
+							u.logger.
+								WithError(err).
+								Error(string(debug.Stack()))
+						}
+
+						switch true {
+						case orderInfo.Type == "STOP_LOSS_LIMIT" && orderInfo.Status == OrderStatusFilled:
+							lastOrderStatus = OrderStatusCanceled
+							orderTry++
+
+							if orderInfo.Side == SideSell {
+								quantity = settings.Step * math.Pow(2, float64(orderTry-1))
+							}
+
+						case orderInfo.Type == "LIMIT_MAKER" && orderInfo.Status == OrderStatusFilled:
+							lastOrderStatus = OrderStatusFilled
+
+							if orderInfo.Side == SideSell {
+								orderTry = 1
+								quantity = settings.Step
+								sessionID = uuid.New().String()
+							}
+						}
+					}
 				}
 
 				u.logger.
