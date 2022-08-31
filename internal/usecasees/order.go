@@ -183,7 +183,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							Error(string(debug.Stack()))
 					}
 
-					if orderInfo.Status == OrderStatusFilled {
+					if orderInfo.Status == OrderStatusFilled && orderInfo.Side == SideSell && orderInfo.Type == "LIMIT" {
 						orderTry = 1
 						sessionID = uuid.New().String()
 
@@ -215,7 +215,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							Error(string(debug.Stack()))
 					}
 
-					if orderInfo.Status == OrderStatusFilled {
+					if orderInfo.Status == OrderStatusFilled && orderInfo.Side == SideBuy && orderInfo.Type == "LIMIT" {
 						sendOrderInfo(lastOrder)
 
 						priceSELL := lastOrder.Price + ((lastOrder.Price) / 100 * 1.5)
