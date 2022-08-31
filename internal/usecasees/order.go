@@ -270,7 +270,6 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							Error(string(debug.Stack()))
 					}
 				case mongoStructs.Disabled.ToString():
-
 					continue
 				}
 
