@@ -100,7 +100,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 		return err
 	}
 
-	var status *structs.Status
+	var status structs.Status
 	status.Reset(settings.Step)
 
 	sendOrderInfo := func(order *models.Order) {
@@ -164,7 +164,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					case sql.ErrNoRows:
 						status.Reset(settings.Step)
 
-						if err := u.initOrder(sendStat, symbol, settings, status); err != nil {
+						if err := u.initOrder(sendStat, symbol, settings, &status); err != nil {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -196,7 +196,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							SetQuantity(settings.Step).
 							SetSessionID(uuid.New().String())
 
-						if err := u.initOrder(sendStat, symbol, settings, status); err != nil {
+						if err := u.initOrder(sendStat, symbol, settings, &status); err != nil {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -219,7 +219,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					if orderInfo.Status == OrderStatusFilled && orderInfo.Side == SideBuy && orderInfo.Type == "LIMIT" {
 						sendOrderInfo(lastOrder)
 
-						pricePlan := u.fillPricePlan(symbol, lastOrder.Price, settings, status).SetSide(SideSell)
+						pricePlan := u.fillPricePlan(symbol, lastOrder.Price, settings, &status).SetSide(SideSell)
 						if err := u.CreateLimitOrder(pricePlan); err != nil {
 							u.logger.
 								WithError(err).
@@ -237,7 +237,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				case mongoStructs.LiquidationBUY.ToString():
 					sendOrderInfo(lastOrder)
 
-					pricePlan := u.fillPricePlan(symbol, lastOrder.StopPrice, settings, status).SetSide(SideBuy)
+					pricePlan := u.fillPricePlan(symbol, lastOrder.StopPrice, settings, &status).SetSide(SideBuy)
 					if err := u.CreateLimitOrder(pricePlan); err != nil {
 						u.logger.
 							WithError(err).
@@ -367,7 +367,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				if len(openOrders) == 0 {
 					switch lastOrder.Side {
 					case SideBuy:
-						pricePlan := u.fillPricePlan(symbol, actualPrice, settings, status).SetSide(SideSell)
+						pricePlan := u.fillPricePlan(symbol, actualPrice, settings, &status).SetSide(SideSell)
 
 						go sendStat(pricePlan)
 
@@ -379,7 +379,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						}
 
 					case SideSell:
-						pricePlan := u.fillPricePlan(symbol, actualPrice, settings, status).SetSide(SideBuy)
+						pricePlan := u.fillPricePlan(symbol, actualPrice, settings, &status).SetSide(SideBuy)
 
 						go sendStat(pricePlan)
 
