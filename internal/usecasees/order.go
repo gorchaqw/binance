@@ -674,9 +674,9 @@ func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan) error {
 
 	switch pricePlan.Side {
 	case SideBuy:
-		o.Price = pricePlan.PriceBUY
+		o.Price = fmt.Sprintf("%.2f", pricePlan.PriceBUY)
 	case SideSell:
-		o.Price = pricePlan.PriceSELL
+		o.Price = fmt.Sprintf("%.2f", pricePlan.PriceSELL)
 	}
 
 	if err := u.orderRepo.Store(&orderModel); err != nil {

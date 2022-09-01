@@ -80,7 +80,7 @@ type LimitOrder struct {
 	OrderListID         int           `json:"orderListId"`
 	ClientOrderID       string        `json:"clientOrderId"`
 	TransactTime        int64         `json:"transactTime"`
-	Price               float64       `json:"price"`
+	Price               string        `json:"price"`
 	OrigQty             string        `json:"origQty"`
 	ExecutedQty         string        `json:"executedQty"`
 	CummulativeQuoteQty string        `json:"cummulativeQuoteQty"`
