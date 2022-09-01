@@ -762,8 +762,10 @@ func (u *orderUseCase) createOCOOrder(pricePlan *structs.PricePlan) error {
 	switch pricePlan.Side {
 	case SideBuy:
 		o.Price = pricePlan.PriceBUY
+		o.StopPrice = pricePlan.StopPriceBUY
 	case SideSell:
 		o.Price = pricePlan.PriceSELL
+		o.StopPrice = pricePlan.StopPriceSELL
 	}
 
 	if err := u.orderRepo.Store(&o); err != nil {
