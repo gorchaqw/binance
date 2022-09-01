@@ -408,6 +408,6 @@ func Test_Calc(t *testing.T) {
 }
 
 func TestPrice(t *testing.T) {
-	priceSELL := 20310 + ((20310) / 100 * 0.2)
+	priceSELL := 20310 + ((20310) / 100 * 0.1)
 	fmt.Println(priceSELL)
 }

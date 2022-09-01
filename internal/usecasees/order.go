@@ -218,7 +218,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					if orderInfo.Status == OrderStatusFilled && orderInfo.Side == SideBuy && orderInfo.Type == "LIMIT" {
 						sendOrderInfo(lastOrder)
 
-						priceSELL := lastOrder.Price + ((lastOrder.Price) / 100 * 0.15)
+						priceSELL := lastOrder.Price + ((lastOrder.Price) / 100 * 0.2)
 
 						if err := u.CreateLimitOrder(&structs.Order{
 							Symbol: symbol,
@@ -248,7 +248,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 					sendOrderInfo(lastOrder)
 
-					priceBUY := lastOrder.Price + ((lastOrder.Price) / 100 * 0.15)
+					priceBUY := lastOrder.Price - ((lastOrder.Price) / 100 * 0.2)
 
 					if err := u.CreateLimitOrder(&structs.Order{
 						Symbol: symbol,
