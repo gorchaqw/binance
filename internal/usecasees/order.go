@@ -8,12 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"net/http"
 	"net/url"
 	"path"
 	"runtime/debug"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -102,9 +100,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 		return err
 	}
 
-	orderTry := 1
-	quantity := settings.Step
-	sessionID := uuid.New().String()
+	var status *structs.Status
+	status.Reset(settings.Step)
 
 	sendOrderInfo := func(order *models.Order) {
 		if err := u.tgmController.Send(fmt.Sprintf("[ Last Order ]\n"+
@@ -130,14 +127,12 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 	}
 	sendStat := func(stat *structs.PricePlan) {
 		if err := u.tgmController.Send(fmt.Sprintf("[ Stat ]\n"+
-			"quantity:\t%.4f\n"+
 			"actualPrice:\t%.2f\n"+
 			"actualPricePercent:\t%.2f\n"+
 			"stopPriceBUY:\t%.2f\n"+
 			"stopPriceSELL:\t%.2f\n"+
 			"priceBUY:\t%.2f\n"+
 			"priceSELL:\t%.2f\n",
-			stat.Quantity,
 			stat.ActualPrice,
 			stat.ActualPricePercent,
 			stat.StopPriceBUY,
@@ -156,11 +151,30 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 			case <-done:
 				return
 			case _ = <-ticker.C:
-				settings, err := u.settingsRepo.Load(symbol)
+				settings, err = u.settingsRepo.Load(symbol)
 				if err != nil {
 					u.logger.
 						WithError(err).
 						Error(string(debug.Stack()))
+				}
+
+				lastOrder, err := u.orderRepo.GetLast(symbol)
+				if err != nil {
+					switch err {
+					case sql.ErrNoRows:
+						status.Reset(settings.Step)
+
+						if err := u.initOrder(sendStat, symbol, settings, status); err != nil {
+							u.logger.
+								WithError(err).
+								Error(string(debug.Stack()))
+						}
+						continue
+					default:
+						u.logger.
+							WithError(err).
+							Error(string(debug.Stack()))
+					}
 				}
 
 				u.logger.
@@ -169,13 +183,6 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				switch settings.Status {
 				case mongoStructs.New.ToString():
-					lastOrder, err := u.orderRepo.GetLast(symbol)
-					if err != nil {
-						u.logger.
-							WithError(err).
-							Error(string(debug.Stack()))
-					}
-
 					orderInfo, err := u.getOrderInfo(lastOrder.OrderID, symbol)
 					if err != nil {
 						u.logger.
@@ -184,11 +191,12 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					}
 
 					if orderInfo.Status == OrderStatusFilled && orderInfo.Side == SideSell && orderInfo.Type == "LIMIT" {
-						orderTry = 1
-						quantity = settings.Step
-						sessionID = uuid.New().String()
+						status.
+							SetOrderTry(1).
+							SetQuantity(settings.Step).
+							SetSessionID(uuid.New().String())
 
-						if err := u.initOrder(sendStat, symbol, quantity, settings, orderTry, sessionID); err != nil {
+						if err := u.initOrder(sendStat, symbol, settings, status); err != nil {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -201,13 +209,6 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						}
 					}
 				case mongoStructs.LiquidationSELL.ToString():
-					lastOrder, err := u.orderRepo.GetLast(symbol)
-					if err != nil {
-						u.logger.
-							WithError(err).
-							Error(string(debug.Stack()))
-					}
-
 					orderInfo, err := u.getOrderInfo(lastOrder.OrderID, symbol)
 					if err != nil {
 						u.logger.
@@ -218,13 +219,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					if orderInfo.Status == OrderStatusFilled && orderInfo.Side == SideBuy && orderInfo.Type == "LIMIT" {
 						sendOrderInfo(lastOrder)
 
-						priceSELL := lastOrder.Price + ((lastOrder.Price) / 100 * 0.2)
-
-						if err := u.CreateLimitOrder(&structs.Order{
-							Symbol: symbol,
-							Side:   SideSell,
-							Price:  fmt.Sprintf("%.0f", priceSELL),
-						}, settings.Limit, lastOrder.Price, orderTry, sessionID); err != nil {
+						pricePlan := u.fillPricePlan(symbol, lastOrder.Price, settings, status).SetSide(SideSell)
+						if err := u.CreateLimitOrder(pricePlan); err != nil {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -239,22 +235,10 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						}
 					}
 				case mongoStructs.LiquidationBUY.ToString():
-					lastOrder, err := u.orderRepo.GetLast(symbol)
-					if err != nil {
-						u.logger.
-							WithError(err).
-							Error(string(debug.Stack()))
-					}
-
 					sendOrderInfo(lastOrder)
 
-					priceBUY := lastOrder.StopPrice - ((lastOrder.StopPrice) / 100 * 0.2)
-
-					if err := u.CreateLimitOrder(&structs.Order{
-						Symbol: symbol,
-						Side:   SideBuy,
-						Price:  fmt.Sprintf("%.0f", priceBUY),
-					}, settings.Limit, lastOrder.Price, orderTry, sessionID); err != nil {
+					pricePlan := u.fillPricePlan(symbol, lastOrder.StopPrice, settings, status).SetSide(SideBuy)
+					if err := u.CreateLimitOrder(pricePlan); err != nil {
 						u.logger.
 							WithError(err).
 							Error(string(debug.Stack()))
@@ -270,32 +254,9 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					continue
 				}
 
-				lastOrder, err := u.orderRepo.GetLast(symbol)
-				if err != nil {
-					switch err {
-					case sql.ErrNoRows:
-						if err := u.initOrder(sendStat, symbol, quantity, settings, orderTry, sessionID); err != nil {
-							u.logger.
-								WithError(err).
-								Error(string(debug.Stack()))
-						}
-						continue
-					default:
-						u.logger.
-							WithError(err).
-							Error(string(debug.Stack()))
-					}
-				}
-
-				orderTry = lastOrder.Try
-				quantity = lastOrder.Quantity
-
-				orderList, err := u.getOrderList(lastOrder.OrderID)
-				if err != nil {
-					u.logger.
-						WithError(err).
-						Error(string(debug.Stack()))
-				}
+				status.
+					SetOrderTry(lastOrder.Try).
+					SetQuantity(lastOrder.Quantity)
 
 				lastOrderStatus := lastOrder.Status
 
@@ -311,8 +272,14 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					if orderInfo.Status == OrderStatusFilled {
 						lastOrderStatus = OrderStatusFilled
 					}
-
 				case "OCO":
+					orderList, err := u.getOrderList(lastOrder.OrderID)
+					if err != nil {
+						u.logger.
+							WithError(err).
+							Error(string(debug.Stack()))
+					}
+
 					for _, o := range orderList.Orders {
 						orderInfo, err := u.getOrderInfo(o.OrderID, symbol)
 						if err != nil {
@@ -324,19 +291,19 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						switch true {
 						case orderInfo.Type == "STOP_LOSS_LIMIT" && orderInfo.Status == OrderStatusFilled:
 							lastOrderStatus = OrderStatusCanceled
-							orderTry++
+
+							status.
+								AddOrderTry(1)
 
 							if orderInfo.Side == SideSell {
-								quantity = settings.Step * math.Pow(2, float64(orderTry-1))
+								status.AddQuantity(settings.Step)
 							}
 
 						case orderInfo.Type == "LIMIT_MAKER" && orderInfo.Status == OrderStatusFilled:
 							lastOrderStatus = OrderStatusFilled
 
 							if orderInfo.Side == SideSell {
-								orderTry = 1
-								quantity = settings.Step
-								sessionID = uuid.New().String()
+								status.Reset(settings.Step)
 							}
 						}
 					}
@@ -345,9 +312,9 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				u.logger.
 					WithField("lastOrderStatus", lastOrder.Status).
 					WithField("newOrderStatus", lastOrderStatus).
-					WithField("orderTry", orderTry).
-					WithField("quantity", quantity).
-					WithField("sessionID", sessionID).
+					WithField("orderTry", status.OrderTry).
+					WithField("quantity", status.Quantity).
+					WithField("sessionID", status.SessionID).
 					Debug("update status")
 
 				if lastOrder.Status != lastOrderStatus {
@@ -364,8 +331,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					}
 				}
 
-				if quantity > settings.Limit {
-					sendLimit(quantity)
+				if status.Quantity > settings.Limit {
+					sendLimit(status.Quantity)
 
 					if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.LiquidationBUY); err != nil {
 						u.logger.
@@ -389,8 +356,6 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				go sendOrderInfo(lastOrder)
 
-				pricePlan := u.fillPricePlan(actualPrice, quantity, settings, orderTry)
-
 				openOrders, err := u.getOpenOrders(symbol)
 				if err != nil {
 					u.logger.
@@ -402,14 +367,11 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				if len(openOrders) == 0 {
 					switch lastOrder.Side {
 					case SideBuy:
+						pricePlan := u.fillPricePlan(symbol, actualPrice, settings, status).SetSide(SideSell)
+
 						go sendStat(pricePlan)
 
-						if err := u.createOrder(&structs.Order{
-							Symbol:    symbol,
-							Side:      SideSell,
-							Price:     fmt.Sprintf("%.0f", pricePlan.PriceSELL),
-							StopPrice: fmt.Sprintf("%.0f", pricePlan.StopPriceSELL),
-						}, quantity, actualPrice, orderTry, sessionID); err != nil {
+						if err := u.createOCOOrder(pricePlan); err != nil {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -417,14 +379,11 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						}
 
 					case SideSell:
+						pricePlan := u.fillPricePlan(symbol, actualPrice, settings, status).SetSide(SideBuy)
+
 						go sendStat(pricePlan)
 
-						if err := u.createOrder(&structs.Order{
-							Symbol:    symbol,
-							Side:      SideBuy,
-							Price:     fmt.Sprintf("%.0f", pricePlan.PriceBUY),
-							StopPrice: fmt.Sprintf("%.0f", pricePlan.StopPriceBUY),
-						}, quantity, actualPrice, orderTry, sessionID); err != nil {
+						if err := u.createOCOOrder(pricePlan); err != nil {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -440,9 +399,10 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 	return nil
 }
 
-func (u *orderUseCase) fillPricePlan(actualPrice, quantity float64, settings *mongoStructs.Settings, orderTry int) *structs.PricePlan {
+func (u *orderUseCase) fillPricePlan(symbol string, actualPrice float64, settings *mongoStructs.Settings, status *structs.Status) *structs.PricePlan {
 	var out structs.PricePlan
 
+	out.Symbol = symbol
 	out.ActualPrice = actualPrice
 
 	out.ActualPricePercent = out.ActualPrice / 100 * settings.Delta
@@ -455,24 +415,19 @@ func (u *orderUseCase) fillPricePlan(actualPrice, quantity float64, settings *mo
 	out.PriceBUY = out.ActualPrice - out.ActualPricePercent
 	out.PriceSELL = out.ActualPrice + out.ActualPricePercent
 
-	out.Quantity = quantity
+	out.Status = status
 
 	return &out
 }
-func (u *orderUseCase) initOrder(sendStat func(stat *structs.PricePlan), symbol string, quantity float64, settings *mongoStructs.Settings, orderTry int, sessionID string) error {
+func (u *orderUseCase) initOrder(sendStat func(stat *structs.PricePlan), symbol string, settings *mongoStructs.Settings, status *structs.Status) error {
 	actualPrice, err := u.priceUseCase.GetPrice(symbol)
 	if err != nil {
 		return err
 	}
 
-	pricePlan := u.fillPricePlan(actualPrice, quantity, settings, orderTry)
+	pricePlan := u.fillPricePlan(symbol, actualPrice, settings, status).SetSide(SideBuy)
 
-	if err := u.createOrder(&structs.Order{
-		Symbol:    symbol,
-		Side:      SideBuy,
-		Price:     fmt.Sprintf("%.0f", pricePlan.PriceBUY),
-		StopPrice: fmt.Sprintf("%.0f", pricePlan.StopPriceBUY),
-	}, quantity, actualPrice, orderTry, sessionID); err != nil {
+	if err := u.createOCOOrder(pricePlan); err != nil {
 		return err
 	}
 
@@ -480,20 +435,15 @@ func (u *orderUseCase) initOrder(sendStat func(stat *structs.PricePlan), symbol 
 
 	return nil
 }
-func (u *orderUseCase) liquidOrder(sendStat func(stat *structs.PricePlan), symbol, sessionID string, quantity float64, settings *mongoStructs.Settings, orderTry int) error {
+func (u *orderUseCase) liquidOrder(sendStat func(stat *structs.PricePlan), symbol string, settings *mongoStructs.Settings, status *structs.Status) error {
 	actualPrice, err := u.priceUseCase.GetPrice(symbol)
 	if err != nil {
 		return err
 	}
 
-	pricePlan := u.fillPricePlan(actualPrice, quantity, settings, orderTry)
+	pricePlan := u.fillPricePlan(symbol, actualPrice, settings, status).SetSide(SideSell)
 
-	if err := u.createOrder(&structs.Order{
-		Symbol:    symbol,
-		Side:      SideSell,
-		Price:     fmt.Sprintf("%.0f", pricePlan.PriceBUY),
-		StopPrice: fmt.Sprintf("%.0f", pricePlan.StopPriceBUY),
-	}, quantity, actualPrice, orderTry, sessionID); err != nil {
+	if err := u.createOCOOrder(pricePlan); err != nil {
 		return err
 	}
 
@@ -655,7 +605,7 @@ func (u *orderUseCase) getOrderInfo(orderID int64, symbol string) (*structs.Orde
 
 	return &out, nil
 }
-func (u *orderUseCase) CreateLimitOrder(order *structs.Order, quantity, actualPrice float64, try int, sessionID string) error {
+func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan) error {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return err
@@ -664,11 +614,16 @@ func (u *orderUseCase) CreateLimitOrder(order *structs.Order, quantity, actualPr
 	baseURL.Path = path.Join(orderUrlPath)
 
 	q := baseURL.Query()
-	q.Set("symbol", order.Symbol)
-	q.Set("side", order.Side)
 	q.Set("type", "LIMIT")
-	q.Set("quantity", fmt.Sprintf("%.5f", quantity))
-	q.Set("price", order.Price)
+	q.Set("symbol", pricePlan.Symbol)
+	q.Set("side", pricePlan.Side)
+	q.Set("quantity", fmt.Sprintf("%.5f", pricePlan.Status.Quantity))
+	switch pricePlan.Side {
+	case SideBuy:
+		q.Set("price", fmt.Sprintf("%.2f", pricePlan.PriceBUY))
+	case SideSell:
+		q.Set("price", fmt.Sprintf("%.2f", pricePlan.PriceSELL))
+	}
 	q.Set("recvWindow", "60000")
 	q.Set("timeInForce", "GTC")
 	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
@@ -684,6 +639,7 @@ func (u *orderUseCase) CreateLimitOrder(order *structs.Order, quantity, actualPr
 	}
 
 	var o structs.LimitOrder
+
 	if err := json.Unmarshal(req, &o); err != nil {
 		return err
 	}
@@ -695,35 +651,30 @@ func (u *orderUseCase) CreateLimitOrder(order *structs.Order, quantity, actualPr
 			return err
 		}
 
-		if err := u.tgmController.Send(fmt.Sprintf("[ Err createOrder ]\n"+
-			"Code:\t%d\n"+
-			"Msg:\t%s",
-			errMsg.Code,
-			errMsg.Msg,
-		)); err != nil {
+		if err := errMsg.Send(u.tgmController); err != nil {
 			return err
 		}
 
 		return errors.New(errMsg.Msg)
 	}
 
-	price, err := strconv.ParseFloat(order.Price, 64)
-	if err != nil {
-		return err
-	}
-
 	orderModel := models.Order{
 		OrderID:     o.OrderID,
-		SessionID:   sessionID,
+		SessionID:   pricePlan.Status.SessionID,
 		Symbol:      o.Symbol,
-		ActualPrice: actualPrice,
-		Price:       price,
-		Side:        o.Side,
-		StopPrice:   0,
-		Quantity:    quantity,
+		ActualPrice: pricePlan.ActualPrice,
+		Side:        pricePlan.Side,
+		Quantity:    pricePlan.Status.Quantity,
 		Type:        "LIMIT",
 		Status:      "NEW",
-		Try:         try,
+		Try:         pricePlan.Status.OrderTry,
+	}
+
+	switch pricePlan.Side {
+	case SideBuy:
+		o.Price = pricePlan.PriceBUY
+	case SideSell:
+		o.Price = pricePlan.PriceSELL
 	}
 
 	if err := u.orderRepo.Store(&orderModel); err != nil {
@@ -732,7 +683,8 @@ func (u *orderUseCase) CreateLimitOrder(order *structs.Order, quantity, actualPr
 
 	return nil
 }
-func (u *orderUseCase) createOrder(order *structs.Order, quantity, actualPrice float64, try int, sessionID string) error {
+
+func (u *orderUseCase) createOCOOrder(pricePlan *structs.PricePlan) error {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return err
@@ -741,12 +693,21 @@ func (u *orderUseCase) createOrder(order *structs.Order, quantity, actualPrice f
 	baseURL.Path = path.Join(orderOCO)
 
 	q := baseURL.Query()
-	q.Set("symbol", order.Symbol)
-	q.Set("side", order.Side)
-	q.Set("quantity", fmt.Sprintf("%.5f", quantity))
-	q.Set("price", order.Price)
-	q.Set("stopPrice", order.StopPrice)
-	q.Set("stopLimitPrice", order.StopPrice)
+	q.Set("symbol", pricePlan.Symbol)
+	q.Set("side", pricePlan.Side)
+	q.Set("quantity", fmt.Sprintf("%.5f", pricePlan.Status.Quantity))
+
+	switch pricePlan.Side {
+	case SideBuy:
+		q.Set("price", fmt.Sprintf("%.2f", pricePlan.PriceBUY))
+		q.Set("stopPrice", fmt.Sprintf("%.2f", pricePlan.StopPriceBUY))
+		q.Set("stopLimitPrice", fmt.Sprintf("%.2f", pricePlan.StopPriceBUY))
+	case SideSell:
+		q.Set("price", fmt.Sprintf("%.2f", pricePlan.PriceSELL))
+		q.Set("stopPrice", fmt.Sprintf("%.2f", pricePlan.StopPriceSELL))
+		q.Set("stopLimitPrice", fmt.Sprintf("%.2f", pricePlan.StopPriceSELL))
+	}
+
 	q.Set("recvWindow", "60000")
 	q.Set("stopLimitTimeInForce", "GTC")
 	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
@@ -761,13 +722,8 @@ func (u *orderUseCase) createOrder(order *structs.Order, quantity, actualPrice f
 		return err
 	}
 
-	type Err struct {
-		Code int    `json:"code"`
-		Msg  string `json:"msg"`
-	}
-
 	var oList structs.OrderList
-	var errMsg Err
+	var errMsg structs.Err
 
 	if err := json.Unmarshal(req, &oList); err != nil {
 		return err
@@ -777,41 +733,35 @@ func (u *orderUseCase) createOrder(order *structs.Order, quantity, actualPrice f
 		if err := json.Unmarshal(req, &errMsg); err != nil {
 			return err
 		}
-
-		if err := u.tgmController.Send(fmt.Sprintf("[ Err createOrder ]\n"+
-			"Code:\t%d\n"+
-			"Msg:\t%s",
-			errMsg.Code,
-			errMsg.Msg,
-		)); err != nil {
+		if err := errMsg.Send(u.tgmController); err != nil {
 			return err
+		}
+
+		switch errMsg.Code {
+		case -2010:
+			return structs.ErrTheRelationshipOfThePrices
 		}
 
 		return errors.New(errMsg.Msg)
 	}
 
-	stopPrice, err := strconv.ParseFloat(order.StopPrice, 64)
-	if err != nil {
-		return err
-	}
-
-	price, err := strconv.ParseFloat(order.Price, 64)
-	if err != nil {
-		return err
-	}
-
 	o := models.Order{
 		OrderID:     oList.OrderListID,
-		SessionID:   sessionID,
+		SessionID:   pricePlan.Status.SessionID,
 		Symbol:      oList.Symbol,
-		ActualPrice: actualPrice,
-		Price:       price,
-		Side:        order.Side,
-		StopPrice:   stopPrice,
-		Quantity:    quantity,
+		ActualPrice: pricePlan.ActualPrice,
+		Side:        pricePlan.Side,
+		Quantity:    pricePlan.Status.Quantity,
 		Type:        "OCO",
 		Status:      "NEW",
-		Try:         try,
+		Try:         pricePlan.Status.OrderTry,
+	}
+
+	switch pricePlan.Side {
+	case SideBuy:
+		o.Price = pricePlan.PriceBUY
+	case SideSell:
+		o.Price = pricePlan.PriceSELL
 	}
 
 	if err := u.orderRepo.Store(&o); err != nil {
@@ -820,6 +770,7 @@ func (u *orderUseCase) createOrder(order *structs.Order, quantity, actualPrice f
 
 	return nil
 }
+
 func (u *orderUseCase) cancelOrder(symbol, orderId string) error {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {

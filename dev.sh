@@ -8,4 +8,4 @@ export BINANCE_APP_PORT="8080" &&
 export BINANCE_LOG_LEVEL="DEBUG"
 
 docker build -t binance/binance:dev .
-docker-compose up --remove-orphans
+#docker-compose up --remove-orphans
