@@ -185,6 +185,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 					if orderInfo.Status == OrderStatusFilled && orderInfo.Side == SideSell && orderInfo.Type == "LIMIT" {
 						orderTry = 1
+						quantity = settings.Step
 						sessionID = uuid.New().String()
 
 						if err := u.initOrder(sendStat, symbol, settings.Limit, settings, orderTry, sessionID); err != nil {
