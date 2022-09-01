@@ -180,6 +180,12 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				}
 
 				u.logger.
+					WithField("status", lastOrder.Status).
+					WithField("type", lastOrder.Type).
+					WithField("side", lastOrder.Side).
+					Debug("lastOrder")
+
+				u.logger.
 					WithField("settings", settings.Status).
 					Debug("settings")
 
@@ -242,25 +248,32 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						}
 					}
 				case mongoStructs.LiquidationBUY.ToString():
-					sendOrderInfo(lastOrder)
+					if lastOrder.Status == OrderStatusCanceled && lastOrder.Side == SideSell && lastOrder.Type == "OCO" {
+						sendOrderInfo(lastOrder)
 
-					pricePlan := u.fillPricePlan(symbol, lastOrder.StopPrice, settings, &status).SetSide(SideBuy)
+						status.
+							SetQuantity(settings.Limit).
+							SetOrderTry(1)
 
-					u.logger.
-						WithField("pricePlan", pricePlan).
-						Debug("LiquidationBUY")
+						pricePlan := u.fillPricePlan(symbol, lastOrder.StopPrice, settings, &status).SetSide(SideBuy)
 
-					if err := u.CreateLimitOrder(pricePlan); err != nil {
 						u.logger.
-							WithError(err).
-							Error(string(debug.Stack()))
-						continue
-					}
+							WithField("pricePlan", pricePlan).
+							WithField("status", pricePlan.Status).
+							Debug("LiquidationBUY")
 
-					if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.LiquidationSELL); err != nil {
-						u.logger.
-							WithError(err).
-							Error(string(debug.Stack()))
+						if err := u.CreateLimitOrder(pricePlan); err != nil {
+							u.logger.
+								WithError(err).
+								Error(string(debug.Stack()))
+							continue
+						}
+
+						if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.LiquidationSELL); err != nil {
+							u.logger.
+								WithError(err).
+								Error(string(debug.Stack()))
+						}
 					}
 				case mongoStructs.Disabled.ToString():
 					continue

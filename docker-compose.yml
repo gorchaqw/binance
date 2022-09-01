@@ -26,6 +26,6 @@ services:
     depends_on:
       - binance-postgres
       - binance-mongodb
-    restart: always
+#    restart: always
     ports:
       - ${BINANCE_APP_PORT}:8080
