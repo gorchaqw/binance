@@ -609,6 +609,22 @@ func (u *orderUseCase) getOrderInfo(orderID int64, symbol string) (*structs.Orde
 	return &out, nil
 }
 func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan) error {
+	actualPrice, err := u.priceUseCase.GetPrice(pricePlan.Symbol)
+	if err != nil {
+		return err
+	}
+
+	switch pricePlan.Side {
+	case SideBuy:
+		if actualPrice < pricePlan.PriceBUY {
+			pricePlan.PriceBUY = actualPrice
+		}
+	case SideSell:
+		if actualPrice > pricePlan.PriceSELL {
+			pricePlan.PriceSELL = actualPrice
+		}
+	}
+
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return err
