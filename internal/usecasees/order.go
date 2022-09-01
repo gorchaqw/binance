@@ -220,6 +220,11 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						sendOrderInfo(lastOrder)
 
 						pricePlan := u.fillPricePlan(symbol, lastOrder.Price, settings, &status).SetSide(SideSell)
+
+						u.logger.
+							WithField("pricePlan", pricePlan).
+							Debug("LiquidationSELL")
+
 						if err := u.CreateLimitOrder(pricePlan); err != nil {
 							u.logger.
 								WithError(err).
@@ -238,6 +243,10 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					sendOrderInfo(lastOrder)
 
 					pricePlan := u.fillPricePlan(symbol, lastOrder.StopPrice, settings, &status).SetSide(SideBuy)
+
+					u.logger.
+						WithField("pricePlan", pricePlan).
+						Debug("LiquidationBUY")
 
 					if err := u.CreateLimitOrder(pricePlan); err != nil {
 						u.logger.
