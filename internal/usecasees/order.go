@@ -248,13 +248,13 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 					sendOrderInfo(lastOrder)
 
-					priceBUY := lastOrder.Price - ((lastOrder.Price) / 100 * 0.2)
+					priceBUY := lastOrder.StopPrice - ((lastOrder.StopPrice) / 100 * 0.2)
 
 					if err := u.CreateLimitOrder(&structs.Order{
 						Symbol: symbol,
 						Side:   SideBuy,
 						Price:  fmt.Sprintf("%.0f", priceBUY),
-					}, settings.Limit, lastOrder.StopPrice, orderTry, sessionID); err != nil {
+					}, settings.Limit, lastOrder.Price, orderTry, sessionID); err != nil {
 						u.logger.
 							WithError(err).
 							Error(string(debug.Stack()))
