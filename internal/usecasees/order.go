@@ -368,6 +368,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					switch lastOrder.Side {
 					case SideBuy:
 						pricePlan := u.fillPricePlan(symbol, actualPrice, settings, &status).SetSide(SideSell)
+						u.logger.Debug(pricePlan)
 
 						go sendStat(pricePlan)
 
@@ -380,6 +381,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 					case SideSell:
 						pricePlan := u.fillPricePlan(symbol, actualPrice, settings, &status).SetSide(SideBuy)
+						u.logger.Debug(pricePlan)
 
 						go sendStat(pricePlan)
 
