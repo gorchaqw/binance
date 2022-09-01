@@ -16,7 +16,7 @@ deploy(){
   export BINANCE_APP_PORT="8080"
   export BINANCE_VERSION=$version
   export BINANCE_PG_INIT_DB="/root/db.sql"
-  export BINANCE_LOG_LEVEL="DEBUG"
+  export BINANCE_LOG_LEVEL="ERROR"
 
   docker-compose --context beget up --remove-orphans -d
 }

@@ -633,28 +633,27 @@ func (u *orderUseCase) getOrderInfo(orderID int64, symbol string) (*structs.Orde
 	return &out, nil
 }
 func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan) error {
-	//actualPrice, err := u.priceUseCase.GetPrice(pricePlan.Symbol)
-	//if err != nil {
-	//	return err
-	//}
-
-	//switch pricePlan.Side {
-	//case SideBuy:
-	//	if actualPrice < pricePlan.PriceBUY {
-	//		pricePlan.PriceBUY = actualPrice
-	//	}
-	//case SideSell:
-	//	if actualPrice > pricePlan.PriceSELL {
-	//		pricePlan.PriceSELL = actualPrice
-	//	}
-	//}
+	actualPrice, err := u.priceUseCase.GetPrice(pricePlan.Symbol)
+	if err != nil {
+		return err
+	}
 
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return err
 	}
-
 	baseURL.Path = path.Join(orderUrlPath)
+
+	switch pricePlan.Side {
+	case SideBuy:
+		if actualPrice < pricePlan.PriceBUY {
+			pricePlan.PriceBUY = actualPrice - (actualPrice / 100 * 0.05)
+		}
+	case SideSell:
+		if actualPrice > pricePlan.PriceSELL {
+			pricePlan.PriceSELL = actualPrice + (actualPrice / 100 * 0.05)
+		}
+	}
 
 	q := baseURL.Query()
 	q.Set("type", "LIMIT")
@@ -689,7 +688,6 @@ func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan) error {
 
 	if o.OrderID == 0 {
 		var errMsg structs.Err
-
 		if err := json.Unmarshal(req, &errMsg); err != nil {
 			return err
 		}
