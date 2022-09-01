@@ -238,6 +238,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					sendOrderInfo(lastOrder)
 
 					pricePlan := u.fillPricePlan(symbol, lastOrder.StopPrice, settings, &status).SetSide(SideBuy)
+
 					if err := u.CreateLimitOrder(pricePlan); err != nil {
 						u.logger.
 							WithError(err).
@@ -622,9 +623,9 @@ func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan) error {
 	q.Set("quantity", fmt.Sprintf("%.5f", pricePlan.Status.Quantity))
 	switch pricePlan.Side {
 	case SideBuy:
-		q.Set("price", fmt.Sprintf("%.2f", pricePlan.PriceBUY))
+		q.Set("price", fmt.Sprintf("%.0f", pricePlan.PriceBUY))
 	case SideSell:
-		q.Set("price", fmt.Sprintf("%.2f", pricePlan.PriceSELL))
+		q.Set("price", fmt.Sprintf("%.0f", pricePlan.PriceSELL))
 	}
 	q.Set("recvWindow", "60000")
 	q.Set("timeInForce", "GTC")
@@ -674,9 +675,9 @@ func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan) error {
 
 	switch pricePlan.Side {
 	case SideBuy:
-		o.Price = fmt.Sprintf("%.2f", pricePlan.PriceBUY)
+		orderModel.Price = pricePlan.PriceBUY
 	case SideSell:
-		o.Price = fmt.Sprintf("%.2f", pricePlan.PriceSELL)
+		orderModel.Price = pricePlan.PriceSELL
 	}
 
 	if err := u.orderRepo.Store(&orderModel); err != nil {
