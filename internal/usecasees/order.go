@@ -107,10 +107,12 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 		if err := u.tgmController.Send(fmt.Sprintf("[ Last Order ]\n"+
 			"orderId:\t%d\n"+
 			"status:\t%s\n"+
-			"side:\t%s\n",
+			"side:\t%s\n"+
+			"order:\t%+v\n",
 			order.OrderID,
 			order.Status,
-			order.Side)); err != nil {
+			order.Side,
+			order)); err != nil {
 			u.logger.
 				WithError(err).
 				Error(string(debug.Stack()))
@@ -618,21 +620,21 @@ func (u *orderUseCase) getOrderInfo(orderID int64, symbol string) (*structs.Orde
 	return &out, nil
 }
 func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan) error {
-	actualPrice, err := u.priceUseCase.GetPrice(pricePlan.Symbol)
-	if err != nil {
-		return err
-	}
+	//actualPrice, err := u.priceUseCase.GetPrice(pricePlan.Symbol)
+	//if err != nil {
+	//	return err
+	//}
 
-	switch pricePlan.Side {
-	case SideBuy:
-		if actualPrice < pricePlan.PriceBUY {
-			pricePlan.PriceBUY = actualPrice
-		}
-	case SideSell:
-		if actualPrice > pricePlan.PriceSELL {
-			pricePlan.PriceSELL = actualPrice
-		}
-	}
+	//switch pricePlan.Side {
+	//case SideBuy:
+	//	if actualPrice < pricePlan.PriceBUY {
+	//		pricePlan.PriceBUY = actualPrice
+	//	}
+	//case SideSell:
+	//	if actualPrice > pricePlan.PriceSELL {
+	//		pricePlan.PriceSELL = actualPrice
+	//	}
+	//}
 
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
