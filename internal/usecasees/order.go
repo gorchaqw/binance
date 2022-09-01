@@ -188,7 +188,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						quantity = settings.Step
 						sessionID = uuid.New().String()
 
-						if err := u.initOrder(sendStat, symbol, settings.Limit, settings, orderTry, sessionID); err != nil {
+						if err := u.initOrder(sendStat, symbol, quantity, settings, orderTry, sessionID); err != nil {
 							u.logger.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -200,7 +200,6 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 								Error(string(debug.Stack()))
 						}
 					}
-
 				case mongoStructs.LiquidationSELL.ToString():
 					lastOrder, err := u.orderRepo.GetLast(symbol)
 					if err != nil {
