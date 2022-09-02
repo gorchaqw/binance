@@ -764,12 +764,12 @@ func (u *orderUseCase) createOCOOrder(pricePlan *structs.PricePlan, settings *mo
 
 	switch pricePlan.Side {
 	case SideBuy:
-		if actualPrice < pricePlan.StopPriceBUY {
+		if actualPrice < pricePlan.PriceBUY {
 			newPricePlan := u.fillPricePlan(OrderTypeOCO, pricePlan.Symbol, actualPrice, settings, pricePlan.Status).SetSide(SideBuy)
 			pricePlan = newPricePlan
 		}
 	case SideSell:
-		if actualPrice > pricePlan.StopPriceSELL {
+		if actualPrice > pricePlan.PriceSELL {
 			newPricePlan := u.fillPricePlan(OrderTypeOCO, pricePlan.Symbol, actualPrice, settings, pricePlan.Status).SetSide(SideSell)
 			pricePlan = newPricePlan
 		}
