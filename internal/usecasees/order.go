@@ -697,9 +697,9 @@ func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan, settings *
 	q.Set("quantity", fmt.Sprintf("%.5f", pricePlan.Status.Quantity))
 	switch pricePlan.Side {
 	case SideBuy:
-		q.Set("price", fmt.Sprintf("%.0f", pricePlan.PriceBUY))
+		q.Set("price", fmt.Sprintf("%.2f", pricePlan.PriceBUY))
 	case SideSell:
-		q.Set("price", fmt.Sprintf("%.0f", pricePlan.PriceSELL))
+		q.Set("price", fmt.Sprintf("%.2f", pricePlan.PriceSELL))
 	}
 	q.Set("recvWindow", "60000")
 	q.Set("timeInForce", "GTC")
