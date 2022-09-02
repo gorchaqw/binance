@@ -432,7 +432,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 						go sendStat(pricePlan)
 
-						if err := u.createOCOOrder(pricePlan); err != nil {
+						if err := u.createOCOOrder(pricePlan, settings); err != nil {
 							u.logRus.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -448,7 +448,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 						go sendStat(pricePlan)
 
-						if err := u.createOCOOrder(pricePlan); err != nil {
+						if err := u.createOCOOrder(pricePlan, settings); err != nil {
 							u.logRus.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -500,7 +500,7 @@ func (u *orderUseCase) initOrder(sendStat func(stat *structs.PricePlan), symbol 
 
 	pricePlan := u.fillPricePlan(OrderTypeOCO, symbol, actualPrice, settings, status).SetSide(SideBuy)
 
-	if err := u.createOCOOrder(pricePlan); err != nil {
+	if err := u.createOCOOrder(pricePlan, settings); err != nil {
 		return err
 	}
 
@@ -669,12 +669,6 @@ func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan) error {
 		return err
 	}
 
-	baseURL, err := url.Parse(u.url)
-	if err != nil {
-		return err
-	}
-	baseURL.Path = path.Join(orderUrlPath)
-
 	switch pricePlan.Side {
 	case SideBuy:
 		if actualPrice < pricePlan.PriceBUY {
@@ -685,6 +679,12 @@ func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan) error {
 			pricePlan.PriceSELL = actualPrice + 10
 		}
 	}
+
+	baseURL, err := url.Parse(u.url)
+	if err != nil {
+		return err
+	}
+	baseURL.Path = path.Join(orderUrlPath)
 
 	q := baseURL.Query()
 	q.Set("type", "LIMIT")
@@ -756,7 +756,25 @@ func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan) error {
 	return nil
 }
 
-func (u *orderUseCase) createOCOOrder(pricePlan *structs.PricePlan) error {
+func (u *orderUseCase) createOCOOrder(pricePlan *structs.PricePlan, settings *mongoStructs.Settings) error {
+	actualPrice, err := u.priceUseCase.GetPrice(pricePlan.Symbol)
+	if err != nil {
+		return err
+	}
+
+	switch pricePlan.Side {
+	case SideBuy:
+		if actualPrice < pricePlan.StopPriceBUY {
+			newPricePlan := u.fillPricePlan(OrderTypeLimit, pricePlan.Symbol, actualPrice, settings, pricePlan.Status).SetSide(SideBuy)
+			pricePlan = newPricePlan
+		}
+	case SideSell:
+		if actualPrice > pricePlan.StopPriceSELL {
+			newPricePlan := u.fillPricePlan(OrderTypeLimit, pricePlan.Symbol, actualPrice, settings, pricePlan.Status).SetSide(SideSell)
+			pricePlan = newPricePlan
+		}
+	}
+
 	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return err
