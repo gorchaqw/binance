@@ -46,6 +46,9 @@ const (
 	OrderStatusNew      = "NEW"
 	OrderStatusCanceled = "CANCELED"
 	OrderStatusFilled   = "FILLED"
+
+	OrderTypeLimit = "LIMIT"
+	OrderTypeOCO   = "OCO"
 )
 
 var (
@@ -242,7 +245,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					if orderInfo.Status == OrderStatusFilled && orderInfo.Side == SideBuy && orderInfo.Type == "LIMIT" {
 						sendOrderInfo(lastOrder)
 
-						pricePlan := u.fillPricePlan(symbol, lastOrder.Price, settings, &status).SetSide(SideSell)
+						pricePlan := u.fillPricePlan(OrderTypeLimit, symbol, lastOrder.Price, settings, &status).SetSide(SideSell)
 
 						u.logRus.
 							WithField("pricePlan", pricePlan).
@@ -272,7 +275,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							SetQuantity(settings.Limit).
 							SetOrderTry(1)
 
-						pricePlan := u.fillPricePlan(symbol, lastOrder.StopPrice, settings, &status).SetSide(SideBuy)
+						pricePlan := u.fillPricePlan(OrderTypeLimit, symbol, lastOrder.StopPrice, settings, &status).SetSide(SideBuy)
 
 						u.logRus.
 							WithField("pricePlan", pricePlan).
@@ -338,6 +341,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						switch true {
 						case orderInfo.Type == "STOP_LOSS_LIMIT" && orderInfo.Status == OrderStatusFilled:
 							lastOrderStatus = OrderStatusCanceled
+							u.promTail.Debugf("STOP_LOSS_LIMIT Filled: %+v", orderInfo)
+							u.promTail.Debugf("FAILED Order: %+v", orderInfo)
 
 							status.
 								AddOrderTry(1)
@@ -348,9 +353,11 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 						case orderInfo.Type == "LIMIT_MAKER" && orderInfo.Status == OrderStatusFilled:
 							lastOrderStatus = OrderStatusFilled
+							u.promTail.Debugf("LIMIT_MAKER Filled: %+v", orderInfo)
 
 							if orderInfo.Side == SideSell {
 								status.Reset(settings.Step)
+								u.promTail.Debugf("COMPLETE Order: %+v", orderInfo)
 							}
 						}
 					}
@@ -419,7 +426,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				if len(openOrders) == 0 {
 					switch lastOrder.Side {
 					case SideBuy:
-						pricePlan := u.fillPricePlan(symbol, actualPrice, settings, &status).SetSide(SideSell)
+						pricePlan := u.fillPricePlan(OrderTypeOCO, symbol, actualPrice, settings, &status).SetSide(SideSell)
 						u.logRus.Debug(pricePlan)
 						u.promTail.Debugf("SideBuy price plan: %+v", pricePlan)
 
@@ -435,7 +442,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						}
 
 					case SideSell:
-						pricePlan := u.fillPricePlan(symbol, actualPrice, settings, &status).SetSide(SideBuy)
+						pricePlan := u.fillPricePlan(OrderTypeOCO, symbol, actualPrice, settings, &status).SetSide(SideBuy)
 						u.logRus.Debug(pricePlan)
 						u.promTail.Debugf("SideSell price plan: %+v", pricePlan)
 
@@ -459,13 +466,19 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 	return nil
 }
 
-func (u *orderUseCase) fillPricePlan(symbol string, actualPrice float64, settings *mongoStructs.Settings, status *structs.Status) *structs.PricePlan {
+func (u *orderUseCase) fillPricePlan(orderType string, symbol string, actualPrice float64, settings *mongoStructs.Settings, status *structs.Status) *structs.PricePlan {
 	var out structs.PricePlan
 
 	out.Symbol = symbol
 	out.ActualPrice = actualPrice
 
-	out.ActualPricePercent = out.ActualPrice / 100 * settings.Delta
+	switch orderType {
+	case OrderTypeLimit:
+		out.ActualPricePercent = out.ActualPrice / 100 * (settings.Delta * 1.2)
+	case orderOCO:
+		out.ActualPricePercent = out.ActualPrice / 100 * settings.Delta
+	}
+
 	//out.ActualPricePercent = out.ActualPrice / 100 * (settings.Delta + (settings.DeltaStep * float64(orderTry)))
 	out.ActualStopPricePercent = out.ActualPricePercent
 
@@ -485,7 +498,7 @@ func (u *orderUseCase) initOrder(sendStat func(stat *structs.PricePlan), symbol 
 		return err
 	}
 
-	pricePlan := u.fillPricePlan(symbol, actualPrice, settings, status).SetSide(SideBuy)
+	pricePlan := u.fillPricePlan(OrderTypeOCO, symbol, actualPrice, settings, status).SetSide(SideBuy)
 
 	if err := u.createOCOOrder(pricePlan); err != nil {
 		return err
@@ -495,22 +508,7 @@ func (u *orderUseCase) initOrder(sendStat func(stat *structs.PricePlan), symbol 
 
 	return nil
 }
-func (u *orderUseCase) liquidOrder(sendStat func(stat *structs.PricePlan), symbol string, settings *mongoStructs.Settings, status *structs.Status) error {
-	actualPrice, err := u.priceUseCase.GetPrice(symbol)
-	if err != nil {
-		return err
-	}
 
-	pricePlan := u.fillPricePlan(symbol, actualPrice, settings, status).SetSide(SideSell)
-
-	if err := u.createOCOOrder(pricePlan); err != nil {
-		return err
-	}
-
-	sendStat(pricePlan)
-
-	return nil
-}
 func (u *orderUseCase) getOpenOrders(symbol string) ([]structs.Order, error) {
 	baseURL, err := url.Parse(u.url)
 	if err != nil {

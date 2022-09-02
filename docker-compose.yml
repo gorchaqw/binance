@@ -1,16 +1,16 @@
 version: "3.9"
 
 networks:
-  grafana_loki:
+  binance_network:
 
 services:
 
   grafana:
-    image: grafana/grafana-oss:latest
+    image: grafana/grafana-oss:9.1.2
     ports:
-      - 3000:3000
+      - "3000:3000"
     networks:
-      - grafana_loki
+      - binance_network
 
   loki:
     image: grafana/loki:2.5.0
@@ -20,7 +20,7 @@ services:
       - ${BINANCE_LOKI}:/etc/loki/local-config.yaml
     command: -config.file=/etc/loki/local-config.yaml
     networks:
-      - grafana_loki
+      - binance_network
 
   binance-postgres:
     image: postgres:14.5
@@ -33,7 +33,7 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - grafana_loki
+      - binance_network
 
   binance-mongodb:
     image: mongo:4.2
@@ -43,7 +43,7 @@ services:
     ports:
       - "27017:27017"
     networks:
-      - grafana_loki
+      - binance_network
 
   binance:
     image: binance/binance:${BINANCE_VERSION}
@@ -57,4 +57,4 @@ services:
     ports:
       - ${BINANCE_APP_PORT}:8080
     networks:
-      - grafana_loki
+      - binance_network
