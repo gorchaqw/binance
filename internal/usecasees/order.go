@@ -680,11 +680,11 @@ func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan) error {
 	switch pricePlan.Side {
 	case SideBuy:
 		if actualPrice < pricePlan.PriceBUY {
-			pricePlan.PriceBUY = actualPrice - (actualPrice / 100 * 0.05)
+			pricePlan.PriceBUY = actualPrice - 10
 		}
 	case SideSell:
 		if actualPrice > pricePlan.PriceSELL {
-			pricePlan.PriceSELL = actualPrice + (actualPrice / 100 * 0.05)
+			pricePlan.PriceSELL = actualPrice + 10
 		}
 	}
 
