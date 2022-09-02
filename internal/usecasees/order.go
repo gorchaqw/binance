@@ -251,7 +251,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							WithField("pricePlan", pricePlan).
 							Debug("LiquidationSELL")
 
-						if err := u.CreateLimitOrder(pricePlan); err != nil {
+						if err := u.CreateLimitOrder(pricePlan, settings); err != nil {
 							u.logRus.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -282,7 +282,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							WithField("status", pricePlan.Status).
 							Debug("LiquidationBUY")
 
-						if err := u.CreateLimitOrder(pricePlan); err != nil {
+						if err := u.CreateLimitOrder(pricePlan, settings); err != nil {
 							u.logRus.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -663,7 +663,7 @@ func (u *orderUseCase) getOrderInfo(orderID int64, symbol string) (*structs.Orde
 
 	return &out, nil
 }
-func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan) error {
+func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan, settings *mongoStructs.Settings) error {
 	actualPrice, err := u.priceUseCase.GetPrice(pricePlan.Symbol)
 	if err != nil {
 		return err
@@ -672,11 +672,15 @@ func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan) error {
 	switch pricePlan.Side {
 	case SideBuy:
 		if actualPrice < pricePlan.PriceBUY {
-			pricePlan.PriceBUY = actualPrice - 10
+			newPricePlan := u.fillPricePlan(OrderTypeLimit, pricePlan.Symbol, actualPrice, settings, pricePlan.Status).SetSide(SideBuy)
+			pricePlan = newPricePlan
+			u.promTail.Debugf("CreateLimitOrder newPricePlan: %+v", pricePlan)
 		}
 	case SideSell:
 		if actualPrice > pricePlan.PriceSELL {
-			pricePlan.PriceSELL = actualPrice + 10
+			newPricePlan := u.fillPricePlan(OrderTypeLimit, pricePlan.Symbol, actualPrice, settings, pricePlan.Status).SetSide(SideSell)
+			pricePlan = newPricePlan
+			u.promTail.Debugf("CreateLimitOrder newPricePlan: %+v", pricePlan)
 		}
 	}
 
