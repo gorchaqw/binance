@@ -14,6 +14,7 @@ deploy(){
   version=$1
 
   export BINANCE_APP_PORT="8080"
+  export BINANCE_APP_NAME="Binance_PROD"
   export BINANCE_VERSION=$version
   export BINANCE_PG_INIT_DB="/root/db.sql"
   export BINANCE_LOKI="/root/loki-config.yaml"

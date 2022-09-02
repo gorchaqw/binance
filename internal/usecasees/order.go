@@ -66,7 +66,7 @@ type orderUseCase struct {
 
 	url string
 
-	logger   *logrus.Logger
+	logRus   *logrus.Logger
 	promTail promtail.Client
 }
 
@@ -89,7 +89,7 @@ func NewOrderUseCase(
 		orderRepo:        orderRepo,
 		priceUseCase:     priceUseCase,
 		url:              url,
-		logger:           logger,
+		logRus:           logger,
 		promTail:         promTail,
 	}
 }
@@ -116,18 +116,20 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 			order.Status,
 			order.Side,
 			order)); err != nil {
-			u.logger.
+			u.logRus.
 				WithError(err).
 				Error(string(debug.Stack()))
+			u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 		}
 	}
 	sendLimit := func(quantity float64) {
 		if err := u.tgmController.Send(fmt.Sprintf("[ Limit ]\n"+
 			"quantity:\t%.5f\n",
 			quantity)); err != nil {
-			u.logger.
+			u.logRus.
 				WithError(err).
 				Error(string(debug.Stack()))
+			u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 		}
 	}
 	sendStat := func(stat *structs.PricePlan) {
@@ -144,9 +146,10 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 			stat.StopPriceSELL,
 			stat.PriceBUY,
 			stat.PriceSELL)); err != nil {
-			u.logger.
+			u.logRus.
 				WithError(err).
 				Error(string(debug.Stack()))
+			u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 		}
 	}
 
@@ -158,9 +161,10 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 			case _ = <-ticker.C:
 				settings, err = u.settingsRepo.Load(symbol)
 				if err != nil {
-					u.logger.
+					u.logRus.
 						WithError(err).
 						Error(string(debug.Stack()))
+					u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 				}
 				u.promTail.Debugf("Settings: %+v", settings)
 
@@ -171,26 +175,28 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						status.Reset(settings.Step)
 
 						if err := u.initOrder(sendStat, symbol, settings, &status); err != nil {
-							u.logger.
+							u.logRus.
 								WithError(err).
 								Error(string(debug.Stack()))
+							u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 						}
 						continue
 					default:
-						u.logger.
+						u.logRus.
 							WithError(err).
 							Error(string(debug.Stack()))
+						u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 					}
 				}
 				u.promTail.Debugf("LastOrder: %+v", lastOrder)
 
-				u.logger.
+				u.logRus.
 					WithField("status", lastOrder.Status).
 					WithField("type", lastOrder.Type).
 					WithField("side", lastOrder.Side).
 					Debug("lastOrder")
 
-				u.logger.
+				u.logRus.
 					WithField("settings", settings.Status).
 					Debug("settings")
 
@@ -198,9 +204,10 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				case mongoStructs.New.ToString():
 					orderInfo, err := u.getOrderInfo(lastOrder.OrderID, symbol)
 					if err != nil {
-						u.logger.
+						u.logRus.
 							WithError(err).
 							Error(string(debug.Stack()))
+						u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 					}
 
 					if orderInfo.Status == OrderStatusFilled && orderInfo.Side == SideSell && orderInfo.Type == "LIMIT" {
@@ -210,23 +217,26 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							SetSessionID(uuid.New().String())
 
 						if err := u.initOrder(sendStat, symbol, settings, &status); err != nil {
-							u.logger.
+							u.logRus.
 								WithError(err).
 								Error(string(debug.Stack()))
+							u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 						}
 
 						if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.Enabled); err != nil {
-							u.logger.
+							u.logRus.
 								WithError(err).
 								Error(string(debug.Stack()))
+							u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 						}
 					}
 				case mongoStructs.LiquidationSELL.ToString():
 					orderInfo, err := u.getOrderInfo(lastOrder.OrderID, symbol)
 					if err != nil {
-						u.logger.
+						u.logRus.
 							WithError(err).
 							Error(string(debug.Stack()))
+						u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 					}
 
 					if orderInfo.Status == OrderStatusFilled && orderInfo.Side == SideBuy && orderInfo.Type == "LIMIT" {
@@ -234,22 +244,24 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 						pricePlan := u.fillPricePlan(symbol, lastOrder.Price, settings, &status).SetSide(SideSell)
 
-						u.logger.
+						u.logRus.
 							WithField("pricePlan", pricePlan).
 							Debug("LiquidationSELL")
 
 						if err := u.CreateLimitOrder(pricePlan); err != nil {
-							u.logger.
+							u.logRus.
 								WithError(err).
 								Error(string(debug.Stack()))
+							u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 
 							continue
 						}
 
 						if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.New); err != nil {
-							u.logger.
+							u.logRus.
 								WithError(err).
 								Error(string(debug.Stack()))
+							u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 						}
 					}
 				case mongoStructs.LiquidationBUY.ToString():
@@ -262,22 +274,24 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 						pricePlan := u.fillPricePlan(symbol, lastOrder.StopPrice, settings, &status).SetSide(SideBuy)
 
-						u.logger.
+						u.logRus.
 							WithField("pricePlan", pricePlan).
 							WithField("status", pricePlan.Status).
 							Debug("LiquidationBUY")
 
 						if err := u.CreateLimitOrder(pricePlan); err != nil {
-							u.logger.
+							u.logRus.
 								WithError(err).
 								Error(string(debug.Stack()))
+							u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 							continue
 						}
 
 						if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.LiquidationSELL); err != nil {
-							u.logger.
+							u.logRus.
 								WithError(err).
 								Error(string(debug.Stack()))
+							u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 						}
 					}
 				case mongoStructs.Disabled.ToString():
@@ -294,9 +308,10 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				case "LIMIT":
 					orderInfo, err := u.getOrderInfo(lastOrder.OrderID, symbol)
 					if err != nil {
-						u.logger.
+						u.logRus.
 							WithError(err).
 							Error(string(debug.Stack()))
+						u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 					}
 
 					if orderInfo.Status == OrderStatusFilled {
@@ -305,17 +320,19 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				case "OCO":
 					orderList, err := u.getOrderList(lastOrder.OrderID)
 					if err != nil {
-						u.logger.
+						u.logRus.
 							WithError(err).
 							Error(string(debug.Stack()))
+						u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 					}
 
 					for _, o := range orderList.Orders {
 						orderInfo, err := u.getOrderInfo(o.OrderID, symbol)
 						if err != nil {
-							u.logger.
+							u.logRus.
 								WithError(err).
 								Error(string(debug.Stack()))
+							u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 						}
 
 						switch true {
@@ -339,7 +356,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					}
 				}
 
-				u.logger.
+				u.logRus.
 					WithField("lastOrderStatus", lastOrder.Status).
 					WithField("newOrderStatus", lastOrderStatus).
 					WithField("orderTry", status.OrderTry).
@@ -349,15 +366,17 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				if lastOrder.Status != lastOrderStatus {
 					if err := u.orderRepo.SetStatus(lastOrder.ID, lastOrderStatus); err != nil {
-						u.logger.
+						u.logRus.
 							WithError(err).
 							Error(string(debug.Stack()))
+						u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 					}
 
 					if lastOrder, err = u.orderRepo.GetByID(lastOrder.ID); err != nil {
-						u.logger.
+						u.logRus.
 							WithError(err).
 							Error(string(debug.Stack()))
+						u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 					}
 				}
 
@@ -365,9 +384,10 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					sendLimit(status.Quantity)
 
 					if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.LiquidationBUY); err != nil {
-						u.logger.
+						u.logRus.
 							WithError(err).
 							Error(string(debug.Stack()))
+						u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 					}
 
 					continue
@@ -388,9 +408,11 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				openOrders, err := u.getOpenOrders(symbol)
 				if err != nil {
-					u.logger.
+					u.logRus.
 						WithError(err).
 						Error(string(debug.Stack()))
+					u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
+
 					continue
 				}
 
@@ -398,29 +420,33 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					switch lastOrder.Side {
 					case SideBuy:
 						pricePlan := u.fillPricePlan(symbol, actualPrice, settings, &status).SetSide(SideSell)
-						u.logger.Debug(pricePlan)
+						u.logRus.Debug(pricePlan)
 						u.promTail.Debugf("SideBuy price plan: %+v", pricePlan)
 
 						go sendStat(pricePlan)
 
 						if err := u.createOCOOrder(pricePlan); err != nil {
-							u.logger.
+							u.logRus.
 								WithError(err).
 								Error(string(debug.Stack()))
+							u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
+
 							continue
 						}
 
 					case SideSell:
 						pricePlan := u.fillPricePlan(symbol, actualPrice, settings, &status).SetSide(SideBuy)
-						u.logger.Debug(pricePlan)
+						u.logRus.Debug(pricePlan)
 						u.promTail.Debugf("SideSell price plan: %+v", pricePlan)
 
 						go sendStat(pricePlan)
 
 						if err := u.createOCOOrder(pricePlan); err != nil {
-							u.logger.
+							u.logRus.
 								WithError(err).
 								Error(string(debug.Stack()))
+							u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
+
 							continue
 						}
 

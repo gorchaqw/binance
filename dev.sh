@@ -1,12 +1,13 @@
 #!/bin/sh
 
-scp db.sql root@62.113.104.230:/root/db.sql
-scp loki-config.yaml root@62.113.104.230:/root/loki-config.yaml
+#scp db.sql root@62.113.104.230:/root/db.sql
+#scp loki-config.yaml root@62.113.104.230:/root/loki-config.yaml
 
 export BINANCE_VERSION="dev" &&
 export BINANCE_PG_INIT_DB="./db.sql" &&
 export BINANCE_LOKI="./loki-config.yaml" &&
 export BINANCE_APP_PORT="8080" &&
+export BINANCE_APP_NAME="Binance_DEV" &&
 export BINANCE_LOG_LEVEL="DEBUG"
 
 docker build -t binance/binance:dev .

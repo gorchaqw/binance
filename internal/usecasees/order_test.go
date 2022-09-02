@@ -33,7 +33,7 @@ type testCaseMocks struct {
 
 	mockStructs *mockStructs
 
-	logger *logrus.Logger
+	logRus *logrus.Logger
 }
 type mockStructs struct {
 	orderListJson  []byte
@@ -103,10 +103,10 @@ func (c *testCaseStruct) run(t *testing.T) {
 }
 
 func (m *testCaseMocks) initBaseMocks() {
-	// Logger mocks
+	// LogRus mocks
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
-	m.logger = logger
+	m.logRus = logger
 
 	// Tgm mocks
 	m.tgmCtrl.On("Send", mock.AnythingOfType("string")).Return(nil)
@@ -383,7 +383,8 @@ func (c *testCaseStruct) initOrderUseCase() *orderUseCase {
 		c.Mocks.orderRepo,
 		c.initPriceUseCase(),
 		"https://api.binance.com",
-		c.Mocks.logger,
+		c.Mocks.logRus,
+		nil,
 	)
 }
 func (c *testCaseStruct) initPriceUseCase() *priceUseCase {
@@ -392,6 +393,6 @@ func (c *testCaseStruct) initPriceUseCase() *priceUseCase {
 		c.Mocks.tgmCtrl,
 		c.Mocks.priceRepo,
 		"https://api.binance.com",
-		c.Mocks.logger,
+		c.Mocks.logRus,
 	)
 }

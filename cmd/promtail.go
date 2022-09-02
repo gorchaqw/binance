@@ -4,9 +4,9 @@ import (
 	"github.com/ic2hrmk/promtail"
 )
 
-func (a *App) initLoki() error {
+func (a *App) initPromTail() error {
 	identifiers := map[string]string{
-		"instanceId": a.Name,
+		"instanceId": a.Config.AppName,
 	}
 
 	promTail, err := promtail.NewJSONv1Client("loki:3100", identifiers)

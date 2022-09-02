@@ -15,6 +15,7 @@ type Config struct {
 	BinanceSecretKey string
 	BinanceUrl       string
 	AppPort          string
+	AppName          string
 	LogLevel         string
 	DB               *DB
 	Mongo            *Mongo
@@ -42,6 +43,10 @@ func (a *App) loadConfig(confFileName string) error {
 
 	err := godotenv.Load(confFileName)
 	if err != nil {
+		return err
+	}
+
+	if cfg.AppName, err = cfg.set("APP_NAME"); err != nil {
 		return err
 	}
 

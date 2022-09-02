@@ -13,9 +13,8 @@ import (
 )
 
 type App struct {
-	Name       string
 	Config     *Config
-	Logger     *logrus.Logger
+	LogRus     *logrus.Logger
 	HTTPClient *http.Client
 	TGM        *tgBotAPI.BotAPI
 	DB         *sqlx.DB

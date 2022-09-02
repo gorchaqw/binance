@@ -22,9 +22,9 @@ func main() {
 		panic(err)
 	}
 
-	app.initLogger()
+	app.initLogRus()
 
-	app.initLoki()
+	app.initPromTail()
 
 	if err := app.initMongo(); err != nil {
 		panic(err)
@@ -60,7 +60,7 @@ func main() {
 	clientController := controllers.NewClientController(
 		app.HTTPClient,
 		app.Config.BinanceApiKey,
-		app.Logger,
+		app.LogRus,
 	)
 	cryptoController := controllers.NewCryptoController(
 		app.Config.BinanceSecretKey,
@@ -76,7 +76,7 @@ func main() {
 		tgmController,
 		priceRepo,
 		app.Config.BinanceUrl,
-		app.Logger,
+		app.LogRus,
 	)
 	orderUseCase := usecasees.NewOrderUseCase(
 		clientController,
@@ -86,7 +86,7 @@ func main() {
 		orderRepo,
 		priceUseCase,
 		app.Config.BinanceUrl,
-		app.Logger,
+		app.LogRus,
 		app.PromTail,
 	)
 	tgmUseCase := usecasees.NewTgmUseCase(
@@ -95,19 +95,19 @@ func main() {
 		mongoRepo,
 		orderRepo,
 		tgmController,
-		app.Logger,
+		app.LogRus,
 	)
 
 	go tgmUseCase.CommandProcessor()
 
 	for _, symbol := range usecasees.SymbolList {
 		if err := orderUseCase.Monitoring(symbol); err != nil {
-			app.Logger.Error(err)
+			app.LogRus.Error(err)
 		}
 	}
 
 	if err := tgmController.Send(fmt.Sprintf("[ Started ]")); err != nil {
-		app.Logger.Error(err)
+		app.LogRus.Error(err)
 	}
 
 	app.registerHTTPEndpoints()
