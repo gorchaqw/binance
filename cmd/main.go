@@ -24,9 +24,7 @@ func main() {
 
 	app.initLogger()
 
-	if err := app.initLoki(); err != nil {
-		panic(err)
-	}
+	app.initLoki()
 
 	if err := app.initMongo(); err != nil {
 		panic(err)
@@ -89,6 +87,7 @@ func main() {
 		priceUseCase,
 		app.Config.BinanceUrl,
 		app.Logger,
+		app.PromTail,
 	)
 	tgmUseCase := usecasees.NewTgmUseCase(
 		priceUseCase,

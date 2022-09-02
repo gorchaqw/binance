@@ -343,8 +343,8 @@ func Test_Ticker(t *testing.T) {
 }
 
 func TestStep(t *testing.T) {
-	step := 0.00075
-	lim := 0.025
+	step := 0.0025
+	lim := 0.02
 	quantity := 0.00
 
 	for i := 1; ; i++ {

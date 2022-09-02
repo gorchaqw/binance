@@ -1,9 +1,6 @@
 package usecasees
 
 import (
-	"binance/internal/repository/mongo"
-	mongoStructs "binance/internal/repository/mongo/structs"
-	"binance/internal/repository/postgres"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -15,12 +12,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/ic2hrmk/promtail"
+	"github.com/sirupsen/logrus"
 
 	"binance/internal/controllers"
+	"binance/internal/repository/mongo"
+	mongoStructs "binance/internal/repository/mongo/structs"
+	"binance/internal/repository/postgres"
 	"binance/internal/usecasees/structs"
 	"binance/models"
-
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -66,7 +66,8 @@ type orderUseCase struct {
 
 	url string
 
-	logger *logrus.Logger
+	logger   *logrus.Logger
+	promTail promtail.Client
 }
 
 func NewOrderUseCase(
@@ -78,6 +79,7 @@ func NewOrderUseCase(
 	priceUseCase *priceUseCase,
 	url string,
 	logger *logrus.Logger,
+	promTail promtail.Client,
 ) *orderUseCase {
 	return &orderUseCase{
 		clientController: client,
@@ -88,6 +90,7 @@ func NewOrderUseCase(
 		priceUseCase:     priceUseCase,
 		url:              url,
 		logger:           logger,
+		promTail:         promTail,
 	}
 }
 
@@ -159,6 +162,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						WithError(err).
 						Error(string(debug.Stack()))
 				}
+				u.promTail.Debugf("Settings: %+v", settings)
 
 				lastOrder, err := u.orderRepo.GetLast(symbol)
 				if err != nil {
@@ -178,6 +182,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							Error(string(debug.Stack()))
 					}
 				}
+				u.promTail.Debugf("LastOrder: %+v", lastOrder)
 
 				u.logger.
 					WithField("status", lastOrder.Status).
@@ -394,6 +399,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					case SideBuy:
 						pricePlan := u.fillPricePlan(symbol, actualPrice, settings, &status).SetSide(SideSell)
 						u.logger.Debug(pricePlan)
+						u.promTail.Debugf("SideBuy price plan: %+v", pricePlan)
 
 						go sendStat(pricePlan)
 
@@ -407,6 +413,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					case SideSell:
 						pricePlan := u.fillPricePlan(symbol, actualPrice, settings, &status).SetSide(SideBuy)
 						u.logger.Debug(pricePlan)
+						u.promTail.Debugf("SideSell price plan: %+v", pricePlan)
 
 						go sendStat(pricePlan)
 
