@@ -759,7 +759,7 @@ func (u *orderUseCase) createOCOOrder(pricePlan *structs.PricePlan, settings *mo
 
 	switch pricePlan.Side {
 	case SideBuy:
-		if actualPrice < pricePlan.PriceBUY {
+		if actualPrice > pricePlan.StopPriceBUY {
 			newPricePlan := u.fillPricePlan(OrderTypeOCO, pricePlan.Symbol, actualPrice, settings, pricePlan.Status).SetSide(SideBuy)
 			pricePlan = newPricePlan
 			u.promTail.Debugf("CreateOCOOrder newPricePlan: %+v", pricePlan)
@@ -767,7 +767,7 @@ func (u *orderUseCase) createOCOOrder(pricePlan *structs.PricePlan, settings *mo
 			u.promTail.Debugf("CreateOCOOrder newPricePlan.Status: %+v", pricePlan.Status)
 		}
 	case SideSell:
-		if actualPrice > pricePlan.PriceSELL {
+		if actualPrice < pricePlan.StopPriceSELL {
 			newPricePlan := u.fillPricePlan(OrderTypeOCO, pricePlan.Symbol, actualPrice, settings, pricePlan.Status).SetSide(SideSell)
 			pricePlan = newPricePlan
 			u.promTail.Debugf("CreateOCOOrder newPricePlan: %+v", pricePlan)
