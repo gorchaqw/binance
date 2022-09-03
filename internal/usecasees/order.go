@@ -11,7 +11,6 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/ic2hrmk/promtail"
 	"github.com/sirupsen/logrus"
 
@@ -214,16 +213,15 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					}
 
 					if orderInfo.Status == OrderStatusFilled && orderInfo.Side == SideSell && orderInfo.Type == "LIMIT" {
-						status.
-							SetOrderTry(1).
-							SetQuantity(settings.Step).
-							SetSessionID(uuid.New().String())
+						status.Reset(settings.Step)
 
 						if err := u.initOrder(sendStat, symbol, settings, &status); err != nil {
 							u.logRus.
 								WithError(err).
 								Error(string(debug.Stack()))
 							u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
+
+							continue
 						}
 
 						if err := u.settingsRepo.UpdateStatus(settings.ID, mongoStructs.Enabled); err != nil {
