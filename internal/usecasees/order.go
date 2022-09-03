@@ -215,6 +215,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					if orderInfo.Status == OrderStatusFilled && orderInfo.Side == SideSell && orderInfo.Type == "LIMIT" {
 						status.Reset(settings.Step)
 
+						u.promTail.Debugf("MongoStructs.New: %+v", status)
+
 						if err := u.initOrder(sendStat, symbol, settings, &status); err != nil {
 							u.logRus.
 								WithError(err).
