@@ -176,13 +176,15 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					case sql.ErrNoRows:
 						status.Reset(settings.Step)
 
-						if err := u.initOrder(sendStat, symbol, settings, &status); err != nil {
+						pricePlan := u.fillPricePlan(OrderTypeOCO, symbol, lastOrder.Price, settings, &status).SetSide(SideBuy)
+						if err := u.createOCOOrder(pricePlan, settings); err != nil {
 							u.logRus.
 								WithError(err).
 								Error(string(debug.Stack()))
 							u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
+
+							continue
 						}
-						continue
 					default:
 						u.logRus.
 							WithError(err).
@@ -217,7 +219,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 						u.promTail.Debugf("MongoStructs.New: %+v", status)
 
-						if err := u.initOrder(sendStat, symbol, settings, &status); err != nil {
+						pricePlan := u.fillPricePlan(OrderTypeOCO, symbol, lastOrder.Price, settings, &status).SetSide(SideBuy)
+						if err := u.createOCOOrder(pricePlan, settings); err != nil {
 							u.logRus.
 								WithError(err).
 								Error(string(debug.Stack()))
@@ -491,22 +494,6 @@ func (u *orderUseCase) fillPricePlan(orderType string, symbol string, actualPric
 	out.Status = status
 
 	return &out
-}
-func (u *orderUseCase) initOrder(sendStat func(stat *structs.PricePlan), symbol string, settings *mongoStructs.Settings, status *structs.Status) error {
-	actualPrice, err := u.priceUseCase.GetPrice(symbol)
-	if err != nil {
-		return err
-	}
-
-	pricePlan := u.fillPricePlan(OrderTypeOCO, symbol, actualPrice, settings, status).SetSide(SideBuy)
-
-	if err := u.createOCOOrder(pricePlan, settings); err != nil {
-		return err
-	}
-
-	sendStat(pricePlan)
-
-	return nil
 }
 
 func (u *orderUseCase) getOpenOrders(symbol string) ([]structs.Order, error) {
