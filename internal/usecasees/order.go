@@ -748,6 +748,10 @@ func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan, settings *
 }
 
 func (u *orderUseCase) createOCOOrder(pricePlan *structs.PricePlan, settings *mongoStructs.Settings) error {
+	u.promTail.Debugf("CreateOCOOrder pricePlan: %+v", pricePlan)
+	u.promTail.Debugf("CreateOCOOrder pricePlan.Status: %+v", pricePlan.Status)
+	u.promTail.Debugf("CreateOCOOrder pricePlan.Settings: %+v", settings)
+
 	actualPrice, err := u.priceUseCase.GetPrice(pricePlan.Symbol)
 	if err != nil {
 		return err
