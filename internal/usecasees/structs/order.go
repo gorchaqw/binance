@@ -143,7 +143,6 @@ func (e *Err) Send(tgm controllers.TgmCtrl) error {
 type PricePlan struct {
 	Symbol                 string
 	Side                   string
-	Quantity               float64
 	ActualPrice            float64
 	ActualPricePercent     float64
 	ActualStopPricePercent float64

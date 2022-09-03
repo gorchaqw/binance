@@ -478,7 +478,7 @@ func (u *orderUseCase) fillPricePlan(orderType string, symbol string, actualPric
 	switch orderType {
 	case OrderTypeLimit:
 		out.ActualPricePercent = out.ActualPrice / 100 * (settings.Delta * 1.2)
-	case orderOCO:
+	case OrderTypeOCO:
 		out.ActualPricePercent = out.ActualPrice / 100 * settings.Delta
 	}
 
