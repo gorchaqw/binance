@@ -4,26 +4,52 @@ networks:
   binance_network:
 
 services:
-
-  grafana:
-    image: grafana/grafana-oss:9.1.2
+  prometheus:
+    image: prom/prometheus:v2.38.0
+    volumes:
+      - ${BINANCE_PROMETHEUS}:/etc/prometheus/prometheus-config.yaml
+    container_name: prometheus
+    hostname: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus-config.yaml
     ports:
-      - "3000:3000"
+      - "9090:9090"
+    restart: unless-stopped
+    environment:
+      TZ: "Europe/Moscow"
     networks:
       - binance_network
 
   loki:
     image: grafana/loki:2.5.0
+    container_name: loki
+    hostname: loki
     ports:
       - "3100:3100"
+    restart: unless-stopped
     volumes:
       - ${BINANCE_LOKI}:/etc/loki/local-config.yaml
     command: -config.file=/etc/loki/local-config.yaml
     networks:
       - binance_network
 
+  grafana:
+    image: grafana/grafana-oss:9.1.2
+    container_name: grafana
+    hostname: grafana
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    networks:
+      - binance_network
+    depends_on:
+      - prometheus
+      - loki
+
   binance-postgres:
     image: postgres:14.5
+    container_name: binance-postgres
+    hostname: binance-postgres
     environment:
       POSTGRES_DB: "binance"
       POSTGRES_USER: "binance"
@@ -32,28 +58,36 @@ services:
       - ${BINANCE_PG_INIT_DB}:/docker-entrypoint-initdb.d/db.sql
     ports:
       - "5432:5432"
+    restart: unless-stopped
     networks:
       - binance_network
 
   binance-mongodb:
     image: mongo:4.2
+    container_name: binance-mongodb
+    hostname: binance-mongodb
     environment:
       MONGO_INITDB_ROOT_USERNAME: "binance"
       MONGO_INITDB_ROOT_PASSWORD: "binance"
     ports:
       - "27017:27017"
+    restart: unless-stopped
     networks:
       - binance_network
 
   binance:
     image: binance/binance:${BINANCE_VERSION}
+    container_name: binance
+    hostname: binance
     environment:
       APP_NAME: ${BINANCE_APP_NAME}
       LOG_LEVEL: ${BINANCE_LOG_LEVEL}
     depends_on:
       - binance-postgres
       - binance-mongodb
-    restart: always
+      - loki
+      - prometheus
+    restart: unless-stopped
     ports:
       - ${BINANCE_APP_PORT}:8080
     networks:

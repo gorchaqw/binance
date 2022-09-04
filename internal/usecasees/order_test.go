@@ -385,6 +385,7 @@ func (c *testCaseStruct) initOrderUseCase() *orderUseCase {
 		"https://api.binance.com",
 		c.Mocks.logRus,
 		nil,
+		nil,
 	)
 }
 func (c *testCaseStruct) initPriceUseCase() *priceUseCase {

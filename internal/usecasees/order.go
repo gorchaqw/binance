@@ -11,6 +11,8 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/ic2hrmk/promtail"
 	"github.com/sirupsen/logrus"
 
@@ -23,6 +25,8 @@ import (
 )
 
 const (
+	MetricOrderComplete = "complete"
+
 	orderUrlPath     = "/api/v3/order"
 	orderList        = "/api/v3/orderList"
 	orderAllUrlPath  = "/api/v3/allOrders"
@@ -70,6 +74,7 @@ type orderUseCase struct {
 
 	logRus   *logrus.Logger
 	promTail promtail.Client
+	metrics  map[string]prometheus.Counter
 }
 
 func NewOrderUseCase(
@@ -82,6 +87,7 @@ func NewOrderUseCase(
 	url string,
 	logger *logrus.Logger,
 	promTail promtail.Client,
+	metrics map[string]prometheus.Counter,
 ) *orderUseCase {
 	return &orderUseCase{
 		clientController: client,
@@ -93,6 +99,7 @@ func NewOrderUseCase(
 		url:              url,
 		logRus:           logger,
 		promTail:         promTail,
+		metrics:          metrics,
 	}
 }
 
@@ -169,6 +176,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 				}
 				u.promTail.Debugf("Settings: %+v", settings)
+
+				u.metrics[MetricOrderComplete].Inc()
 
 				lastOrder, err := u.orderRepo.GetLast(symbol)
 				if err != nil {
@@ -361,6 +370,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 							if orderInfo.Side == SideSell {
 								status.Reset(settings.Step)
 								u.promTail.Debugf("COMPLETE Order: %+v", orderInfo)
+								u.metrics[MetricOrderComplete].Inc()
 							}
 						}
 					}

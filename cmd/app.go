@@ -21,4 +21,5 @@ type App struct {
 	Mongo      *mongo.Client
 	PromTail   promtail.Client
 	Fiber      *fiber.App
+	Metrics    *Metrics
 }

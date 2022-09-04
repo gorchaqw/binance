@@ -13,11 +13,16 @@ build(){
 deploy(){
   version=$1
 
+  scp db.sql root@62.113.104.230:/root/db.sql
+  scp loki-config.yaml root@62.113.104.230:/root/loki-config.yaml
+  scp prometheus-config.yaml root@62.113.104.230:/root/prometheus-config.yaml
+
   export BINANCE_APP_PORT="8080"
   export BINANCE_APP_NAME="Binance_PROD"
   export BINANCE_VERSION=$version
   export BINANCE_PG_INIT_DB="/root/db.sql"
   export BINANCE_LOKI="/root/loki-config.yaml"
+  export BINANCE_PROMETHEUS="/root/prometheus-config.yaml"
   export BINANCE_LOG_LEVEL="ERROR"
 
   docker-compose --context beget up --remove-orphans -d
