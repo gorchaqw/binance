@@ -183,7 +183,14 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					case sql.ErrNoRows:
 						status.Reset(settings.Step)
 
-						pricePlan := u.fillPricePlan(OrderTypeOCO, symbol, lastOrder.Price, settings, &status).SetSide(SideBuy)
+						actualPrice, err := u.priceUseCase.GetPrice(symbol)
+						if err != nil {
+							u.logRus.
+								WithError(err).
+								Error(string(debug.Stack()))
+						}
+
+						pricePlan := u.fillPricePlan(OrderTypeOCO, symbol, actualPrice, settings, &status).SetSide(SideBuy)
 						if err := u.createOCOOrder(pricePlan, settings); err != nil {
 							u.logRus.
 								WithError(err).

@@ -83,8 +83,8 @@ services:
       APP_NAME: ${BINANCE_APP_NAME}
       LOG_LEVEL: ${BINANCE_LOG_LEVEL}
     depends_on:
-      - binance-postgres
-      - binance-mongodb
+      - postgres
+      - mongodb
       - loki
       - prometheus
     restart: unless-stopped
