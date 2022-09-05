@@ -208,12 +208,6 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				u.promTail.Debugf("LastOrder: %+v", lastOrder)
 
 				u.logRus.
-					WithField("status", lastOrder.Status).
-					WithField("type", lastOrder.Type).
-					WithField("side", lastOrder.Side).
-					Debug("lastOrder")
-
-				u.logRus.
 					WithField("settings", settings.Status).
 					Debug("settings")
 
