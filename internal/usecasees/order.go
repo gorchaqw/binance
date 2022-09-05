@@ -55,7 +55,7 @@ const (
 
 var (
 	SymbolList = []string{
-		BTCUSDT,
+		BTCBUSD,
 	}
 )
 

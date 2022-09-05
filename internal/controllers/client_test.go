@@ -99,7 +99,6 @@ func Test_OSO(t *testing.T) {
 
 	fmt.Printf("%+v", oList)
 }
-
 func Test_GetOrderList(t *testing.T) {
 	client := &http.Client{}
 	apiKey := "40A1YfOXYUm85x5slZCL6TcVdB6S8im024Uk5t7Mmj2rQJ2DB0FBSWIpaOB9Zd7J"
@@ -134,7 +133,6 @@ func Test_GetOrderList(t *testing.T) {
 
 	assert.NoError(t, json.Unmarshal(req, &out))
 }
-
 func Test_WalletGetAllCoins(t *testing.T) {
 	client := &http.Client{}
 	apiKey := "40A1YfOXYUm85x5slZCL6TcVdB6S8im024Uk5t7Mmj2rQJ2DB0FBSWIpaOB9Zd7J"
@@ -164,7 +162,6 @@ func Test_WalletGetAllCoins(t *testing.T) {
 
 	fmt.Printf("%s", req)
 }
-
 func Test_WalletSnapshot(t *testing.T) {
 	client := &http.Client{}
 	apiKey := "40A1YfOXYUm85x5slZCL6TcVdB6S8im024Uk5t7Mmj2rQJ2DB0FBSWIpaOB9Zd7J"
@@ -200,7 +197,6 @@ func Test_WalletSnapshot(t *testing.T) {
 
 	fmt.Printf("%s", req)
 }
-
 func Test_GetOrderInfo(t *testing.T) {
 	client := &http.Client{}
 	apiKey := "40A1YfOXYUm85x5slZCL6TcVdB6S8im024Uk5t7Mmj2rQJ2DB0FBSWIpaOB9Zd7J"
@@ -238,7 +234,6 @@ func Test_GetOrderInfo(t *testing.T) {
 
 	fmt.Printf("%+v", out)
 }
-
 func Test_GetOpenOrders(t *testing.T) {
 	client := &http.Client{}
 	apiKey := "40A1YfOXYUm85x5slZCL6TcVdB6S8im024Uk5t7Mmj2rQJ2DB0FBSWIpaOB9Zd7J"
@@ -343,7 +338,7 @@ func Test_Ticker(t *testing.T) {
 }
 
 func TestStep(t *testing.T) {
-	step := 0.0025
+	step := 0.0006
 	lim := 0.02
 	quantity := 0.00
 
