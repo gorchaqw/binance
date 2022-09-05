@@ -46,10 +46,10 @@ services:
       - prometheus
       - loki
 
-  binance-postgres:
+  postgres:
     image: postgres:14.5
-    container_name: binance-postgres
-    hostname: binance-postgres
+    container_name: postgres
+    hostname: postgres
     environment:
       POSTGRES_DB: "binance"
       POSTGRES_USER: "binance"
@@ -62,10 +62,10 @@ services:
     networks:
       - binance_network
 
-  binance-mongodb:
+  mongodb:
     image: mongo:4.2
     container_name: mongodb
-    hostname: binance-mongodb
+    hostname: mongodb
     environment:
       MONGO_INITDB_ROOT_USERNAME: "binance"
       MONGO_INITDB_ROOT_PASSWORD: "binance"
