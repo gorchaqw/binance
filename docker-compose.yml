@@ -46,7 +46,7 @@ services:
       - prometheus
       - loki
 
-  postgres:
+  binance-postgres:
     image: postgres:14.5
     container_name: binance-postgres
     hostname: binance-postgres
@@ -62,7 +62,7 @@ services:
     networks:
       - binance_network
 
-  mongodb:
+  binance-mongodb:
     image: mongo:4.2
     container_name: mongodb
     hostname: binance-mongodb
