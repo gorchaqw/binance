@@ -5,6 +5,7 @@
 #scp prometheus-config.yaml root@62.113.104.230:/root/prometheus-config.yaml
 # 10826 grafana prometheus go metrics
 
+
 export BINANCE_VERSION="dev" &&
 export BINANCE_PG_INIT_DB="./db.sql" &&
 export BINANCE_LOKI="./loki-config.yaml" &&
