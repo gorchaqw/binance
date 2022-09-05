@@ -676,12 +676,16 @@ func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan, settings *
 			newPricePlan := u.fillPricePlan(OrderTypeLimit, pricePlan.Symbol, actualPrice, settings, pricePlan.Status).SetSide(SideBuy)
 			pricePlan = newPricePlan
 			u.promTail.Debugf("CreateLimitOrder newPricePlan: %+v", pricePlan)
+
+			u.metrics[structs.MetricOrderLimitNewPricePlan].Inc()
 		}
 	case SideSell:
 		if actualPrice > pricePlan.PriceSELL {
 			newPricePlan := u.fillPricePlan(OrderTypeLimit, pricePlan.Symbol, actualPrice, settings, pricePlan.Status).SetSide(SideSell)
 			pricePlan = newPricePlan
 			u.promTail.Debugf("CreateLimitOrder newPricePlan: %+v", pricePlan)
+
+			u.metrics[structs.MetricOrderLimitNewPricePlan].Inc()
 		}
 	}
 
@@ -779,6 +783,8 @@ func (u *orderUseCase) createOCOOrder(pricePlan *structs.PricePlan, settings *mo
 			u.promTail.Debugf("CreateOCOOrder newPricePlan: %+v", pricePlan)
 			u.promTail.Debugf("CreateOCOOrder newPricePlan.Settings: %+v", settings)
 			u.promTail.Debugf("CreateOCOOrder newPricePlan.Status: %+v", pricePlan.Status)
+
+			u.metrics[structs.MetricOrderOSONewPricePlan].Inc()
 		}
 	case SideSell:
 		if actualPrice > pricePlan.PriceSELL {
@@ -787,6 +793,8 @@ func (u *orderUseCase) createOCOOrder(pricePlan *structs.PricePlan, settings *mo
 			u.promTail.Debugf("CreateOCOOrder newPricePlan: %+v", pricePlan)
 			u.promTail.Debugf("CreateOCOOrder newPricePlan.Settings: %+v", settings)
 			u.promTail.Debugf("CreateOCOOrder newPricePlan.Status: %+v", pricePlan.Status)
+
+			u.metrics[structs.MetricOrderOSONewPricePlan].Inc()
 		}
 	}
 

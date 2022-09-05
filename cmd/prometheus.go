@@ -14,20 +14,18 @@ type Metrics struct {
 func (a *App) InitMetrics() {
 	metrics := Metrics{Order: map[structs.MetricConst]prometheus.Counter{}}
 
-	metrics.Order[structs.MetricOrderComplete] = promauto.NewCounter(prometheus.CounterOpts{
-		Name: structs.MetricOrderComplete.ToString(),
-		Help: structs.MetricOrderComplete.ToString(),
-	})
-
-	metrics.Order[structs.MetricOrderStopLossLimitFilled] = promauto.NewCounter(prometheus.CounterOpts{
-		Name: structs.MetricOrderStopLossLimitFilled.ToString(),
-		Help: structs.MetricOrderStopLossLimitFilled.ToString(),
-	})
-
-	metrics.Order[structs.MetricOrderLimitMaker] = promauto.NewCounter(prometheus.CounterOpts{
-		Name: structs.MetricOrderLimitMaker.ToString(),
-		Help: structs.MetricOrderLimitMaker.ToString(),
-	})
+	for _, m := range []structs.MetricConst{
+		structs.MetricOrderComplete,
+		structs.MetricOrderStopLossLimitFilled,
+		structs.MetricOrderLimitMaker,
+		structs.MetricOrderOSONewPricePlan,
+		structs.MetricOrderLimitNewPricePlan,
+	} {
+		metrics.Order[m] = promauto.NewCounter(prometheus.CounterOpts{
+			Name: m.ToString(),
+			Help: m.ToString(),
+		})
+	}
 
 	a.Metrics = &metrics
 }

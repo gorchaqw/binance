@@ -15,6 +15,8 @@ const (
 	MetricOrderComplete            MetricConst = "order_complete"
 	MetricOrderStopLossLimitFilled MetricConst = "order_stop_loss_limit_filled"
 	MetricOrderLimitMaker          MetricConst = "order_limit_maker_filled"
+	MetricOrderOSONewPricePlan     MetricConst = "order_oso_new_price_plan"
+	MetricOrderLimitNewPricePlan   MetricConst = "order_limit_new_price_plan"
 )
 
 func (s MetricConst) ToString() string {
