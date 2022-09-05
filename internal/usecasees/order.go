@@ -25,9 +25,9 @@ import (
 )
 
 const (
-	MetricOrderComplete = "order_complete"
-	StopLossLimitFilled = "stop_loss_limit_filled"
-	LimitMaker          = "limit_maker_filled"
+	MetricOrderComplete            = "order_complete"
+	MetricOrderStopLossLimitFilled = "order_stop_loss_limit_filled"
+	MetricOrderLimitMaker          = "order_limit_maker_filled"
 
 	orderUrlPath     = "/api/v3/order"
 	orderList        = "/api/v3/orderList"
