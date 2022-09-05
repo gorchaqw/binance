@@ -9,6 +9,18 @@ import (
 	"github.com/google/uuid"
 )
 
+type MetricConst string
+
+const (
+	MetricOrderComplete            MetricConst = "order_complete"
+	MetricOrderStopLossLimitFilled MetricConst = "order_stop_loss_limit_filled"
+	MetricOrderLimitMaker          MetricConst = "order_limit_maker_filled"
+)
+
+func (s MetricConst) ToString() string {
+	return fmt.Sprintf("%s", s)
+}
+
 var ErrTheRelationshipOfThePrices = errors.New("the relationship of the prices for the orders is not correct")
 
 type Status struct {

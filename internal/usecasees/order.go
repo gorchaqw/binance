@@ -25,10 +25,6 @@ import (
 )
 
 const (
-	MetricOrderComplete            = "order_complete"
-	MetricOrderStopLossLimitFilled = "order_stop_loss_limit_filled"
-	MetricOrderLimitMaker          = "order_limit_maker_filled"
-
 	orderUrlPath     = "/api/v3/order"
 	orderList        = "/api/v3/orderList"
 	orderAllUrlPath  = "/api/v3/allOrders"
@@ -76,7 +72,7 @@ type orderUseCase struct {
 
 	logRus   *logrus.Logger
 	promTail promtail.Client
-	metrics  map[string]prometheus.Counter
+	metrics  map[structs.MetricConst]prometheus.Counter
 }
 
 func NewOrderUseCase(
@@ -89,7 +85,7 @@ func NewOrderUseCase(
 	url string,
 	logger *logrus.Logger,
 	promTail promtail.Client,
-	metrics map[string]prometheus.Counter,
+	metrics map[structs.MetricConst]prometheus.Counter,
 ) *orderUseCase {
 	return &orderUseCase{
 		clientController: client,
@@ -360,10 +356,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						switch true {
 						case orderInfo.Type == "STOP_LOSS_LIMIT" && orderInfo.Status == OrderStatusFilled:
 							lastOrderStatus = OrderStatusCanceled
-							u.metrics[StopLossLimitFilled].Inc()
-
+							u.metrics[structs.MetricOrderStopLossLimitFilled].Inc()
 							u.promTail.Debugf("STOP_LOSS_LIMIT Filled: %+v", orderInfo)
-							u.promTail.Debugf("FAILED Order: %+v", orderInfo)
 
 							status.
 								AddOrderTry(1)
@@ -374,14 +368,13 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 						case orderInfo.Type == "LIMIT_MAKER" && orderInfo.Status == OrderStatusFilled:
 							lastOrderStatus = OrderStatusFilled
-							u.metrics[LimitMaker].Inc()
-
+							u.metrics[structs.MetricOrderLimitMaker].Inc()
 							u.promTail.Debugf("LIMIT_MAKER Filled: %+v", orderInfo)
 
 							if orderInfo.Side == SideSell {
 								status.Reset(settings.Step)
-								u.promTail.Debugf("COMPLETE Order: %+v", orderInfo)
-								u.metrics[MetricOrderComplete].Inc()
+
+								u.metrics[structs.MetricOrderComplete].Inc()
 							}
 						}
 					}

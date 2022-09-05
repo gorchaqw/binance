@@ -1,32 +1,32 @@
 package main
 
 import (
-	"binance/internal/usecasees"
+	"binance/internal/usecasees/structs"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 type Metrics struct {
-	Order map[string]prometheus.Counter
+	Order map[structs.MetricConst]prometheus.Counter
 }
 
 func (a *App) InitMetrics() {
-	metrics := Metrics{Order: map[string]prometheus.Counter{}}
+	metrics := Metrics{Order: map[structs.MetricConst]prometheus.Counter{}}
 
-	metrics.Order[usecasees.MetricOrderComplete] = promauto.NewCounter(prometheus.CounterOpts{
-		Name: usecasees.MetricOrderComplete,
-		Help: usecasees.MetricOrderComplete,
+	metrics.Order[structs.MetricOrderComplete] = promauto.NewCounter(prometheus.CounterOpts{
+		Name: structs.MetricOrderComplete.ToString(),
+		Help: structs.MetricOrderComplete.ToString(),
 	})
 
-	metrics.Order[usecasees.StopLossLimitFilled] = promauto.NewCounter(prometheus.CounterOpts{
-		Name: usecasees.StopLossLimitFilled,
-		Help: usecasees.StopLossLimitFilled,
+	metrics.Order[structs.MetricOrderStopLossLimitFilled] = promauto.NewCounter(prometheus.CounterOpts{
+		Name: structs.MetricOrderStopLossLimitFilled.ToString(),
+		Help: structs.MetricOrderStopLossLimitFilled.ToString(),
 	})
 
-	metrics.Order[usecasees.LimitMaker] = promauto.NewCounter(prometheus.CounterOpts{
-		Name: usecasees.LimitMaker,
-		Help: usecasees.LimitMaker,
+	metrics.Order[structs.MetricOrderLimitMaker] = promauto.NewCounter(prometheus.CounterOpts{
+		Name: structs.MetricOrderLimitMaker.ToString(),
+		Help: structs.MetricOrderLimitMaker.ToString(),
 	})
 
 	a.Metrics = &metrics
