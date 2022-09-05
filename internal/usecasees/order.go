@@ -39,6 +39,7 @@ const (
 
 	ETHRUB  = ETH + RUB
 	ETHBUSD = ETH + BUSD
+	BTCBUSD = BTC + BUSD
 	BTCUSDT = BTC + USDT
 
 	SideSell = "SELL"
@@ -54,7 +55,7 @@ const (
 
 var (
 	SymbolList = []string{
-		BTCUSDT,
+		BTCBUSD,
 	}
 )
 
