@@ -25,7 +25,7 @@ deploy(){
   export BINANCE_PROMETHEUS="/root/prometheus-config.yaml"
   export BINANCE_LOG_LEVEL="ERROR"
 
-  docker-compose --context beget up --remove-orphans -d
+  docker-compose --context beget up --remove-orphans -d binance
 }
 
 gitRepo(){

@@ -25,7 +25,9 @@ import (
 )
 
 const (
-	MetricOrderComplete = "complete"
+	MetricOrderComplete = "order_complete"
+	StopLossLimitFilled = "stop_loss_limit_filled"
+	LimitMaker          = "limit_maker_filled"
 
 	orderUrlPath     = "/api/v3/order"
 	orderList        = "/api/v3/orderList"
@@ -358,6 +360,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						switch true {
 						case orderInfo.Type == "STOP_LOSS_LIMIT" && orderInfo.Status == OrderStatusFilled:
 							lastOrderStatus = OrderStatusCanceled
+							u.metrics[StopLossLimitFilled].Inc()
+
 							u.promTail.Debugf("STOP_LOSS_LIMIT Filled: %+v", orderInfo)
 							u.promTail.Debugf("FAILED Order: %+v", orderInfo)
 
@@ -370,6 +374,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 						case orderInfo.Type == "LIMIT_MAKER" && orderInfo.Status == OrderStatusFilled:
 							lastOrderStatus = OrderStatusFilled
+							u.metrics[LimitMaker].Inc()
+
 							u.promTail.Debugf("LIMIT_MAKER Filled: %+v", orderInfo)
 
 							if orderInfo.Side == SideSell {
