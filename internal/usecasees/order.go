@@ -177,8 +177,6 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				}
 				u.promTail.Debugf("Settings: %+v", settings)
 
-				u.metrics[MetricOrderComplete].Inc()
-
 				lastOrder, err := u.orderRepo.GetLast(symbol)
 				if err != nil {
 					switch err {
