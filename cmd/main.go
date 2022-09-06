@@ -100,8 +100,14 @@ func main() {
 
 	//go tgmUseCase.CommandProcessor()
 
+	//for _, symbol := range usecasees.SymbolList {
+	//	if err := orderUseCase.Monitoring(symbol); err != nil {
+	//		app.LogRus.Error(err)
+	//	}
+	//}
+
 	for _, symbol := range usecasees.SymbolList {
-		if err := orderUseCase.Monitoring(symbol); err != nil {
+		if err := orderUseCase.FeaturesMonitoring(symbol); err != nil {
 			app.LogRus.Error(err)
 		}
 	}

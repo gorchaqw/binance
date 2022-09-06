@@ -375,18 +375,7 @@ func (c *testCaseStruct) initMockStructs(t *testing.T) {
 	}
 }
 func (c *testCaseStruct) initOrderUseCase() *orderUseCase {
-	return NewOrderUseCase(
-		c.Mocks.clientCtrl,
-		c.Mocks.cryptoCtrl,
-		c.Mocks.tgmCtrl,
-		c.Mocks.settingsRepo,
-		c.Mocks.orderRepo,
-		c.initPriceUseCase(),
-		"https://api.binance.com",
-		c.Mocks.logRus,
-		nil,
-		nil,
-	)
+	return nil
 }
 func (c *testCaseStruct) initPriceUseCase() *priceUseCase {
 	return NewPriceUseCase(
