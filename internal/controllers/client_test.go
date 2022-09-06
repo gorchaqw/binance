@@ -16,6 +16,53 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func Test_CreateFuturesLimitOrder(t *testing.T) {
+	client := &http.Client{}
+	apiKey := "GjQaJQSciytAuD6Td6ZSk1ZXtfEQAdhdDb1dqcE67csSXzBJtDOPmU5IxYAvFZvk"
+	logger := logrus.New()
+	secretKey := "HeIwNhAQRjWsJTcfVUlXc3yS04Vag9cTPRb2Ls88dBG5x6YtybE579uJhIwz95MC"
+	symbol := "BTCBUSD"
+	baseURL, err := url.Parse("https://fapi.binance.com/fapi/v1/order")
+	assert.NoError(t, err)
+	quantity := 0.001
+	price := float64(19900)
+	stopPrice := float64(19600)
+
+	cryptoController := controllers.NewCryptoController(secretKey)
+	clientController := controllers.NewClientController(
+		client,
+		apiKey,
+		logger,
+	)
+
+	q := baseURL.Query()
+	q.Set("symbol", symbol)
+	q.Set("side", "BUY")
+	q.Set("type", "TAKE_PROFIT")
+	q.Set("quantity", fmt.Sprintf("%.5f", quantity))
+	q.Set("price", fmt.Sprintf("%.2f", price))
+	q.Set("stopPrice", fmt.Sprintf("%.2f", stopPrice))
+	q.Set("recvWindow", "60000")
+	q.Set("timeInForce", "GTC")
+	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
+
+	sig := cryptoController.GetSignature(q.Encode())
+	q.Set("signature", sig)
+
+	baseURL.RawQuery = q.Encode()
+
+	req, err := clientController.Send(http.MethodPost, baseURL, nil, true)
+	assert.NoError(t, err)
+
+	fmt.Printf("%s", req)
+
+	var o structs.LimitOrder
+	assert.NoError(t, json.Unmarshal(req, &o))
+
+	fmt.Printf("%+v", o)
+
+}
+
 func Test_CreateLimitOrder(t *testing.T) {
 	client := &http.Client{}
 	apiKey := "40A1YfOXYUm85x5slZCL6TcVdB6S8im024Uk5t7Mmj2rQJ2DB0FBSWIpaOB9Zd7J"

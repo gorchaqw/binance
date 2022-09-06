@@ -63,6 +63,16 @@ func (r *OrderRepository) GetBySessionID(sessionID string) ([]models.Order, erro
 	return orders, nil
 }
 
+func (r *OrderRepository) GetBySessionIDWithSide(sessionID, side string) ([]models.Order, error) {
+	var orders []models.Order
+
+	if err := r.conn.Select(&orders, "SELECT * FROM orders where session_id = $1 AND side = $2 ORDER BY id DESC;", sessionID, side); err != nil {
+		return nil, err
+	}
+
+	return orders, nil
+}
+
 func (r *OrderRepository) GetLastWithInterval(symbol string, sTime, eTime time.Time) ([]models.Order, error) {
 	var orders []models.Order
 

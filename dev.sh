@@ -15,7 +15,7 @@ export BINANCE_APP_NAME="Binance_DEV" &&
 export BINANCE_LOG_LEVEL="DEBUG"
 
 docker build -t binance/binance:dev .
-docker-compose up --remove-orphans
+docker-compose up --remove-orphans binance
 
 
 #  export BINANCE_APP_PORT="8080"

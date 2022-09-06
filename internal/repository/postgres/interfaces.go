@@ -14,6 +14,7 @@ type OrderRepo interface {
 	GetFirst(symbol string) (*models.Order, error)
 	GetByID(id int) (*models.Order, error)
 	GetBySessionID(sessionID string) ([]models.Order, error)
+	GetBySessionIDWithSide(sessionID, side string) ([]models.Order, error)
 	GetLastWithInterval(symbol string, sTime, eTime time.Time) ([]models.Order, error)
 	SetActualPrice(id int, price float64) error
 	SetTry(id, try int) error

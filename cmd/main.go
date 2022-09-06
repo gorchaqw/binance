@@ -32,10 +32,6 @@ func main() {
 		panic(err)
 	}
 
-	if err := app.initTgBot(); err != nil {
-		panic(err)
-	}
-
 	if err := app.InitDB(app.Config.DB); err != nil {
 		panic(err)
 	}
@@ -84,7 +80,6 @@ func main() {
 	orderUseCase := usecasees.NewOrderUseCase(
 		clientController,
 		cryptoController,
-		tgmController,
 		mongoRepo,
 		orderRepo,
 		priceUseCase,
@@ -93,25 +88,22 @@ func main() {
 		app.PromTail,
 		app.Metrics.Order,
 	)
-	tgmUseCase := usecasees.NewTgmUseCase(
-		priceUseCase,
-		orderUseCase,
-		mongoRepo,
-		orderRepo,
-		tgmController,
-		app.LogRus,
-	)
 
-	go tgmUseCase.CommandProcessor()
+	//tgmUseCase := usecasees.NewTgmUseCase(
+	//	priceUseCase,
+	//	orderUseCase,
+	//	mongoRepo,
+	//	orderRepo,
+	//	tgmController,
+	//	app.LogRus,
+	//)
+
+	//go tgmUseCase.CommandProcessor()
 
 	for _, symbol := range usecasees.SymbolList {
 		if err := orderUseCase.Monitoring(symbol); err != nil {
 			app.LogRus.Error(err)
 		}
-	}
-
-	if err := tgmController.Send(fmt.Sprintf("[ Started ]")); err != nil {
-		app.LogRus.Error(err)
 	}
 
 	app.registerHTTPEndpoints()
