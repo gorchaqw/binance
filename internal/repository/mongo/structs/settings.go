@@ -28,6 +28,8 @@ type Settings struct {
 	Step      float64            `bson:"step"`
 	Delta     float64            `bson:"delta"`
 	DeltaStep float64            `bson:"delta_step"`
+	MaxPrice  float64            `bson:"max_price"`
+	MinPrice  float64            `bson:"min_price"`
 	SpotURL   string             `bson:"spot_url"`
 	Status    string             `bson:"status"`
 }
