@@ -73,10 +73,7 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 				}
 				u.promTail.Debugf("LastOrder: %+v", lastOrder)
 
-				status.
-					SetOrderTry(lastOrder.Try).
-					SetQuantity(lastOrder.Quantity).
-					SetSessionID(lastOrder.SessionID)
+				continue
 
 				oList, err := u.orderRepo.GetBySessionID(lastOrder.SessionID)
 				if err != nil {
@@ -85,8 +82,6 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 						Error(string(debug.Stack()))
 					u.promTail.Errorf("orderUseCase: %+v %s", err, debug.Stack())
 				}
-
-				continue
 
 				for _, o := range oList {
 					orderInfo, err := u.getFeatureOrderInfo(o.OrderID, symbol)
@@ -270,40 +265,41 @@ func (u *orderUseCase) initOrder(pricePlan *structs.PricePlan, settings *mongoSt
 	return nil
 }
 
-func (u *orderUseCase) constructLimitOrder(pricePlan *structs.PricePlan, settings *mongoStructs.Settings) *structs.FeatureOrder {
-	return &structs.FeatureOrder{
-		Symbol:      settings.Symbol,
-		Type:        "LIMIT",
-		Side:        "BUY",
-		Price:       fmt.Sprintf("%f", pricePlan.ActualPrice),
-		Quantity:    fmt.Sprintf("%f", pricePlan.Status.Quantity),
-		TimeInForce: "timeInForce",
+func (u *orderUseCase) constructLimitOrder(pricePlan *structs.PricePlan, settings *mongoStructs.Settings) structs.FeatureOrder {
+	return structs.FeatureOrder{
+		Symbol:       settings.Symbol,
+		Type:         "LIMIT",
+		Side:         "BUY",
+		PositionSide: "LONG",
+		Price:        fmt.Sprintf("%.1f", pricePlan.ActualPrice),
+		Quantity:     fmt.Sprintf("%.3f", pricePlan.Status.Quantity),
+		TimeInForce:  "GTC",
 	}
 }
 
-func (u *orderUseCase) constructTakeProfitOrder(pricePlan *structs.PricePlan, settings *mongoStructs.Settings) *structs.FeatureOrder {
-	return &structs.FeatureOrder{
+func (u *orderUseCase) constructTakeProfitOrder(pricePlan *structs.PricePlan, settings *mongoStructs.Settings) structs.FeatureOrder {
+	return structs.FeatureOrder{
 		Symbol:        settings.Symbol,
 		Type:          "TAKE_PROFIT_MARKET",
 		Side:          "SELL",
-		StopPrice:     fmt.Sprintf("%f", pricePlan.StopPriceSELL),
+		StopPrice:     fmt.Sprintf("%.1f", pricePlan.StopPriceSELL),
 		WorkingType:   "MARK_PRICE",
 		PositionSide:  "LONG",
-		PriceProtect:  "false",
-		ClosePosition: "true",
+		PriceProtect:  false,
+		ClosePosition: true,
 	}
 }
 
-func (u *orderUseCase) constructStopLossOrder(pricePlan *structs.PricePlan, settings *mongoStructs.Settings) *structs.FeatureOrder {
-	return &structs.FeatureOrder{
+func (u *orderUseCase) constructStopLossOrder(pricePlan *structs.PricePlan, settings *mongoStructs.Settings) structs.FeatureOrder {
+	return structs.FeatureOrder{
 		Symbol:        settings.Symbol,
 		Type:          "STOP_MARKET",
 		Side:          "SELL",
-		StopPrice:     fmt.Sprintf("%f", pricePlan.StopPriceSELL),
+		StopPrice:     fmt.Sprintf("%.1f", pricePlan.StopPriceSELL),
 		WorkingType:   "MARK_PRICE",
 		PositionSide:  "LONG",
-		PriceProtect:  "false",
-		ClosePosition: "true",
+		PriceProtect:  false,
+		ClosePosition: true,
 	}
 }
 
@@ -315,10 +311,10 @@ func (u *orderUseCase) createBatchOrders(pricePlan *structs.PricePlan, settings 
 
 	baseURL.Path = path.Join(featureBatchOrders)
 
-	orders := []*structs.FeatureOrder{
+	orders := []structs.FeatureOrder{
 		u.constructLimitOrder(pricePlan, settings),
-		u.constructTakeProfitOrder(pricePlan, settings),
-		u.constructStopLossOrder(pricePlan, settings),
+		//u.constructTakeProfitOrder(pricePlan, settings),
+		//u.constructStopLossOrder(pricePlan, settings),
 	}
 
 	batchOrders, err := json.Marshal(orders)
@@ -343,23 +339,31 @@ func (u *orderUseCase) createBatchOrders(pricePlan *structs.PricePlan, settings 
 	var orderList []structs.FeatureOrder
 
 	if err := json.Unmarshal(req, &orderList); err != nil {
-		return err
+		return errors.New(fmt.Sprintf("%+v %s", err, req))
 	}
 
 	for _, order := range orderList {
-		quantity, err := strconv.ParseFloat(order.Quantity, 64)
-		if err != nil {
-			return err
+		var quantity, stopPrice, price float64
+
+		if order.OrigQty != "" {
+			quantity, err = strconv.ParseFloat(order.OrigQty, 64)
+			if err != nil {
+				return err
+			}
 		}
 
-		stopPrice, err := strconv.ParseFloat(order.StopPrice, 64)
-		if err != nil {
-			return err
+		if order.StopPrice != "" {
+			stopPrice, err = strconv.ParseFloat(order.StopPrice, 64)
+			if err != nil {
+				return err
+			}
 		}
 
-		price, err := strconv.ParseFloat(order.Price, 64)
-		if err != nil {
-			return err
+		if order.Price != "" {
+			price, err = strconv.ParseFloat(order.Price, 64)
+			if err != nil {
+				return err
+			}
 		}
 
 		o := models.Order{
@@ -380,8 +384,6 @@ func (u *orderUseCase) createBatchOrders(pricePlan *structs.PricePlan, settings 
 			return err
 		}
 	}
-
-	u.promTail.Debugf("BatchOrders Request: %s", req)
 
 	return nil
 }

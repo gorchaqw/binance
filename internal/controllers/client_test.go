@@ -63,7 +63,7 @@ func Test_GetPositionInfo(t *testing.T) {
 		WorkingType:   "MARK_PRICE",
 		PositionSide:  "LONG",
 		PriceProtect:  "false",
-		ClosePosition: "true",
+		ClosePosition: true,
 	}
 
 	takeProfitOrder := structs.FeatureOrder{
@@ -74,7 +74,7 @@ func Test_GetPositionInfo(t *testing.T) {
 		WorkingType:   "MARK_PRICE",
 		PositionSide:  "LONG",
 		PriceProtect:  "false",
-		ClosePosition: "true",
+		ClosePosition: true,
 	}
 
 	orders := []structs.FeatureOrder{
@@ -185,8 +185,7 @@ func Test_CreateFuturesLimitOrder(t *testing.T) {
 	baseURL, err := url.Parse("https://fapi.binance.com/fapi/v1/order")
 	assert.NoError(t, err)
 	quantity := 0.001
-	price := float64(19900)
-	stopPrice := float64(19600)
+	price := float64(19000)
 
 	cryptoController := controllers.NewCryptoController(secretKey)
 	clientController := controllers.NewClientController(
@@ -198,10 +197,10 @@ func Test_CreateFuturesLimitOrder(t *testing.T) {
 	q := baseURL.Query()
 	q.Set("symbol", symbol)
 	q.Set("side", "BUY")
-	q.Set("type", "TAKE_PROFIT")
-	q.Set("quantity", fmt.Sprintf("%.5f", quantity))
-	q.Set("price", fmt.Sprintf("%.2f", price))
-	q.Set("stopPrice", fmt.Sprintf("%.2f", stopPrice))
+	q.Set("type", "LIMIT")
+	q.Set("positionSide", "LONG")
+	q.Set("quantity", fmt.Sprintf("%.3f", quantity))
+	q.Set("price", fmt.Sprintf("%.1f", price))
 	q.Set("recvWindow", "60000")
 	q.Set("timeInForce", "GTC")
 	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))

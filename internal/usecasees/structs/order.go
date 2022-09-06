@@ -101,13 +101,13 @@ type FeatureOrder struct {
 	CumQuote      string `json:"cumQuote,omitempty"`
 	TimeInForce   string `json:"timeInForce,omitempty"`
 	Type          string `json:"type,omitempty"`
-	ReduceOnly    string `json:"reduceOnly,omitempty"`
-	ClosePosition string `json:"closePosition,omitempty"`
+	ReduceOnly    bool   `json:"reduceOnly,omitempty"`
+	ClosePosition bool   `json:"closePosition,omitempty"`
 	Side          string `json:"side,omitempty"`
 	PositionSide  string `json:"positionSide,omitempty"`
 	StopPrice     string `json:"stopPrice,omitempty"`
 	WorkingType   string `json:"workingType,omitempty"`
-	PriceProtect  string `json:"priceProtect,omitempty"`
+	PriceProtect  bool   `json:"priceProtect,omitempty"`
 	OrigType      string `json:"origType,omitempty"`
 	Time          int64  `json:"time,omitempty"`
 	UpdateTime    int64  `json:"updateTime,omitempty"`
