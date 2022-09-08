@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
+type Mode string
 type MetricConst string
 
 const (
@@ -17,6 +18,9 @@ const (
 	MetricOrderLimitMaker          MetricConst = "order_limit_maker_filled"
 	MetricOrderOSONewPricePlan     MetricConst = "order_oso_new_price_plan"
 	MetricOrderLimitNewPricePlan   MetricConst = "order_limit_new_price_plan"
+
+	Middle Mode = "MIDDLE"
+	UpDown Mode = "UP_DOWN"
 )
 
 func (s MetricConst) ToString() string {
@@ -29,6 +33,7 @@ type Status struct {
 	OrderTry  int
 	Quantity  float64
 	SessionID string
+	Mode      Mode
 }
 
 func (s *Status) Reset(v float64) {
@@ -62,6 +67,12 @@ func (s *Status) SetQuantity(v float64) *Status {
 
 func (s *Status) SetSessionID(v string) *Status {
 	s.SessionID = v
+
+	return s
+}
+
+func (s *Status) SetMode(v Mode) *Status {
+	s.Mode = v
 
 	return s
 }

@@ -4,12 +4,15 @@ import (
 	"binance/internal/controllers"
 	"binance/internal/usecasees"
 	"binance/internal/usecasees/structs"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"math"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
+	"strconv"
 	"testing"
 	"time"
 
@@ -615,7 +618,7 @@ func Test_Ticker(t *testing.T) {
 }
 
 func TestStep(t *testing.T) {
-	step := 0.0015
+	step := 0.006
 	lim := 0.4
 	quantity := 0.00
 
@@ -683,4 +686,43 @@ func TestPrice(t *testing.T) {
 	d := (20500 - 19800) / 5
 	priceSELL := 20310 + d
 	fmt.Println(priceSELL, d/2)
+}
+
+func TestStat(t *testing.T) {
+	file, err := os.Open("binance.csv")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	reader.FieldsPerRecord = 5
+	reader.Comment = '#'
+	var totalProfit, totalComission float64
+
+	for {
+		record, e := reader.Read()
+		if e != nil {
+			fmt.Println(e)
+			break
+		}
+
+		switch record[1] {
+		case "COMMISSION":
+			f, err := strconv.ParseFloat(record[2], 64)
+			if err != nil {
+				panic(err)
+			}
+			totalComission += f
+		case "REALIZED_PNL":
+			f, err := strconv.ParseFloat(record[2], 64)
+			if err != nil {
+				panic(err)
+			}
+			totalProfit += f
+		}
+	}
+
+	fmt.Println(totalProfit)
+	fmt.Println(totalComission)
 }

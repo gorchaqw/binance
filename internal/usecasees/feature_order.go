@@ -67,9 +67,16 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 				}
 				u.promTail.Debugf("LastOrder: %+v", lastOrder)
 
+				status.
+					SetSessionID(lastOrder.SessionID).
+					SetOrderTry(lastOrder.Try).
+					SetQuantity(lastOrder.Quantity)
+
+				status.SetMode(structs.Middle)
+
 				u.logRus.Debugf("lastOrder: %+v", lastOrder)
 
-				oList, err := u.orderRepo.GetBySessionID(lastOrder.SessionID)
+				oList, err := u.orderRepo.GetBySessionID(status.SessionID)
 				if err != nil {
 					u.logRus.
 						WithError(err).
@@ -86,38 +93,6 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 				}
 
 				u.logRus.Debugf("ordersStatus: %+v", ordersStatus)
-
-				//chkLimitOrderActual := func(f *structs.FeatureOrdersStatus) bool {
-				//	switch true {
-				//	case f.LimitOrder.Status == OrderStatusNew &&
-				//		f.TakeProfitOrder.Status == "" &&
-				//		f.StopLossOrder.Status == "":
-				//
-				//		actualPrice, err := u.priceUseCase.featuresGetPrice(symbol)
-				//		if err != nil {
-				//			u.logRus.
-				//				WithError(err).
-				//				Error(string(debug.Stack()))
-				//		}
-				//
-				//		var delta float64
-				//
-				//		switch true {
-				//		case f.LimitOrder.ActualPrice > actualPrice:
-				//			delta = f.LimitOrder.ActualPrice - actualPrice
-				//		case f.LimitOrder.ActualPrice < actualPrice:
-				//			delta = actualPrice - f.LimitOrder.ActualPrice
-				//		}
-				//
-				//		if delta > float64(settings.Delta)*2 {
-				//			return true
-				//		}
-				//
-				//		return false
-				//
-				//	}
-				//	return false
-				//}
 
 				chkCreateLimitOrderStopLoss := func(f *structs.FeatureOrdersStatus) bool {
 					switch true {
@@ -217,6 +192,8 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 						AddOrderTry(1).
 						SetQuantity(settings.Step)
 
+					u.metrics[structs.MetricOrderStopLossLimitFilled].Inc()
+
 					pricePlan := u.fillPricePlan(OrderTypeBatch, symbol, ordersStatus.StopLossOrder.ActualPrice, settings, &status)
 
 					switch ordersStatus.MarketOrder.Side {
@@ -239,13 +216,15 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 				if chkCreateLimitOrderTakeProfit(ordersStatus) {
 					status.Reset(settings.Step)
 
+					u.metrics[structs.MetricOrderLimitMaker].Inc()
+
 					pricePlan := u.fillPricePlan(OrderTypeBatch, symbol, ordersStatus.TakeProfitOrder.ActualPrice, settings, &status)
 
 					switch ordersStatus.MarketOrder.Side {
 					case SideBuy:
-						pricePlan.SetSide(SideBuy)
-					case SideSell:
 						pricePlan.SetSide(SideSell)
+					case SideSell:
+						pricePlan.SetSide(SideBuy)
 					}
 
 					if err := u.createFeaturesMarketOrder(pricePlan, settings); err != nil {
