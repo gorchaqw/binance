@@ -24,10 +24,13 @@ func Test_GetPositionInfo(t *testing.T) {
 	secretKey := "HeIwNhAQRjWsJTcfVUlXc3yS04Vag9cTPRb2Ls88dBG5x6YtybE579uJhIwz95MC"
 	symbol := "BTCBUSD"
 	//
-	price := 18966.00
+	//price := 18966.00
 
-	takeProfitPrice := price + 100
-	stopLossPrice := price - 100
+	actualPrice := 18860.00
+	//quantity := 0.001
+
+	takeProfitPrice := actualPrice + 100
+	//stopLossPrice := actualPrice - 100
 
 	cryptoController := controllers.NewCryptoController(secretKey)
 	clientController := controllers.NewClientController(
@@ -55,31 +58,63 @@ func Test_GetPositionInfo(t *testing.T) {
 	//	"updateTime": 1662492808077
 	//}
 
-	limitOrder := structs.FeatureOrder{
-		Symbol:        symbol,
-		Type:          "TAKE_PROFIT_MARKET",
-		Side:          "SELL",
-		StopPrice:     fmt.Sprintf("%f", takeProfitPrice),
-		WorkingType:   "MARK_PRICE",
-		PositionSide:  "LONG",
-		PriceProtect:  "false",
-		ClosePosition: true,
-	}
+	//limitOrder := structs.FeatureOrderReq{
+	//	Symbol:       symbol,
+	//	Type:         "LIMIT",
+	//	Side:         "BUY",
+	//	PositionSide: "LONG",
+	//	Price:        fmt.Sprintf("%.1f", actualPrice),
+	//	Quantity:     fmt.Sprintf("%.3f", quantity),
+	//	TimeInForce:  "GTC",
+	//}
 
-	takeProfitOrder := structs.FeatureOrder{
+	//limitOrderSELL := structs.FeatureOrderReq{
+	//	Symbol:       symbol,
+	//	Type:         "LIMIT",
+	//	Side:         "SELL",
+	//	PositionSide: "SHORT",
+	//	Price:        fmt.Sprintf("%.1f", actualPrice),
+	//	Quantity:     fmt.Sprintf("%.3f", quantity),
+	//	TimeInForce:  "GTC",
+	//}
+
+	//takeProfitOrder := structs.FeatureOrderReq{
+	//	Symbol:        symbol,
+	//	Type:          "TAKE_PROFIT_MARKET",
+	//	Side:          "SELL",
+	//	StopPrice:     fmt.Sprintf("%f", takeProfitPrice),
+	//	WorkingType:   "MARK_PRICE",
+	//	PositionSide:  "LONG",
+	//	PriceProtect:  "false",
+	//	ClosePosition: "true",
+	//}
+
+	//takeProfitOrder := structs.FeatureOrderReq{
+	//	Symbol:        symbol,
+	//	Type:          "TAKE_PROFIT_MARKET",
+	//	Side:          "BUY",
+	//	StopPrice:     fmt.Sprintf("%f", stopLossPrice),
+	//	WorkingType:   "MARK_PRICE",
+	//	PositionSide:  "SHORT",
+	//	PriceProtect:  "false",
+	//	ClosePosition: "true",
+	//}
+	//
+	stopLossOrder := structs.FeatureOrderReq{
 		Symbol:        symbol,
 		Type:          "STOP_MARKET",
-		Side:          "SELL",
-		StopPrice:     fmt.Sprintf("%f", stopLossPrice),
+		Side:          "BUY",
+		StopPrice:     fmt.Sprintf("%.1f", takeProfitPrice),
 		WorkingType:   "MARK_PRICE",
-		PositionSide:  "LONG",
+		PositionSide:  "SHORT",
 		PriceProtect:  "false",
-		ClosePosition: true,
+		ClosePosition: "true",
 	}
 
-	orders := []structs.FeatureOrder{
-		limitOrder,
-		takeProfitOrder,
+	orders := []structs.FeatureOrderReq{
+		//limitOrderSELL,
+		//takeProfitOrder,
+		stopLossOrder,
 	}
 
 	batchOrders, err := json.Marshal(orders)
@@ -155,10 +190,10 @@ func Test_CreateFuturesMarketOrder(t *testing.T) {
 	q := baseURL.Query()
 	q.Set("symbol", symbol)
 	q.Set("side", "BUY")
+	q.Set("positionSide", "LONG")
 	q.Set("type", "MARKET")
-	q.Set("quantity", fmt.Sprintf("%.5f", quantity))
+	q.Set("quantity", fmt.Sprintf("%.3f", quantity))
 	q.Set("recvWindow", "60000")
-	q.Set("timeInForce", "GTC")
 	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
 
 	sig := cryptoController.GetSignature(q.Encode())
@@ -171,7 +206,7 @@ func Test_CreateFuturesMarketOrder(t *testing.T) {
 
 	fmt.Printf("%s", req)
 
-	var o structs.LimitOrder
+	var o structs.FeatureOrderResp
 	assert.NoError(t, json.Unmarshal(req, &o))
 
 	fmt.Printf("%+v", o)
@@ -227,7 +262,7 @@ func Test_allOpenOrders(t *testing.T) {
 	logger := logrus.New()
 	secretKey := "HeIwNhAQRjWsJTcfVUlXc3yS04Vag9cTPRb2Ls88dBG5x6YtybE579uJhIwz95MC"
 	symbol := "BTCBUSD"
-	baseURL, err := url.Parse("https://fapi.binance.com/fapi/v1/allOrders")
+	baseURL, err := url.Parse("https://fapi.binance.com/fapi/v1/order")
 	assert.NoError(t, err)
 	//quantity := 0.001
 	//price := float64(19900)
@@ -242,6 +277,7 @@ func Test_allOpenOrders(t *testing.T) {
 
 	q := baseURL.Query()
 	q.Set("symbol", symbol)
+	q.Set("orderId", "12045007771")
 	q.Set("recvWindow", "60000")
 	q.Set("timeInForce", "GTC")
 	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
@@ -579,8 +615,8 @@ func Test_Ticker(t *testing.T) {
 }
 
 func TestStep(t *testing.T) {
-	step := 0.0006
-	lim := 0.02
+	step := 0.0015
+	lim := 0.4
 	quantity := 0.00
 
 	for i := 1; ; i++ {

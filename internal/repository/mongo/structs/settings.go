@@ -26,7 +26,7 @@ type Settings struct {
 	Symbol    string             `bson:"symbol"`
 	Limit     float64            `bson:"limit"`
 	Step      float64            `bson:"step"`
-	Delta     float64            `bson:"delta"`
+	Delta     int32              `bson:"delta"`
 	DeltaStep float64            `bson:"delta_step"`
 	MaxPrice  float64            `bson:"max_price"`
 	MinPrice  float64            `bson:"min_price"`

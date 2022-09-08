@@ -37,6 +37,11 @@ func (s *Status) Reset(v float64) {
 	s.SessionID = uuid.New().String()
 }
 
+func (s *Status) NewSessionID() *Status {
+	s.SessionID = uuid.New().String()
+	return s
+}
+
 func (s *Status) SetOrderTry(v int) *Status {
 	s.OrderTry = v
 
@@ -50,12 +55,6 @@ func (s *Status) AddOrderTry(v int) *Status {
 }
 
 func (s *Status) SetQuantity(v float64) *Status {
-	s.Quantity = v
-
-	return s
-}
-
-func (s *Status) AddQuantity(v float64) *Status {
 	s.Quantity = v * math.Pow(2, float64(s.OrderTry-1))
 
 	return s
@@ -88,7 +87,7 @@ type Order struct {
 	OrigQuoteOrderQty   string `json:"origQuoteOrderQty"`
 }
 
-type FeatureOrder struct {
+type FeatureOrderResp struct {
 	OrderId       int64  `json:"orderId,omitempty"`
 	Symbol        string `json:"symbol,omitempty"`
 	Status        string `json:"status,omitempty"`
@@ -108,6 +107,30 @@ type FeatureOrder struct {
 	StopPrice     string `json:"stopPrice,omitempty"`
 	WorkingType   string `json:"workingType,omitempty"`
 	PriceProtect  bool   `json:"priceProtect,omitempty"`
+	OrigType      string `json:"origType,omitempty"`
+	Time          int64  `json:"time,omitempty"`
+	UpdateTime    int64  `json:"updateTime,omitempty"`
+}
+type FeatureOrderReq struct {
+	OrderId       int64  `json:"orderId,omitempty"`
+	Symbol        string `json:"symbol,omitempty"`
+	Status        string `json:"status,omitempty"`
+	ClientOrderId string `json:"clientOrderId,omitempty"`
+	Price         string `json:"price,omitempty"`
+	Quantity      string `json:"quantity,omitempty"`
+	AvgPrice      string `json:"avgPrice,omitempty"`
+	OrigQty       string `json:"origQty,omitempty"`
+	ExecutedQty   string `json:"executedQty,omitempty"`
+	CumQuote      string `json:"cumQuote,omitempty"`
+	TimeInForce   string `json:"timeInForce,omitempty"`
+	Type          string `json:"type,omitempty"`
+	ReduceOnly    string `json:"reduceOnly,omitempty"`
+	ClosePosition string `json:"closePosition,omitempty"`
+	Side          string `json:"side,omitempty"`
+	PositionSide  string `json:"positionSide,omitempty"`
+	StopPrice     string `json:"stopPrice,omitempty"`
+	WorkingType   string `json:"workingType,omitempty"`
+	PriceProtect  string `json:"priceProtect,omitempty"`
 	OrigType      string `json:"origType,omitempty"`
 	Time          int64  `json:"time,omitempty"`
 	UpdateTime    int64  `json:"updateTime,omitempty"`
@@ -195,4 +218,17 @@ type PricePlan struct {
 func (p *PricePlan) SetSide(s string) *PricePlan {
 	p.Side = s
 	return p
+}
+
+type FeatureOrdersStatus struct {
+	MarketOrder     OrderStatus
+	TakeProfitOrder OrderStatus
+	StopLossOrder   OrderStatus
+}
+
+type OrderStatus struct {
+	ActualPrice float64
+	OrderId     int64
+	Status      string
+	Side        string
 }

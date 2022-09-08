@@ -35,6 +35,7 @@ const (
 	featureOrder        = "/fapi/v1/order"
 	featurePositionInfo = "/fapi/v2/positionRisk"
 	featureBatchOrders  = "/fapi/v1/batchOrders"
+	featureSymbolPrice  = "/fapi/v1/ticker/price"
 
 	BTC  = "BTC"
 	ETH  = "ETH"
@@ -54,9 +55,12 @@ const (
 	OrderStatusCanceled = "CANCELED"
 	OrderStatusFilled   = "FILLED"
 
-	OrderTypeLimit = "LIMIT"
-	OrderTypeOCO   = "OCO"
-	OrderTypeBatch = "BATCH"
+	OrderTypeLimit      = "LIMIT"
+	OrderTypeMarket     = "MARKET"
+	OrderTypeTakeProfit = "TAKE_PROFIT_MARKET"
+	OrderTypeStopLoss   = "STOP_MARKET"
+	OrderTypeOCO        = "OCO"
+	OrderTypeBatch      = "BATCH"
 )
 
 var (
@@ -357,7 +361,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 								AddOrderTry(1)
 
 							if orderInfo.Side == SideSell {
-								status.AddQuantity(settings.Step)
+								status.SetQuantity(settings.Step)
 							}
 
 						case orderInfo.Type == "LIMIT_MAKER" && orderInfo.Status == OrderStatusFilled:
@@ -383,7 +387,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					Debug("update status")
 
 				if lastOrder.Status != lastOrderStatus {
-					if err := u.orderRepo.SetStatus(lastOrder.ID, lastOrderStatus); err != nil {
+					if err := u.orderRepo.SetStatus(lastOrder.OrderID, lastOrderStatus); err != nil {
 						u.logRus.
 							WithError(err).
 							Error(string(debug.Stack()))
@@ -477,13 +481,17 @@ func (u *orderUseCase) fillPricePlan(orderType string, symbol string, actualPric
 
 	switch orderType {
 	case OrderTypeLimit:
-		out.ActualPricePercent = out.ActualPrice / 100 * (settings.Delta * 1.2)
+		out.ActualPricePercent = out.ActualPrice / 100 * (float64(settings.Delta) * 1.2)
+		out.ActualStopPricePercent = out.ActualPrice / 100 * (float64(settings.Delta) * 1.2)
 	case OrderTypeOCO:
-		out.ActualPricePercent = out.ActualPrice / 100 * settings.Delta
+		out.ActualPricePercent = out.ActualPrice / 100 * float64(settings.Delta)
+		out.ActualStopPricePercent = out.ActualPrice / 100 * float64(settings.Delta)
+	case OrderTypeBatch:
+		out.ActualPricePercent = float64(settings.Delta)
+		out.ActualStopPricePercent = float64(settings.Delta)
 	}
 
 	//out.ActualPricePercent = out.ActualPrice / 100 * (settings.Delta + (settings.DeltaStep * float64(orderTry)))
-	out.ActualStopPricePercent = out.ActualPricePercent
 
 	out.StopPriceBUY = out.ActualPrice + out.ActualStopPricePercent
 	out.StopPriceSELL = out.ActualPrice - out.ActualStopPricePercent

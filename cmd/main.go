@@ -47,7 +47,8 @@ func main() {
 
 	// Init Repository
 	priceRepo := postgres.NewPriceRepository(app.DB)
-	orderRepo := postgres.NewOrderRepository(app.DB)
+	//orderRepoSpot := postgres.NewOrderRepository(app.DB, postgres.Spot)
+	orderRepoFeatures := postgres.NewOrderRepository(app.DB, postgres.Features)
 
 	mongoRepo := mongo.NewSettingsRepository(app.Mongo)
 
@@ -77,11 +78,24 @@ func main() {
 		app.Config.BinanceUrl,
 		app.LogRus,
 	)
-	orderUseCase := usecasees.NewOrderUseCase(
+
+	//orderUseCaseSpot := usecasees.NewOrderUseCase(
+	//	clientController,
+	//	cryptoController,
+	//	mongoRepo,
+	//	orderRepoSpot,
+	//	priceUseCase,
+	//	app.Config.BinanceUrl,
+	//	app.LogRus,
+	//	app.PromTail,
+	//	app.Metrics.Order,
+	//)
+
+	orderUseCaseFeatures := usecasees.NewOrderUseCase(
 		clientController,
 		cryptoController,
 		mongoRepo,
-		orderRepo,
+		orderRepoFeatures,
 		priceUseCase,
 		app.Config.BinanceUrl,
 		app.LogRus,
@@ -107,7 +121,7 @@ func main() {
 	//}
 
 	for _, symbol := range usecasees.SymbolList {
-		if err := orderUseCase.FeaturesMonitoring(symbol); err != nil {
+		if err := orderUseCaseFeatures.FeaturesMonitoring(symbol); err != nil {
 			app.LogRus.Error(err)
 		}
 	}

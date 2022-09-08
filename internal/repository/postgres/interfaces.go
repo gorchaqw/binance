@@ -18,7 +18,7 @@ type OrderRepo interface {
 	GetLastWithInterval(symbol string, sTime, eTime time.Time) ([]models.Order, error)
 	SetActualPrice(id int, price float64) error
 	SetTry(id, try int) error
-	SetStatus(id int, status string) error
+	SetStatus(id int64, status string) error
 }
 
 type PriceRepo interface {
