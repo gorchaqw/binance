@@ -355,7 +355,7 @@ func (u *orderUseCase) constructLimitOrder(pricePlan *structs.PricePlan, setting
 		Symbol:      settings.Symbol,
 		Type:        "LIMIT",
 		Price:       fmt.Sprintf("%.1f", pricePlan.ActualPrice),
-		Quantity:    fmt.Sprintf("%.3f", pricePlan.Status.Quantity),
+		Quantity:    fmt.Sprintf("%.4f", pricePlan.Status.Quantity),
 		TimeInForce: "GTC",
 	}
 
@@ -617,7 +617,7 @@ func (u *orderUseCase) createFeaturesMarketOrder(pricePlan *structs.PricePlan, s
 		q.Set("positionSide", "SHORT")
 	}
 	q.Set("type", "MARKET")
-	q.Set("quantity", fmt.Sprintf("%.3f", pricePlan.Status.Quantity))
+	q.Set("quantity", fmt.Sprintf("%.4f", pricePlan.Status.Quantity))
 	q.Set("recvWindow", "60000")
 	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
 
@@ -678,7 +678,7 @@ func (u *orderUseCase) createFeaturesLimitOrder(pricePlan *structs.PricePlan, se
 	q.Set("symbol", pricePlan.Symbol)
 	q.Set("side", pricePlan.Side)
 	q.Set("type", "LIMIT")
-	q.Set("quantity", fmt.Sprintf("%.3f", pricePlan.Status.Quantity))
+	q.Set("quantity", fmt.Sprintf("%.4f", pricePlan.Status.Quantity))
 	switch pricePlan.Side {
 	case SideBuy:
 		q.Set("price", fmt.Sprintf("%.1f", pricePlan.ActualPrice))

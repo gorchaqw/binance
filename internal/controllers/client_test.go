@@ -618,12 +618,12 @@ func Test_Ticker(t *testing.T) {
 }
 
 func TestStep(t *testing.T) {
-	step := 0.006
-	lim := 0.4
+	step := 0.008
+	lim := 0.35
 	quantity := 0.00
 
 	for i := 1; ; i++ {
-		quantity = step * math.Pow(2, float64(i-1))
+		quantity = (step * math.Pow(2, float64(i-1))) + (0.0015 * math.Pow(2, float64(i-1)))
 
 		if lim < quantity {
 			return
