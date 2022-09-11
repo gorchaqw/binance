@@ -48,7 +48,14 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 				if err != nil {
 					switch err {
 					case sql.ErrNoRows:
-						pricePlan := u.fillPricePlan(OrderTypeBatch, symbol, 0, settings, &status).SetSide(SideBuy)
+						actualPrice, err := u.priceUseCase.featuresGetPrice(symbol)
+						if err != nil {
+							u.logRus.
+								WithError(err).
+								Error(string(debug.Stack()))
+						}
+
+						pricePlan := u.fillPricePlan(OrderTypeBatch, symbol, actualPrice, settings, &status).SetSide(SideBuy)
 
 						if err := u.createFeaturesMarketOrder(pricePlan, settings); err != nil {
 							u.logRus.
@@ -375,19 +382,21 @@ func (u *orderUseCase) constructTakeProfitOrder(pricePlan *structs.PricePlan, se
 
 	out := structs.FeatureOrderReq{
 		Symbol:        settings.Symbol,
-		Type:          "TAKE_PROFIT_MARKET",
-		WorkingType:   "MARK_PRICE",
+		Type:          OrderTypeTakeProfit,
 		PriceProtect:  "false",
-		ClosePosition: "true",
+		ClosePosition: "false",
+		Quantity:      fmt.Sprintf("%.3f", pricePlan.Status.Quantity),
 	}
 
 	switch pricePlan.Side {
 	case SideBuy:
 		out.Side = SideSell
+		out.Price = fmt.Sprintf("%.1f", pricePlan.PriceSELL)
 		out.StopPrice = fmt.Sprintf("%.1f", pricePlan.PriceSELL)
 		out.PositionSide = "LONG"
 	case SideSell:
 		out.Side = SideBuy
+		out.Price = fmt.Sprintf("%.1f", pricePlan.PriceBUY)
 		out.StopPrice = fmt.Sprintf("%.1f", pricePlan.PriceBUY)
 		out.PositionSide = "SHORT"
 	}
@@ -399,19 +408,21 @@ func (u *orderUseCase) constructStopLossOrder(pricePlan *structs.PricePlan, sett
 
 	out := structs.FeatureOrderReq{
 		Symbol:        settings.Symbol,
-		Type:          "STOP_MARKET",
-		WorkingType:   "MARK_PRICE",
+		Type:          OrderTypeStopLoss,
 		PriceProtect:  "false",
-		ClosePosition: "true",
+		ClosePosition: "false",
+		Quantity:      fmt.Sprintf("%.3f", pricePlan.Status.Quantity),
 	}
 
 	switch pricePlan.Side {
 	case SideBuy:
 		out.Side = SideSell
+		out.Price = fmt.Sprintf("%.1f", pricePlan.StopPriceSELL)
 		out.StopPrice = fmt.Sprintf("%.1f", pricePlan.StopPriceSELL)
 		out.PositionSide = "LONG"
 	case SideSell:
 		out.Side = SideBuy
+		out.Price = fmt.Sprintf("%.1f", pricePlan.StopPriceBUY)
 		out.StopPrice = fmt.Sprintf("%.1f", pricePlan.StopPriceBUY)
 		out.PositionSide = "SHORT"
 	}
@@ -617,7 +628,7 @@ func (u *orderUseCase) createFeaturesMarketOrder(pricePlan *structs.PricePlan, s
 		q.Set("positionSide", "SHORT")
 	}
 	q.Set("type", "MARKET")
-	q.Set("quantity", fmt.Sprintf("%.4f", pricePlan.Status.Quantity))
+	q.Set("quantity", fmt.Sprintf("%.3f", pricePlan.Status.Quantity))
 	q.Set("recvWindow", "60000")
 	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
 
@@ -629,7 +640,7 @@ func (u *orderUseCase) createFeaturesMarketOrder(pricePlan *structs.PricePlan, s
 	if err != nil {
 		return err
 	}
-	u.logRus.Debugf("createFeaturesMarketOrder Req: %+v", req)
+	u.logRus.Debugf("createFeaturesMarketOrder Req: %s", req)
 
 	var order structs.FeatureOrderResp
 	if err := json.Unmarshal(req, &order); err != nil {

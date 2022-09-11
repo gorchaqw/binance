@@ -61,7 +61,7 @@ func (s *Status) AddOrderTry(v int) *Status {
 
 func (s *Status) SetQuantity(v float64) *Status {
 	//s.Quantity = v * math.Pow(2, float64(s.OrderTry-1))
-	s.Quantity = (v * math.Pow(2, float64(s.OrderTry-1))) + (0.0015 * math.Pow(2, float64(s.OrderTry-1)))
+	s.Quantity = v * math.Pow(2.5, float64(s.OrderTry-1))
 
 	return s
 }
