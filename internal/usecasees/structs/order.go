@@ -59,7 +59,7 @@ func (s *Status) AddOrderTry(v int) *Status {
 	return s
 }
 
-func (s *Status) SetQuantity(v float64) *Status {
+func (s *Status) SetQuantityByStep(v float64) *Status {
 	//s.Quantity = v * math.Pow(2, float64(s.OrderTry-1))
 	s.Quantity = v * math.Pow(2.5, float64(s.OrderTry-1))
 
@@ -224,6 +224,7 @@ type PricePlan struct {
 	StopPriceSELL          float64
 	PriceBUY               float64
 	PriceSELL              float64
+	SafeDelta              float64
 	Status                 *Status
 }
 

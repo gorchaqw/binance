@@ -20,11 +20,54 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func Test_DailyAccountSnapshot(t *testing.T) {
+	client := &http.Client{}
+	apiKey := "GjQaJQSciytAuD6Td6ZSk1ZXtfEQAdhdDb1dqcE67csSXzBJtDOPmU5IxYAvFZvk"
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+
+	secretKey := "HeIwNhAQRjWsJTcfVUlXc3yS04Vag9cTPRb2Ls88dBG5x6YtybE579uJhIwz95MC"
+
+	cryptoController := controllers.NewCryptoController(secretKey)
+	clientController := controllers.NewClientController(
+		client,
+		apiKey,
+		logger,
+	)
+
+	baseURL, err := url.Parse("https://api.binance.com")
+	assert.NoError(t, err)
+
+	baseURL.Path = path.Join("/sapi/v1/capital/withdraw/apply")
+
+	q := baseURL.Query()
+	q.Set("coin", "BUSD")
+	q.Set("address", "0xec70bf48617269754fee71c3a8e3e63645972f30")
+	q.Set("amount", "10")
+	q.Set("walletType", "0")
+
+	q.Set("recvWindow", "60000")
+	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
+
+	sig := cryptoController.GetSignature(q.Encode())
+	q.Set("signature", sig)
+
+	baseURL.RawQuery = q.Encode()
+
+	req, err := clientController.Send(http.MethodPost, baseURL, nil, true)
+	assert.NoError(t, err)
+
+	assert.NoError(t, os.WriteFile("./example.json", req, 0644))
+
+	fmt.Printf("%s", req)
+
+}
+
 func Test_CalcCommission(t *testing.T) {
 	price := 21251.00
-	step := 0.001
+	step := 0.002
 	stepPrice := step * price
-	lim := 0.35
+	lim := 0.6
 	quantity := 0.00
 
 	taker := 0.04

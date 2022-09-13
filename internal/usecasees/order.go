@@ -285,7 +285,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				case mongoStructs.LiquidationBUY.ToString():
 					if lastOrder.Status == OrderStatusCanceled && lastOrder.Side == SideSell && lastOrder.Type == "OCO" {
 						status.
-							SetQuantity(settings.Limit).
+							SetQuantityByStep(settings.Limit).
 							SetOrderTry(1)
 
 						pricePlan := u.fillPricePlan(OrderTypeLimit, symbol, lastOrder.StopPrice, settings, &status).SetSide(SideBuy)
@@ -316,7 +316,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 
 				status.
 					SetOrderTry(lastOrder.Try).
-					SetQuantity(lastOrder.Quantity)
+					SetQuantityByStep(lastOrder.Quantity)
 
 				lastOrderStatus := lastOrder.Status
 
@@ -361,7 +361,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 								AddOrderTry(1)
 
 							if orderInfo.Side == SideSell {
-								status.SetQuantity(settings.Step)
+								status.SetQuantityByStep(settings.Step)
 							}
 
 						case orderInfo.Type == "LIMIT_MAKER" && orderInfo.Status == OrderStatusFilled:
@@ -478,6 +478,7 @@ func (u *orderUseCase) fillPricePlan(orderType string, symbol string, actualPric
 
 	out.Symbol = symbol
 	out.ActualPrice = actualPrice
+	out.SafeDelta = 2.5
 
 	switch orderType {
 	case OrderTypeLimit:
