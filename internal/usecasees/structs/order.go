@@ -61,7 +61,9 @@ func (s *Status) AddOrderTry(v int) *Status {
 
 func (s *Status) SetQuantityByStep(v float64) *Status {
 	//s.Quantity = v * math.Pow(2, float64(s.OrderTry-1))
-	s.Quantity = v * math.Pow(2.5, float64(s.OrderTry-1))
+	//s.Quantity = v * math.Pow(2.7, float64(s.OrderTry-1))
+
+	s.Quantity = (v + 0.001) * math.Pow(2, float64(s.OrderTry-1))
 
 	return s
 }

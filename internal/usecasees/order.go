@@ -54,11 +54,12 @@ const (
 	OrderStatusNew      = "NEW"
 	OrderStatusCanceled = "CANCELED"
 	OrderStatusFilled   = "FILLED"
+	OrderStatusExpired  = "EXPIRED"
 
 	OrderTypeLimit      = "LIMIT"
 	OrderTypeMarket     = "MARKET"
-	OrderTypeTakeProfit = "TAKE_PROFIT"
-	OrderTypeStopLoss   = "STOP"
+	OrderTypeTakeProfit = "TAKE_PROFIT_MARKET"
+	OrderTypeStopLoss   = "STOP_MARKET"
 	OrderTypeOCO        = "OCO"
 	OrderTypeBatch      = "BATCH"
 )
@@ -478,7 +479,7 @@ func (u *orderUseCase) fillPricePlan(orderType string, symbol string, actualPric
 
 	out.Symbol = symbol
 	out.ActualPrice = actualPrice
-	out.SafeDelta = 2.5
+	out.SafeDelta = float64(settings.Delta) / 100 * 10
 
 	switch orderType {
 	case OrderTypeLimit:

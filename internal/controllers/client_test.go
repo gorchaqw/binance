@@ -64,59 +64,84 @@ func Test_DailyAccountSnapshot(t *testing.T) {
 }
 
 func Test_CalcCommission(t *testing.T) {
-	price := 21251.00
-	step := 0.002
-	stepPrice := step * price
-	lim := 0.6
-	quantity := 0.00
-
-	taker := 0.04
-	maker := 0.02
-
-	commission := taker + maker
-	//
-	//priceSell := priceBuy + step
+	priceBUY := 21251.00
+	priceSELL := priceBUY + 45.00
+	quantityStep := 0.002
+	commissionTaker := 0.004
+	lim := 5.5
 
 	for i := 1; ; i++ {
-		quantity = step * math.Pow(2.5, float64(i-1))
-		profit := quantity * stepPrice
-		commissionTaker := profit * taker
-		commissionMaker := profit * maker
-		totalCommission := commissionTaker - (2 * commissionMaker)
-		commissionPrice := totalCommission * profit
-		total := profit - totalCommission
-		loss := (-1 * profit) - totalCommission
+		quantity := (quantityStep + 0.001) * math.Pow(2, float64(i-1))
 
 		if lim < quantity {
 			return
 		}
 
-		total *= 20
-		loss *= 20
+		pBUY := priceBUY * quantity
+		pSELL := priceSELL * quantity
 
-		fmt.Printf("%d]\n"+
-			"Quanity:\t\t%.5f\n"+
-			"Profit:\t\t\t%.5f\n"+
-			"Commission:\t\t%.5f\n"+
-			"CommissionPrice:\t%.5f\n"+
-			"ComissionTaker:\t%.5f\n"+
-			"ComissionMaker:\t%.5f\n"+
-			"Total:\t\t\t%.5f\n"+
-			"Total x2:\t\t%.5f\n"+
-			"Loss:\t\t\t%.5f\n\n",
+		deltaP := pSELL - pBUY
+		deltaPrice := priceSELL - priceBUY
+
+		commission := deltaP / 100 * (2 * commissionTaker)
+
+		profit := deltaP - commission
+		lose := (-1 * deltaP) - commission
+
+		fmt.Printf("%d]\ndeltaPrice:\t %.4f\n"+
+			"deltaP:\t %.4f\n"+
+			"comission:\t%.6f\n"+
+			"profit:\t%.4f\n"+
+			"lose:\t%.4f\n"+
+			"quantity:\t%.4f\n\n",
 			i,
-			quantity,
-			profit*20,
+			deltaPrice,
+			deltaP,
 			commission,
-			commissionPrice,
-			commissionTaker*20,
-			commissionMaker*20,
-			total,
-			total*2,
-			loss,
+			profit,
+			lose,
+			quantity,
 		)
 	}
 
+	// pSELL-pBUY = 0.000012
+
+	//for i := 1; ; i++ {
+	//	quantity = step * math.Pow(2.7, float64(i-1))
+	//	profit := quantity * stepPrice
+	//	commissionTaker := profit * taker
+	//	totalCommission := 2 * commissionTaker
+	//	commissionPrice := totalCommission * profit
+	//	total := profit - totalCommission
+	//	loss := (-1 * profit) - totalCommission
+	//
+	//	if lim < quantity {
+	//		return
+	//	}
+	//
+	//	total *= 20
+	//	loss *= 20
+	//
+	//	fmt.Printf("%d]\n"+
+	//		"Quanity:\t\t%.5f\n"+
+	//		"Profit:\t\t\t%.5f\n"+
+	//		"Commission:\t\t%.5f\n"+
+	//		"CommissionPrice:\t%.5f\n"+
+	//		"ComissionTaker:\t%.5f\n"+
+	//		"Total:\t\t\t%.5f\n"+
+	//		"Total x2:\t\t%.5f\n"+
+	//		"Loss:\t\t\t%.5f\n\n",
+	//		i,
+	//		quantity,
+	//		profit*20,
+	//		commission,
+	//		commissionPrice,
+	//		commissionTaker*20,
+	//		total,
+	//		total*2,
+	//		loss,
+	//	)
+	//}
 }
 
 func Test_GetPositionInfo(t *testing.T) {

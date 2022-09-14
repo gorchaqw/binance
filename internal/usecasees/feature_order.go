@@ -105,7 +105,7 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 					switch true {
 					case f.MarketOrder.Status == OrderStatusFilled &&
 						f.StopLossOrder.Status == OrderStatusFilled &&
-						f.TakeProfitOrder.Status == OrderStatusCanceled:
+						(f.TakeProfitOrder.Status == OrderStatusCanceled || f.TakeProfitOrder.Status == OrderStatusExpired):
 
 						return true
 					}
@@ -115,7 +115,7 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 				chkCreateLimitOrderTakeProfit := func(f *structs.FeatureOrdersStatus) bool {
 					switch true {
 					case f.MarketOrder.Status == OrderStatusFilled &&
-						f.StopLossOrder.Status == OrderStatusCanceled &&
+						(f.StopLossOrder.Status == OrderStatusCanceled || f.StopLossOrder.Status == OrderStatusExpired) &&
 						f.TakeProfitOrder.Status == OrderStatusFilled:
 
 						return true
@@ -155,43 +155,6 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 				}
 
 				u.logRus.Debugf("ordersStatus: %+v", ordersStatus)
-
-				//if chkLimitOrderActual(ordersStatus) {
-				//	if _, err := u.cancelFeatureOrder(ordersStatus.LimitOrder.OrderId, symbol); err != nil {
-				//		u.logRus.
-				//			WithError(err).
-				//			Error(string(debug.Stack()))
-				//	}
-				//
-				//	actualPrice, err := u.priceUseCase.featuresGetPrice(symbol)
-				//	if err != nil {
-				//		u.logRus.
-				//			WithError(err).
-				//			Error(string(debug.Stack()))
-				//	}
-				//
-				//	status.
-				//		NewSessionID().
-				//		AddOrderTry(1).
-				//		SetQuantityByStep(settings.Step)
-				//
-				//	pricePlan := u.fillPricePlan(OrderTypeBatch, symbol, actualPrice, settings, &status)
-				//
-				//	switch ordersStatus.LimitOrder.Side {
-				//	case SideBuy:
-				//		pricePlan.SetSide(SideSell)
-				//	case SideSell:
-				//		pricePlan.SetSide(SideBuy)
-				//	}
-				//
-				//	if err := u.createFeaturesLimitOrder(pricePlan, settings); err != nil {
-				//		u.logRus.
-				//			WithError(err).
-				//			Error(string(debug.Stack()))
-				//	}
-				//
-				//	u.logRus.Debugf("chkLimit pricePlan %+v", pricePlan)
-				//}
 
 				if chkCreateLimitOrderStopLoss(ordersStatus) {
 					status.
@@ -383,22 +346,21 @@ func (u *orderUseCase) constructTakeProfitOrder(pricePlan *structs.PricePlan, se
 	u.logRus.Debugf("constructTakeProfitOrder: %+v", pricePlan)
 
 	out := structs.FeatureOrderReq{
-		Symbol:       settings.Symbol,
-		Type:         OrderTypeTakeProfit,
-		PriceProtect: "true",
-		Quantity:     fmt.Sprintf("%.3f", pricePlan.Status.Quantity),
+		Symbol:        settings.Symbol,
+		Type:          OrderTypeTakeProfit,
+		PriceProtect:  "true",
+		Quantity:      fmt.Sprintf("%.3f", pricePlan.Status.Quantity),
+		ClosePosition: "true",
 	}
 
 	switch pricePlan.Side {
 	case SideBuy:
 		out.Side = SideSell
-		out.Price = fmt.Sprintf("%.1f", pricePlan.PriceSELL)
-		out.StopPrice = fmt.Sprintf("%.1f", pricePlan.PriceSELL-pricePlan.SafeDelta)
+		out.StopPrice = fmt.Sprintf("%.1f", pricePlan.PriceSELL)
 		out.PositionSide = "LONG"
 	case SideSell:
 		out.Side = SideBuy
-		out.Price = fmt.Sprintf("%.1f", pricePlan.PriceBUY)
-		out.StopPrice = fmt.Sprintf("%.1f", pricePlan.PriceBUY+pricePlan.SafeDelta)
+		out.StopPrice = fmt.Sprintf("%.1f", pricePlan.PriceBUY)
 		out.PositionSide = "SHORT"
 	}
 
@@ -408,22 +370,21 @@ func (u *orderUseCase) constructStopLossOrder(pricePlan *structs.PricePlan, sett
 	u.logRus.Debugf("constructStopLossOrder: %+v", pricePlan)
 
 	out := structs.FeatureOrderReq{
-		Symbol:       settings.Symbol,
-		Type:         OrderTypeStopLoss,
-		PriceProtect: "true",
-		Quantity:     fmt.Sprintf("%.3f", pricePlan.Status.Quantity),
+		Symbol:        settings.Symbol,
+		Type:          OrderTypeStopLoss,
+		PriceProtect:  "true",
+		Quantity:      fmt.Sprintf("%.3f", pricePlan.Status.Quantity),
+		ClosePosition: "true",
 	}
 
 	switch pricePlan.Side {
 	case SideBuy:
 		out.Side = SideSell
-		out.Price = fmt.Sprintf("%.1f", pricePlan.StopPriceSELL)
-		out.StopPrice = fmt.Sprintf("%.1f", pricePlan.StopPriceSELL-pricePlan.SafeDelta)
+		out.StopPrice = fmt.Sprintf("%.1f", pricePlan.StopPriceSELL)
 		out.PositionSide = "LONG"
 	case SideSell:
 		out.Side = SideBuy
-		out.Price = fmt.Sprintf("%.1f", pricePlan.StopPriceBUY)
-		out.StopPrice = fmt.Sprintf("%.1f", pricePlan.StopPriceBUY+pricePlan.SafeDelta)
+		out.StopPrice = fmt.Sprintf("%.1f", pricePlan.StopPriceBUY)
 		out.PositionSide = "SHORT"
 	}
 	return out
