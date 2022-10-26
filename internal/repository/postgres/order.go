@@ -45,11 +45,11 @@ func (r *OrderRepository) GetLast(symbol string) (*models.Order, error) {
 
 	switch r.table {
 	case Spot:
-		if err := r.conn.QueryRowx("SELECT * FROM orders WHERE symbol = $1 ORDER BY created_at DESC LIMIT 1", symbol).StructScan(&order); err != nil {
+		if err := r.conn.QueryRowx("SELECT * FROM orders WHERE symbol = $1 AND type = 'MARKET' ORDER BY created_at DESC LIMIT 1", symbol).StructScan(&order); err != nil {
 			return nil, err
 		}
 	case Features:
-		if err := r.conn.QueryRowx("SELECT * FROM features_orders WHERE symbol = $1 ORDER BY created_at DESC LIMIT 1", symbol).StructScan(&order); err != nil {
+		if err := r.conn.QueryRowx("SELECT * FROM features_orders WHERE symbol = $1 AND type = 'MARKET'  ORDER BY created_at DESC LIMIT 1", symbol).StructScan(&order); err != nil {
 			return nil, err
 		}
 	}

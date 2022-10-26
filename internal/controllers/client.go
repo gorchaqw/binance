@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"bytes"
+	"fmt"
+	"github.com/pkg/errors"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -42,6 +44,15 @@ func (c *ClientController) Send(method string, url *url.URL, body []byte, useApi
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		respErr, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, errors.New(fmt.Sprintf("statusCode %d; resp %s;", resp.StatusCode, respErr))
 	}
 
 	defer func() {

@@ -54,6 +54,7 @@ const (
 	OrderStatusExpired    = "EXPIRED"
 	OrderStatusNotFound   = "NOT_FOUND"
 	OrderStatusInProgress = "IN PROGRESS"
+	OrderStatusError      = "ERROR"
 
 	OrderTypeLimit      = "LIMIT"
 	OrderTypeMarket     = "MARKET"

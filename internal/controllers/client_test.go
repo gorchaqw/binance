@@ -265,10 +265,15 @@ func Test_BatchOrders(t *testing.T) {
 
 	baseURL.RawQuery = q.Encode()
 
-	req, err := clientController.Send(http.MethodPost, baseURL, nil, true)
+	respBody, err := clientController.Send(http.MethodPost, baseURL, nil, true)
 	assert.NoError(t, err)
 
-	fmt.Printf("%s", req)
+	var resp []structs.FeatureOrderResp
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		logrus.Debug(err)
+	}
+
+	fmt.Printf("%+v", resp)
 }
 
 func Test_ChangePositionMode(t *testing.T) {
@@ -322,7 +327,7 @@ func Test_GetFeatureOrderInfo(t *testing.T) {
 
 	q := baseURL.Query()
 	q.Set("symbol", "BTCUSDT")
-	q.Set("origClientOrderId", "da91abe5-f67e-4596-95a0-3a6f7054a8c1")
+	q.Set("origClientOrderId", "023a512b-2ed2-41b8-a0b0-71bab50deb37")
 	q.Set("recvWindow", "60000")
 	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
 
@@ -333,6 +338,11 @@ func Test_GetFeatureOrderInfo(t *testing.T) {
 
 	req, err := clientController.Send(http.MethodGet, baseURL, nil, true)
 	assert.NoError(t, err)
+
+	var respERR struct {
+		Code int    `json:"code"`
+		Msg  string `json:"msg"`
+	}
 
 	fmt.Printf("%s", req)
 }
