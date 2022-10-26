@@ -3,7 +3,7 @@ package models
 import "time"
 
 type Order struct {
-	ID          int       `db:"id" json:"id,omitempty"`
+	ID          string    `db:"id" json:"id,omitempty"`
 	OrderID     int64     `db:"order_id" json:"order_id,omitempty"`
 	SessionID   string    `db:"session_id" json:"session_id,omitempty"`
 	Symbol      string    `db:"symbol" json:"symbol,omitempty"`

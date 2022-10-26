@@ -126,28 +126,28 @@ type FeatureOrderResp struct {
 	UpdateTime    int64  `json:"updateTime,omitempty"`
 }
 type FeatureOrderReq struct {
-	OrderId       int64  `json:"orderId,omitempty"`
-	Symbol        string `json:"symbol,omitempty"`
-	Status        string `json:"status,omitempty"`
-	ClientOrderId string `json:"clientOrderId,omitempty"`
-	Price         string `json:"price,omitempty"`
-	Quantity      string `json:"quantity,omitempty"`
-	AvgPrice      string `json:"avgPrice,omitempty"`
-	OrigQty       string `json:"origQty,omitempty"`
-	ExecutedQty   string `json:"executedQty,omitempty"`
-	CumQuote      string `json:"cumQuote,omitempty"`
-	TimeInForce   string `json:"timeInForce,omitempty"`
-	Type          string `json:"type,omitempty"`
-	ReduceOnly    string `json:"reduceOnly,omitempty"`
-	ClosePosition string `json:"closePosition,omitempty"`
-	Side          string `json:"side,omitempty"`
-	PositionSide  string `json:"positionSide,omitempty"`
-	StopPrice     string `json:"stopPrice,omitempty"`
-	WorkingType   string `json:"workingType,omitempty"`
-	PriceProtect  string `json:"priceProtect,omitempty"`
-	OrigType      string `json:"origType,omitempty"`
-	Time          int64  `json:"time,omitempty"`
-	UpdateTime    int64  `json:"updateTime,omitempty"`
+	OrderId          int64  `json:"orderId,omitempty"`
+	Symbol           string `json:"symbol,omitempty"`
+	Status           string `json:"status,omitempty"`
+	NewClientOrderId string `json:"newClientOrderId,omitempty"`
+	Price            string `json:"price,omitempty"`
+	Quantity         string `json:"quantity,omitempty"`
+	AvgPrice         string `json:"avgPrice,omitempty"`
+	OrigQty          string `json:"origQty,omitempty"`
+	ExecutedQty      string `json:"executedQty,omitempty"`
+	CumQuote         string `json:"cumQuote,omitempty"`
+	TimeInForce      string `json:"timeInForce,omitempty"`
+	Type             string `json:"type,omitempty"`
+	ReduceOnly       string `json:"reduceOnly,omitempty"`
+	ClosePosition    string `json:"closePosition,omitempty"`
+	Side             string `json:"side,omitempty"`
+	PositionSide     string `json:"positionSide,omitempty"`
+	StopPrice        string `json:"stopPrice,omitempty"`
+	WorkingType      string `json:"workingType,omitempty"`
+	PriceProtect     string `json:"priceProtect,omitempty"`
+	OrigType         string `json:"origType,omitempty"`
+	Time             int64  `json:"time,omitempty"`
+	UpdateTime       int64  `json:"updateTime,omitempty"`
 }
 
 type LimitOrder struct {

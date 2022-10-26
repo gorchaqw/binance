@@ -35,7 +35,7 @@ func initPGTest() *PGTest {
 
 func Test_GetBySessionID(t *testing.T) {
 	c := initPGTest()
-	pgStore := postgres.NewOrderRepository(c.conn)
+	pgStore := postgres.NewOrderRepository(c.conn, postgres.Features)
 
 	oList, err := pgStore.GetBySessionID("cc3336da-432f-4e9e-9152-d976732f9b8d")
 	assert.NoError(t, err)
@@ -45,15 +45,16 @@ func Test_GetBySessionID(t *testing.T) {
 
 func Test_OrderStore(t *testing.T) {
 	c := initPGTest()
-	pgStore := postgres.NewOrderRepository(c.conn)
+	pgStore := postgres.NewOrderRepository(c.conn, postgres.Features)
 
 	rand.Seed(time.Now().UnixNano())
 
-	var lastID, firstID int
+	var lastID, firstID string
 	symbol := "BTCBUSD"
 
 	t.Run("Store", func(t *testing.T) {
 		err := pgStore.Store(&models.Order{
+			ID:          uuid.NewString(),
 			OrderID:     rand.Int63(),
 			SessionID:   uuid.New().String(),
 			Symbol:      symbol,

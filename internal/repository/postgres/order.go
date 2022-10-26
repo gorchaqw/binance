@@ -28,11 +28,11 @@ func NewOrderRepository(conn *sqlx.DB, table string) OrderRepo {
 func (r *OrderRepository) Store(m *models.Order) error {
 	switch r.table {
 	case Spot:
-		if _, err := r.conn.NamedExec("INSERT INTO orders (order_id,session_id,symbol,side,quantity,actual_price,price,stop_price,status,type,try) VALUES (:order_id,:session_id,:symbol,:side,:quantity,:actual_price,:price,:stop_price,:status,:type,:try)", m); err != nil {
+		if _, err := r.conn.NamedExec("INSERT INTO orders (id,order_id,session_id,symbol,side,quantity,actual_price,price,stop_price,status,type,try) VALUES (:id,:order_id,:session_id,:symbol,:side,:quantity,:actual_price,:price,:stop_price,:status,:type,:try)", m); err != nil {
 			return err
 		}
 	case Features:
-		if _, err := r.conn.NamedExec("INSERT INTO features_orders (order_id,session_id,symbol,side,quantity,actual_price,price,stop_price,status,type,try) VALUES (:order_id,:session_id,:symbol,:side,:quantity,:actual_price,:price,:stop_price,:status,:type,:try)", m); err != nil {
+		if _, err := r.conn.NamedExec("INSERT INTO features_orders (id,order_id,session_id,symbol,side,quantity,actual_price,price,stop_price,status,type,try) VALUES (:id,:order_id,:session_id,:symbol,:side,:quantity,:actual_price,:price,:stop_price,:status,:type,:try)", m); err != nil {
 			return err
 		}
 	}
@@ -45,11 +45,11 @@ func (r *OrderRepository) GetLast(symbol string) (*models.Order, error) {
 
 	switch r.table {
 	case Spot:
-		if err := r.conn.QueryRowx("SELECT * FROM orders WHERE symbol = $1 ORDER BY id DESC LIMIT 1", symbol).StructScan(&order); err != nil {
+		if err := r.conn.QueryRowx("SELECT * FROM orders WHERE symbol = $1 ORDER BY created_at DESC LIMIT 1", symbol).StructScan(&order); err != nil {
 			return nil, err
 		}
 	case Features:
-		if err := r.conn.QueryRowx("SELECT * FROM features_orders WHERE symbol = $1 ORDER BY id DESC LIMIT 1", symbol).StructScan(&order); err != nil {
+		if err := r.conn.QueryRowx("SELECT * FROM features_orders WHERE symbol = $1 ORDER BY created_at DESC LIMIT 1", symbol).StructScan(&order); err != nil {
 			return nil, err
 		}
 	}
@@ -74,7 +74,7 @@ func (r *OrderRepository) GetFirst(symbol string) (*models.Order, error) {
 	return &order, nil
 }
 
-func (r *OrderRepository) GetByID(id int) (*models.Order, error) {
+func (r *OrderRepository) GetByID(id string) (*models.Order, error) {
 	var order models.Order
 
 	switch r.table {
@@ -172,15 +172,31 @@ func (r *OrderRepository) SetTry(id, try int) error {
 	return nil
 }
 
-func (r *OrderRepository) SetStatus(id int64, status string) error {
+func (r *OrderRepository) SetStatus(id string, status string) error {
 	switch r.table {
 	case Spot:
-		if _, err := r.conn.Exec("UPDATE orders SET status = $1 where order_id = $2;", status, id); err != nil {
+		if _, err := r.conn.Exec("UPDATE orders SET status = $1 where id = $2;", status, id); err != nil {
 			return err
 		}
 
 	case Features:
-		if _, err := r.conn.Exec("UPDATE features_orders SET status = $1 where order_id = $2;", status, id); err != nil {
+		if _, err := r.conn.Exec("UPDATE features_orders SET status = $1 where id = $2;", status, id); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *OrderRepository) SetOrderID(id string, orderID int64) error {
+	switch r.table {
+	case Spot:
+		if _, err := r.conn.Exec("UPDATE orders SET order_id = $1 where id = $2;", orderID, id); err != nil {
+			return err
+		}
+
+	case Features:
+		if _, err := r.conn.Exec("UPDATE features_orders SET order_id = $1 where id = $2;", orderID, id); err != nil {
 			return err
 		}
 	}

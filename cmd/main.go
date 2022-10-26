@@ -24,9 +24,9 @@ func main() {
 
 	app.initLogRus()
 
-	if err := app.initPromTail(); err != nil {
-		panic(err)
-	}
+	//if err := app.initPromTail(); err != nil {
+	//	panic(err)
+	//}
 
 	if err := app.initMongo(); err != nil {
 		panic(err)
@@ -37,7 +37,7 @@ func main() {
 	}
 
 	app.initFiber()
-	app.InitMetrics()
+	//app.InitMetrics()
 	app.initHTTPClient()
 
 	chatId, err := strconv.ParseInt(app.Config.TelegramChatID, 10, 64)
@@ -99,8 +99,6 @@ func main() {
 		priceUseCase,
 		app.Config.BinanceUrl,
 		app.LogRus,
-		app.PromTail,
-		app.Metrics.Order,
 	)
 
 	//tgmUseCase := usecasees.NewTgmUseCase(

@@ -3,6 +3,20 @@
 
 # 10826 grafana prometheus go metrics
 
+
+debug(){
+  export BINANCE_VERSION="dev"
+   export BINANCE_PG_INIT_DB="./db.sql"
+   export BINANCE_LOKI="./loki-config.yaml"
+   export BINANCE_PROMETHEUS="./prometheus-config.yaml"
+   export BINANCE_APP_PORT="8080"
+   export BINANCE_APP_NAME="Binance_DEV"
+   export BINANCE_LOG_LEVEL="DEBUG"
+
+ docker-compose build --force-rm --no-cache
+ docker-compose up --remove-orphans -d prometheus
+}
+
 deploy_local(){
   export BINANCE_VERSION="dev"
   export BINANCE_PG_INIT_DB="./db.sql"
@@ -36,6 +50,10 @@ deploy_dev(){
 case $1 in
   "dev")
    deploy_dev
+    ;;
+
+ "d")
+   debug
     ;;
 
   "local")

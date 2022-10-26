@@ -7,6 +7,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"math"
 	"net/http"
 	"net/url"
@@ -144,19 +145,19 @@ func Test_CalcCommission(t *testing.T) {
 	//}
 }
 
-func Test_GetPositionInfo(t *testing.T) {
+func Test_BatchOrders(t *testing.T) {
 	client := &http.Client{}
-	apiKey := "GjQaJQSciytAuD6Td6ZSk1ZXtfEQAdhdDb1dqcE67csSXzBJtDOPmU5IxYAvFZvk"
+	apiKey := "8332396867b2d1fe57dfa2735a8b10727da8e2d382942481ec3461d07d7cdc32"
 	logger := logrus.New()
-	secretKey := "HeIwNhAQRjWsJTcfVUlXc3yS04Vag9cTPRb2Ls88dBG5x6YtybE579uJhIwz95MC"
-	symbol := "BTCBUSD"
+	secretKey := "d4c11ab5e1f27eb14d735b2c1ac2bb3e62ea3f9da6f8accfecbd3e19a534b717"
+	symbol := "BTCUSDT"
 	//
 	//price := 18966.00
 
-	actualPrice := 21650.00
+	//actualPrice := 21650.00
 	//quantity := 0.001
 
-	takeProfitPrice := actualPrice + 100
+	//takeProfitPrice := actualPrice + 100
 	//stopLossPrice := actualPrice - 100
 
 	cryptoController := controllers.NewCryptoController(secretKey)
@@ -166,7 +167,7 @@ func Test_GetPositionInfo(t *testing.T) {
 		logger,
 	)
 
-	baseURL, err := url.Parse("https://fapi.binance.com")
+	baseURL, err := url.Parse("https://testnet.binancefuture.com")
 	assert.NoError(t, err)
 
 	baseURL.Path = path.Join("/fapi/v1/batchOrders")
@@ -229,15 +230,18 @@ func Test_GetPositionInfo(t *testing.T) {
 	//	ClosePosition: "true",
 	//}
 	//
+
 	stopLossOrder := structs.FeatureOrderReq{
-		Symbol:        symbol,
-		Type:          "STOP",
-		Side:          "BUY",
-		StopPrice:     fmt.Sprintf("%.1f", takeProfitPrice),
-		WorkingType:   "MARK_PRICE",
-		PositionSide:  "SHORT",
-		PriceProtect:  "false",
-		ClosePosition: "true",
+		NewClientOrderId: uuid.NewString(),
+		Symbol:           symbol,
+		Type:             usecasees.OrderTypeStopLoss,
+		PriceProtect:     "true",
+		Quantity:         "0.001",
+		ClosePosition:    "true",
+
+		Side:         "SELL",
+		PositionSide: "LONG",
+		StopPrice:    "19000",
 	}
 
 	orders := []structs.FeatureOrderReq{
@@ -249,7 +253,7 @@ func Test_GetPositionInfo(t *testing.T) {
 	batchOrders, err := json.Marshal(orders)
 	assert.NoError(t, err)
 
-	fmt.Printf("%s", batchOrders)
+	//fmt.Printf("%s", batchOrders)
 
 	q := baseURL.Query()
 	q.Set("batchOrders", fmt.Sprintf("%s", batchOrders))
@@ -269,11 +273,11 @@ func Test_GetPositionInfo(t *testing.T) {
 
 func Test_ChangePositionMode(t *testing.T) {
 	client := &http.Client{}
-	apiKey := "GjQaJQSciytAuD6Td6ZSk1ZXtfEQAdhdDb1dqcE67csSXzBJtDOPmU5IxYAvFZvk"
+	apiKey := "8332396867b2d1fe57dfa2735a8b10727da8e2d382942481ec3461d07d7cdc32"
 	logger := logrus.New()
-	secretKey := "HeIwNhAQRjWsJTcfVUlXc3yS04Vag9cTPRb2Ls88dBG5x6YtybE579uJhIwz95MC"
+	secretKey := "d4c11ab5e1f27eb14d735b2c1ac2bb3e62ea3f9da6f8accfecbd3e19a534b717"
 
-	baseURL, err := url.Parse("https://fapi.binance.com/fapi/v1/positionSide/dual")
+	baseURL, err := url.Parse("https://testnet.binancefuture.com/fapi/v1/positionSide/dual")
 	assert.NoError(t, err)
 
 	cryptoController := controllers.NewCryptoController(secretKey)
@@ -299,6 +303,40 @@ func Test_ChangePositionMode(t *testing.T) {
 
 	fmt.Printf("%s", req)
 }
+
+func Test_GetFeatureOrderInfo(t *testing.T) {
+	client := &http.Client{}
+	apiKey := "8332396867b2d1fe57dfa2735a8b10727da8e2d382942481ec3461d07d7cdc32"
+	logger := logrus.New()
+	secretKey := "d4c11ab5e1f27eb14d735b2c1ac2bb3e62ea3f9da6f8accfecbd3e19a534b717"
+
+	baseURL, err := url.Parse("https://testnet.binancefuture.com/fapi/v1/order")
+	assert.NoError(t, err)
+
+	cryptoController := controllers.NewCryptoController(secretKey)
+	clientController := controllers.NewClientController(
+		client,
+		apiKey,
+		logger,
+	)
+
+	q := baseURL.Query()
+	q.Set("symbol", "BTCUSDT")
+	q.Set("origClientOrderId", "da91abe5-f67e-4596-95a0-3a6f7054a8c1")
+	q.Set("recvWindow", "60000")
+	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
+
+	sig := cryptoController.GetSignature(q.Encode())
+	q.Set("signature", sig)
+
+	baseURL.RawQuery = q.Encode()
+
+	req, err := clientController.Send(http.MethodGet, baseURL, nil, true)
+	assert.NoError(t, err)
+
+	fmt.Printf("%s", req)
+}
+
 func Test_CreateFuturesMarketOrder(t *testing.T) {
 	client := &http.Client{}
 	apiKey := "GjQaJQSciytAuD6Td6ZSk1ZXtfEQAdhdDb1dqcE67csSXzBJtDOPmU5IxYAvFZvk"
