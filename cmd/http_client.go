@@ -1,7 +1,12 @@
 package main
 
-import "net/http"
+import (
+	"net/http"
+	"time"
+)
 
 func (a *App) initHTTPClient() {
-	a.HTTPClient = &http.Client{}
+	a.HTTPClient = &http.Client{
+		Timeout: 1 * time.Second,
+	}
 }

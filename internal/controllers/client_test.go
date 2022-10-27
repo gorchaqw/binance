@@ -327,7 +327,7 @@ func Test_GetFeatureOrderInfo(t *testing.T) {
 
 	q := baseURL.Query()
 	q.Set("symbol", "BTCUSDT")
-	q.Set("origClientOrderId", "023a512b-2ed2-41b8-a0b0-71bab50deb37")
+	q.Set("origClientOrderId", "882ab9a2-6dc9-4784-b223-edc4e9b4872f")
 	q.Set("recvWindow", "60000")
 	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
 
@@ -338,11 +338,6 @@ func Test_GetFeatureOrderInfo(t *testing.T) {
 
 	req, err := clientController.Send(http.MethodGet, baseURL, nil, true)
 	assert.NoError(t, err)
-
-	var respERR struct {
-		Code int    `json:"code"`
-		Msg  string `json:"msg"`
-	}
 
 	fmt.Printf("%s", req)
 }
