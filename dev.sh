@@ -1,6 +1,10 @@
 #!/bin/sh
 
 
+# ssh root@62.217.179.29
+# docker context create beget --docker "host=ssh://root@62.217.179.29"
+#docker context create beget --docker "host=ssh://root@62.217.179.29"
+
 # 10826 grafana prometheus go metrics
 
 
@@ -31,9 +35,7 @@ deploy_local(){
 }
 
 deploy_dev(){
-  scp db.sql root@62.113.99.249:/root/db.sql
-  scp loki-config.yaml root@62.113.99.249:/root/loki-config.yaml
-  scp prometheus-config.yaml root@62.113.99.249:/root/prometheus-config.yaml
+  scp db.sql root@62.217.179.29:/root/db.sql
 
   export BINANCE_APP_PORT="8080"
   export BINANCE_APP_NAME="Binance_Beget_DEV"
@@ -41,10 +43,17 @@ deploy_dev(){
   export BINANCE_PG_INIT_DB="/root/db.sql"
   export BINANCE_LOKI="/root/loki-config.yaml"
   export BINANCE_PROMETHEUS="/root/prometheus-config.yaml"
-  export BINANCE_LOG_LEVEL="ERROR"
+  export BINANCE_LOG_LEVEL="DEBUG"
 
-  docker --context beget build --no-cache -t binance/binance:dev .
-  docker-compose --context beget up --remove-orphans -d
+  docker context use beget
+
+  docker build --no-cache -t binance/binance:dev .
+  docker-compose up --remove-orphans -d
+
+  docker context use default
+
+#  docker --context beget build --no-cache -t binance/binance:dev .
+#  docker-compose --context beget up --remove-orphans -d .
 }
 
 case $1 in

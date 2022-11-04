@@ -327,7 +327,7 @@ func Test_GetFeatureOrderInfo(t *testing.T) {
 
 	q := baseURL.Query()
 	q.Set("symbol", "BTCUSDT")
-	q.Set("origClientOrderId", "882ab9a2-6dc9-4784-b223-edc4e9b4872f")
+	q.Set("origClientOrderId", "049f1ac4-640b-4e37-b4b7-08cf7cf4b570")
 	q.Set("recvWindow", "60000")
 	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
 
@@ -344,11 +344,11 @@ func Test_GetFeatureOrderInfo(t *testing.T) {
 
 func Test_CreateFuturesMarketOrder(t *testing.T) {
 	client := &http.Client{}
-	apiKey := "GjQaJQSciytAuD6Td6ZSk1ZXtfEQAdhdDb1dqcE67csSXzBJtDOPmU5IxYAvFZvk"
+	apiKey := "8332396867b2d1fe57dfa2735a8b10727da8e2d382942481ec3461d07d7cdc32"
 	logger := logrus.New()
-	secretKey := "HeIwNhAQRjWsJTcfVUlXc3yS04Vag9cTPRb2Ls88dBG5x6YtybE579uJhIwz95MC"
-	symbol := "BTCBUSD"
-	baseURL, err := url.Parse("https://fapi.binance.com/fapi/v1/order")
+	secretKey := "d4c11ab5e1f27eb14d735b2c1ac2bb3e62ea3f9da6f8accfecbd3e19a534b717"
+	symbol := "BTCUSDT"
+	baseURL, err := url.Parse("https://testnet.binancefuture.com/fapi/v1/order")
 	assert.NoError(t, err)
 	quantity := 0.001
 
@@ -364,6 +364,7 @@ func Test_CreateFuturesMarketOrder(t *testing.T) {
 	q.Set("side", "BUY")
 	q.Set("positionSide", "LONG")
 	q.Set("type", "MARKET")
+	q.Set("newClientOrderId", uuid.NewString())
 	q.Set("quantity", fmt.Sprintf("%.3f", quantity))
 	q.Set("recvWindow", "60000")
 	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))

@@ -28,6 +28,7 @@ const (
 	orderOpenUrlPath = "/api/v3/openOrders"
 	orderOCO         = "/api/v3/order/oco"
 
+	//featureURL          = "https://fapi.binance.com"
 	featureURL          = "https://testnet.binancefuture.com"
 	featureOrder        = "/fapi/v1/order"
 	featurePositionInfo = "/fapi/v2/positionRisk"
@@ -267,7 +268,7 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 				case mongoStructs.LiquidationBUY.ToString():
 					if lastOrder.Status == OrderStatusCanceled && lastOrder.Side == SideSell && lastOrder.Type == "OCO" {
 						status.
-							SetQuantityByStep(settings.Limit).
+							SetQuantityByStep(settings.Step).
 							SetOrderTry(1)
 
 						pricePlan := u.fillPricePlan(OrderTypeLimit, symbol, lastOrder.StopPrice, settings, &status).SetSide(SideBuy)

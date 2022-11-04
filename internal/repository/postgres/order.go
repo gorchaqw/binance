@@ -100,7 +100,7 @@ func (r *OrderRepository) GetBySessionID(sessionID string) ([]models.Order, erro
 			return nil, err
 		}
 	case Features:
-		if err := r.conn.Select(&orders, "SELECT * FROM features_orders where session_id = $1 ORDER BY id DESC;", sessionID); err != nil {
+		if err := r.conn.Select(&orders, "SELECT * FROM features_orders where session_id = $1 ORDER BY created_at;", sessionID); err != nil {
 			return nil, err
 		}
 	}
