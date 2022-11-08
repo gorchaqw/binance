@@ -38,8 +38,8 @@ type Status struct {
 
 func (s *Status) Reset(v float64) {
 	s.OrderTry = 1
-	s.Quantity = v
 	s.SessionID = uuid.New().String()
+	s.SetQuantityByStep(v)
 }
 
 func (s *Status) NewSessionID() *Status {

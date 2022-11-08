@@ -63,6 +63,10 @@ const (
 	OrderTypeStopLoss   = "STOP_MARKET"
 	OrderTypeOCO        = "OCO"
 	OrderTypeBatch      = "BATCH"
+
+	OrderTypeMarketID     = 0
+	OrderTypeTakeProfitID = 1
+	OrderTypeStopLossID   = 2
 )
 
 var (

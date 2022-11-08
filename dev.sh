@@ -1,9 +1,8 @@
 #!/bin/sh
 
 
-# ssh root@62.217.179.29
-# docker context create beget --docker "host=ssh://root@62.217.179.29"
-#docker context create beget --docker "host=ssh://root@62.217.179.29"
+# ssh root@62.217.179.41
+# docker context create beget --docker "host=ssh://root@62.217.179.41"
 
 # 10826 grafana prometheus go metrics
 
@@ -35,7 +34,7 @@ deploy_local(){
 }
 
 deploy_dev(){
-  scp db.sql root@62.217.179.29:/root/db.sql
+  scp db.sql root@62.217.179.41:/root/db.sql
 
   export BINANCE_APP_PORT="8080"
   export BINANCE_APP_NAME="Binance_Beget_DEV"

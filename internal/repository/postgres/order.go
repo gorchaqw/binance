@@ -142,7 +142,7 @@ func (r *OrderRepository) GetLastWithInterval(symbol string, sTime, eTime time.T
 	return orders, nil
 }
 
-func (r *OrderRepository) SetActualPrice(id int, price float64) error {
+func (r *OrderRepository) SetActualPrice(id string, price float64) error {
 	switch r.table {
 	case Spot:
 		if _, err := r.conn.Exec("UPDATE orders SET price = $1 where id = $2;", price, id); err != nil {

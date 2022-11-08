@@ -1,6 +1,6 @@
 create table orders
 (
-    id           serial primary key,
+    id           text primary key,
     order_id     bigint,
     session_id   text,
     symbol       text,
@@ -17,7 +17,7 @@ create table orders
 
 create table features_orders
 (
-    id           serial primary key,
+    id           text primary key,
     order_id     bigint,
     session_id   text,
     symbol       text,
