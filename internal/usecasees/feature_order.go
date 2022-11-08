@@ -189,7 +189,9 @@ func (m *Monitor) UpdateOrderStatus(u *orderUseCase) {
 
 			order, err := u.getFeatureOrderInfo(o.ID, o.Symbol)
 			if err != nil {
-				u.logRus.WithField("func", "getFeatureOrderInfo").Debug(err)
+				u.logRus.
+					WithField("orderId", o.ID).
+					WithField("func", "getFeatureOrderInfo").Debug(err)
 
 				continue
 			}
@@ -374,7 +376,7 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 		}
 		return false
 	}
-	//
+
 	chkCreateLimitOrderTakeProfitFunc := func(o ordersList) bool {
 		if o.Has(OrderTypeMarket) && o.Get(OrderTypeMarket).Status == OrderStatusFilled &&
 			o.Has(OrderTypeTakeProfit) && o.Get(OrderTypeTakeProfit).Status == OrderStatusFilled &&
@@ -484,8 +486,6 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 			case SideSell:
 				pricePlan.SetSide(SideBuy)
 			}
-
-			m.ordersList.Get(OrderTypeMarket).Status = OrderStatusInProgress
 
 			if err := u.storeFeaturesMarketOrder(pricePlan); err != nil {
 				u.logRus.
