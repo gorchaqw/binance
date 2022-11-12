@@ -172,6 +172,22 @@ func (r *OrderRepository) SetTry(id, try int) error {
 	return nil
 }
 
+func (r *OrderRepository) Delete(id string) error {
+	switch r.table {
+	case Spot:
+		if _, err := r.conn.Exec("DELETE from orders where id = $1;", id); err != nil {
+			return err
+		}
+
+	case Features:
+		if _, err := r.conn.Exec("DELETE from features_orders where id = $1;", id); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (r *OrderRepository) SetStatus(id string, status string) error {
 	switch r.table {
 	case Spot:

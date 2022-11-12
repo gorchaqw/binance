@@ -1,6 +1,7 @@
 package usecasees
 
 import (
+	"binance/internal/controllers"
 	mongoStructs "binance/internal/repository/mongo/structs"
 	"binance/internal/usecasees/structs"
 	"binance/models"
@@ -43,7 +44,7 @@ func (o *ordersList) SetStopLoss(order *models.Order) {
 	o[OrderTypeStopLossID] = order
 }
 
-func (o ordersList) IsNil() bool {
+func (o *ordersList) IsNil() bool {
 	return o[OrderTypeMarketID] == nil && o[OrderTypeTakeProfitID] == nil && o[OrderTypeStopLossID] == nil
 }
 
@@ -111,13 +112,35 @@ func (m *Monitor) UpdateCreateOrder(u *orderUseCase) {
 				}
 
 				if err := u.createFeaturesMarketOrder(m.ordersList.Get(OrderTypeMarket)); err != nil {
-					u.logRus.WithField("func", "createFeaturesMarketOrder").Debug(err)
+					switch err {
+					case controllers.ErrUnknownOrderSent:
+						if err := u.orderRepo.Delete(m.ordersList.Get(OrderTypeMarket).ID); err != nil {
+							u.logRus.
+								WithField("func", "Delete").
+								WithField("type", OrderTypeMarket).
+								WithField("status", m.ordersList.Get(OrderTypeMarket).Status).
+								WithField("orderID", m.ordersList.Get(OrderTypeMarket).ID).
+								Debug(err)
+						}
+					}
+
+					u.logRus.
+						WithField("func", "createFeaturesMarketOrder").
+						WithField("type", OrderTypeMarket).
+						WithField("status", m.ordersList.Get(OrderTypeMarket).Status).
+						WithField("orderID", m.ordersList.Get(OrderTypeMarket).ID).
+						Debug(err)
 
 					continue
 				}
 
 				if err := u.orderRepo.SetStatus(m.ordersList.Get(OrderTypeMarket).ID, OrderStatusNew); err != nil {
-					u.logRus.WithField("func", "SetStatus").Debug(err)
+					u.logRus.
+						WithField("func", "SetStatus").
+						WithField("type", OrderTypeMarket).
+						WithField("status", m.ordersList.Get(OrderTypeMarket).Status).
+						WithField("orderID", m.ordersList.Get(OrderTypeMarket).ID).
+						Debug(err)
 				}
 
 				m.ordersList.Get(OrderTypeMarket).Status = OrderStatusNew
@@ -143,7 +166,12 @@ func (m *Monitor) UpdateCreateOrder(u *orderUseCase) {
 				}
 
 				if err := u.orderRepo.SetStatus(m.ordersList.Get(OrderTypeTakeProfit).ID, OrderStatusNew); err != nil {
-					u.logRus.WithField("func", "SetStatus").Debug(err)
+					u.logRus.
+						WithField("func", "SetStatus").
+						WithField("type", OrderTypeTakeProfit).
+						WithField("status", m.ordersList.Get(OrderTypeTakeProfit).Status).
+						WithField("orderID", m.ordersList.Get(OrderTypeTakeProfit).ID).
+						Debug(err)
 				}
 
 				m.ordersList.Get(OrderTypeTakeProfit).Status = OrderStatusNew
@@ -169,7 +197,12 @@ func (m *Monitor) UpdateCreateOrder(u *orderUseCase) {
 				}
 
 				if err := u.orderRepo.SetStatus(m.ordersList.Get(OrderTypeStopLoss).ID, OrderStatusNew); err != nil {
-					u.logRus.WithField("func", "SetStatus").Debug(err)
+					u.logRus.
+						WithField("func", "SetStatus").
+						WithField("type", OrderTypeStopLoss).
+						WithField("status", m.ordersList.Get(OrderTypeStopLoss).Status).
+						WithField("orderID", m.ordersList.Get(OrderTypeStopLoss).ID).
+						Debug(err)
 				}
 
 				m.ordersList.Get(OrderTypeStopLoss).Status = OrderStatusNew
@@ -468,8 +501,6 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 					WithError(err).
 					Error(string(debug.Stack()))
 			}
-
-			u.logRus.Debugf("chkLimit pricePlan %+v", pricePlan)
 		}
 
 		if chkCreateLimitOrderStopLossFunc(m.ordersList) {
@@ -492,8 +523,6 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 					WithError(err).
 					Error(string(debug.Stack()))
 			}
-
-			u.logRus.Debugf("chkLimit pricePlan %+v", pricePlan)
 		}
 
 		time.Sleep(chkTime)
@@ -635,8 +664,6 @@ func (u *orderUseCase) createFeatureOrder(order *models.Order) error {
 
 	resp, err := u.clientController.Send(http.MethodPost, baseURL, nil, true)
 	if err != nil {
-		u.logRus.Debug(err)
-
 		return err
 	}
 
@@ -882,11 +909,8 @@ func (u *orderUseCase) createFeaturesMarketOrder(order *models.Order) error {
 
 	resp, err := u.clientController.Send(http.MethodPost, baseURL, nil, true)
 	if err != nil {
-		u.logRus.Debug(err)
-
 		return err
 	}
-	u.logRus.Debugf("createFeaturesMarketOrder Req: %s", resp)
 
 	var respOrder structs.FeatureOrderResp
 	if err := json.Unmarshal(resp, &respOrder); err != nil {

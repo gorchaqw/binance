@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
 	"io/ioutil"
@@ -30,6 +31,16 @@ func NewClientController(
 	}
 }
 
+var (
+	ErrCodeUnknownOrderSent = -2011
+	ErrUnknownOrderSent     = fmt.Errorf("%s", "Unknown order sent.")
+)
+
+type ErrStruct struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+}
+
 func (c *ClientController) Send(method string, url *url.URL, body []byte, useApiKey bool) ([]byte, error) {
 	req, err := http.NewRequest(method, url.String(), bytes.NewReader(body))
 	if err != nil {
@@ -50,6 +61,19 @@ func (c *ClientController) Send(method string, url *url.URL, body []byte, useApi
 		respErr, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
+		}
+
+		if resp.StatusCode == http.StatusBadRequest {
+			var errMsg ErrStruct
+			if err := json.Unmarshal(respErr, &errMsg); err != nil {
+				return nil, err
+			}
+			switch errMsg.Code {
+			case ErrCodeUnknownOrderSent:
+				return nil, ErrUnknownOrderSent
+			}
+
+			return nil, fmt.Errorf("%s Err:%+v", "Unknown error", errMsg)
 		}
 
 		return nil, errors.New(fmt.Sprintf("statusCode %d; resp %s;", resp.StatusCode, respErr))

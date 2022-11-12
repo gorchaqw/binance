@@ -28,8 +28,8 @@ const (
 	orderOpenUrlPath = "/api/v3/openOrders"
 	orderOCO         = "/api/v3/order/oco"
 
-	//featureURL          = "https://fapi.binance.com"
-	featureURL          = "https://testnet.binancefuture.com"
+	featureURL = "https://fapi.binance.com"
+	//featureURL          = "https://testnet.binancefuture.com"
 	featureOrder        = "/fapi/v1/order"
 	featurePositionInfo = "/fapi/v2/positionRisk"
 	featureBatchOrders  = "/fapi/v1/batchOrders"
@@ -71,7 +71,7 @@ const (
 
 var (
 	SymbolList = []string{
-		BTCUSDT,
+		BTCBUSD,
 	}
 )
 

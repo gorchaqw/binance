@@ -19,6 +19,7 @@ type OrderRepo interface {
 	SetActualPrice(id string, price float64) error
 	SetTry(id, try int) error
 	SetStatus(id string, status string) error
+	Delete(id string) error
 	SetOrderID(id string, orderID int64) error
 }
 
