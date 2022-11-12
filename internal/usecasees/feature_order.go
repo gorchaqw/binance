@@ -841,8 +841,6 @@ func (u *orderUseCase) cancelFeatureOrder(orderID int64, symbol string) (*struct
 
 	req, err := u.clientController.Send(http.MethodDelete, baseURL, nil, true)
 	if err != nil {
-		u.logRus.Debug(err)
-
 		return nil, err
 	}
 
