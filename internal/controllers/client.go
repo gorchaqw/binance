@@ -32,8 +32,14 @@ func NewClientController(
 }
 
 var (
+	ErrCodeOrderWouldImmediatelyTrigger = -2021
+	ErrOrderWouldImmediatelyTrigger     = fmt.Errorf("%s", "Order would immediately trigger.")
+
 	ErrCodeUnknownOrderSent = -2011
 	ErrUnknownOrderSent     = fmt.Errorf("%s", "Unknown order sent.")
+
+	ErrCodeInternalError = -1001
+	ErrErrInternalError  = fmt.Errorf("%s", "Internal error; unable to process your request. Please try again.")
 )
 
 type ErrStruct struct {
@@ -63,12 +69,16 @@ func (c *ClientController) Send(method string, url *url.URL, body []byte, useApi
 			return nil, err
 		}
 
-		if resp.StatusCode == http.StatusBadRequest {
+		if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusServiceUnavailable {
 			var errMsg ErrStruct
 			if err := json.Unmarshal(respErr, &errMsg); err != nil {
 				return nil, err
 			}
 			switch errMsg.Code {
+			case ErrCodeOrderWouldImmediatelyTrigger:
+				return nil, ErrOrderWouldImmediatelyTrigger
+			case ErrCodeInternalError:
+				return nil, ErrErrInternalError
 			case ErrCodeUnknownOrderSent:
 				return nil, ErrUnknownOrderSent
 			}

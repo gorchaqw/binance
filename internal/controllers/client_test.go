@@ -21,13 +21,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var (
+	apiKey    = "#"
+	secretKey = "#"
+)
+
 func Test_DailyAccountSnapshot(t *testing.T) {
 	client := &http.Client{}
-	apiKey := "GjQaJQSciytAuD6Td6ZSk1ZXtfEQAdhdDb1dqcE67csSXzBJtDOPmU5IxYAvFZvk"
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
-
-	secretKey := "HeIwNhAQRjWsJTcfVUlXc3yS04Vag9cTPRb2Ls88dBG5x6YtybE579uJhIwz95MC"
 
 	cryptoController := controllers.NewCryptoController(secretKey)
 	clientController := controllers.NewClientController(
@@ -61,7 +63,6 @@ func Test_DailyAccountSnapshot(t *testing.T) {
 	assert.NoError(t, os.WriteFile("./example.json", req, 0644))
 
 	fmt.Printf("%s", req)
-
 }
 
 func Test_CalcCommission(t *testing.T) {
@@ -147,17 +148,17 @@ func Test_CalcCommission(t *testing.T) {
 
 func Test_BatchOrders(t *testing.T) {
 	client := &http.Client{}
-	apiKey := "8332396867b2d1fe57dfa2735a8b10727da8e2d382942481ec3461d07d7cdc32"
+
 	logger := logrus.New()
-	secretKey := "d4c11ab5e1f27eb14d735b2c1ac2bb3e62ea3f9da6f8accfecbd3e19a534b717"
+
 	symbol := "BTCUSDT"
-	//
+
 	//price := 18966.00
 
-	//actualPrice := 21650.00
-	//quantity := 0.001
+	actualPrice := 21650.00
+	quantity := 0.001
 
-	//takeProfitPrice := actualPrice + 100
+	takeProfitPrice := actualPrice + 100
 	//stopLossPrice := actualPrice - 100
 
 	cryptoController := controllers.NewCryptoController(secretKey)
@@ -172,20 +173,6 @@ func Test_BatchOrders(t *testing.T) {
 
 	baseURL.Path = path.Join("/fapi/v1/batchOrders")
 
-	//	"symbol": "BTCBUSD",
-	//	"timeInForce": "GTE_GTC",
-	//	"type": "STOP_MARKET",
-	//	"reduceOnly": true,
-	//	"closePosition": true,
-	//	"side": "BUY",
-	//	"stopPrice": "18800",
-	//	"workingType": "MARK_PRICE",
-	//	"priceProtect": false,
-	//	"origType": "STOP_MARKET",
-	//	"time": 1662492808077,
-	//	"updateTime": 1662492808077
-	//}
-
 	//limitOrder := structs.FeatureOrderReq{
 	//	Symbol:       symbol,
 	//	Type:         "LIMIT",
@@ -196,28 +183,28 @@ func Test_BatchOrders(t *testing.T) {
 	//	TimeInForce:  "GTC",
 	//}
 
-	//limitOrderSELL := structs.FeatureOrderReq{
-	//	Symbol:       symbol,
-	//	Type:         "LIMIT",
-	//	Side:         "SELL",
-	//	PositionSide: "SHORT",
-	//	Price:        fmt.Sprintf("%.1f", actualPrice),
-	//	Quantity:     fmt.Sprintf("%.3f", quantity),
-	//	TimeInForce:  "GTC",
-	//}
+	limitOrderSELL := structs.FeatureOrderReq{
+		Symbol:       symbol,
+		Type:         "LIMIT",
+		Side:         "SELL",
+		PositionSide: "SHORT",
+		Price:        fmt.Sprintf("%.1f", actualPrice),
+		Quantity:     fmt.Sprintf("%.3f", quantity),
+		TimeInForce:  "GTC",
+	}
 
-	//takeProfitOrder := structs.FeatureOrderReq{
-	//
-	//	Symbol:        symbol,
-	//	Type:          "TAKE_PROFIT",
-	//	Side:          "SELL",
-	//	Price:         fmt.Sprintf("%f", takeProfitPrice),
-	//	StopPrice:     fmt.Sprintf("%f", takeProfitPrice),
-	//	PositionSide:  "LONG",
-	//	Quantity:      "0.001",
-	//	PriceProtect:  "false",
-	//	ClosePosition: "false",
-	//}
+	takeProfitOrder := structs.FeatureOrderReq{
+
+		Symbol:        symbol,
+		Type:          "TAKE_PROFIT",
+		Side:          "SELL",
+		Price:         fmt.Sprintf("%f", takeProfitPrice),
+		StopPrice:     fmt.Sprintf("%f", takeProfitPrice),
+		PositionSide:  "LONG",
+		Quantity:      "0.001",
+		PriceProtect:  "false",
+		ClosePosition: "false",
+	}
 
 	//takeProfitOrder := structs.FeatureOrderReq{
 	//	Symbol:        symbol,
@@ -245,15 +232,13 @@ func Test_BatchOrders(t *testing.T) {
 	}
 
 	orders := []structs.FeatureOrderReq{
-		//limitOrderSELL,
-		//takeProfitOrder,
+		limitOrderSELL,
+		takeProfitOrder,
 		stopLossOrder,
 	}
 
 	batchOrders, err := json.Marshal(orders)
 	assert.NoError(t, err)
-
-	//fmt.Printf("%s", batchOrders)
 
 	q := baseURL.Query()
 	q.Set("batchOrders", fmt.Sprintf("%s", batchOrders))
@@ -278,9 +263,7 @@ func Test_BatchOrders(t *testing.T) {
 
 func Test_ChangePositionMode(t *testing.T) {
 	client := &http.Client{}
-	apiKey := "8332396867b2d1fe57dfa2735a8b10727da8e2d382942481ec3461d07d7cdc32"
 	logger := logrus.New()
-	secretKey := "d4c11ab5e1f27eb14d735b2c1ac2bb3e62ea3f9da6f8accfecbd3e19a534b717"
 
 	baseURL, err := url.Parse("https://testnet.binancefuture.com/fapi/v1/positionSide/dual")
 	assert.NoError(t, err)
@@ -311,9 +294,8 @@ func Test_ChangePositionMode(t *testing.T) {
 
 func Test_GetFeatureOrderInfo(t *testing.T) {
 	client := &http.Client{}
-	apiKey := "8332396867b2d1fe57dfa2735a8b10727da8e2d382942481ec3461d07d7cdc32"
+
 	logger := logrus.New()
-	secretKey := "d4c11ab5e1f27eb14d735b2c1ac2bb3e62ea3f9da6f8accfecbd3e19a534b717"
 
 	baseURL, err := url.Parse("https://testnet.binancefuture.com/fapi/v1/order")
 	assert.NoError(t, err)
@@ -344,9 +326,7 @@ func Test_GetFeatureOrderInfo(t *testing.T) {
 
 func Test_CreateFuturesMarketOrder(t *testing.T) {
 	client := &http.Client{}
-	apiKey := "8332396867b2d1fe57dfa2735a8b10727da8e2d382942481ec3461d07d7cdc32"
 	logger := logrus.New()
-	secretKey := "d4c11ab5e1f27eb14d735b2c1ac2bb3e62ea3f9da6f8accfecbd3e19a534b717"
 	symbol := "BTCUSDT"
 	baseURL, err := url.Parse("https://testnet.binancefuture.com/fapi/v1/order")
 	assert.NoError(t, err)
@@ -386,7 +366,6 @@ func Test_CreateFuturesMarketOrder(t *testing.T) {
 }
 func Test_CreateFuturesLimitOrder(t *testing.T) {
 	client := &http.Client{}
-	apiKey := "GjQaJQSciytAuD6Td6ZSk1ZXtfEQAdhdDb1dqcE67csSXzBJtDOPmU5IxYAvFZvk"
 	logger := logrus.New()
 	secretKey := "HeIwNhAQRjWsJTcfVUlXc3yS04Vag9cTPRb2Ls88dBG5x6YtybE579uJhIwz95MC"
 	symbol := "BTCBUSD"
@@ -431,15 +410,10 @@ func Test_CreateFuturesLimitOrder(t *testing.T) {
 
 func Test_allOpenOrders(t *testing.T) {
 	client := &http.Client{}
-	apiKey := "GjQaJQSciytAuD6Td6ZSk1ZXtfEQAdhdDb1dqcE67csSXzBJtDOPmU5IxYAvFZvk"
 	logger := logrus.New()
-	secretKey := "HeIwNhAQRjWsJTcfVUlXc3yS04Vag9cTPRb2Ls88dBG5x6YtybE579uJhIwz95MC"
 	symbol := "BTCBUSD"
 	baseURL, err := url.Parse("https://fapi.binance.com/fapi/v1/order")
 	assert.NoError(t, err)
-	//quantity := 0.001
-	//price := float64(19900)
-	//stopPrice := float64(19600)
 
 	cryptoController := controllers.NewCryptoController(secretKey)
 	clientController := controllers.NewClientController(
@@ -468,9 +442,7 @@ func Test_allOpenOrders(t *testing.T) {
 
 func Test_CreateLimitOrder(t *testing.T) {
 	client := &http.Client{}
-	apiKey := "40A1YfOXYUm85x5slZCL6TcVdB6S8im024Uk5t7Mmj2rQJ2DB0FBSWIpaOB9Zd7J"
 	logger := logrus.New()
-	secretKey := "H6kbAHyGNNUdpp1aFEQpqwcQgDLTEWCe45W46vDcWGRtcZuKLJ2g52MdqC6QjuI5"
 	symbol := "BTCUSDT"
 	baseURL, err := url.Parse("https://api.binance.com/api/v3/order")
 	assert.NoError(t, err)
@@ -510,9 +482,7 @@ func Test_CreateLimitOrder(t *testing.T) {
 }
 func Test_OSO(t *testing.T) {
 	client := &http.Client{}
-	apiKey := "40A1YfOXYUm85x5slZCL6TcVdB6S8im024Uk5t7Mmj2rQJ2DB0FBSWIpaOB9Zd7J"
 	logger := logrus.New()
-	secretKey := "H6kbAHyGNNUdpp1aFEQpqwcQgDLTEWCe45W46vDcWGRtcZuKLJ2g52MdqC6QjuI5"
 	symbol := "BTCBUSD"
 	baseURL, err := url.Parse("https://api.binance.com/api/v3/order/oco")
 	assert.NoError(t, err)
@@ -551,9 +521,7 @@ func Test_OSO(t *testing.T) {
 }
 func Test_GetOrderList(t *testing.T) {
 	client := &http.Client{}
-	apiKey := "40A1YfOXYUm85x5slZCL6TcVdB6S8im024Uk5t7Mmj2rQJ2DB0FBSWIpaOB9Zd7J"
 	logger := logrus.New()
-	secretKey := "H6kbAHyGNNUdpp1aFEQpqwcQgDLTEWCe45W46vDcWGRtcZuKLJ2g52MdqC6QjuI5"
 	baseURL, err := url.Parse("https://api.binance.com/api/v3/orderList")
 	assert.NoError(t, err)
 
@@ -585,9 +553,7 @@ func Test_GetOrderList(t *testing.T) {
 }
 func Test_WalletGetAllCoins(t *testing.T) {
 	client := &http.Client{}
-	apiKey := "40A1YfOXYUm85x5slZCL6TcVdB6S8im024Uk5t7Mmj2rQJ2DB0FBSWIpaOB9Zd7J"
 	logger := logrus.New()
-	secretKey := "H6kbAHyGNNUdpp1aFEQpqwcQgDLTEWCe45W46vDcWGRtcZuKLJ2g52MdqC6QjuI5"
 	baseURL, err := url.Parse("https://api.binance.com/api/v3/account")
 	assert.NoError(t, err)
 
@@ -614,9 +580,7 @@ func Test_WalletGetAllCoins(t *testing.T) {
 }
 func Test_WalletSnapshot(t *testing.T) {
 	client := &http.Client{}
-	apiKey := "40A1YfOXYUm85x5slZCL6TcVdB6S8im024Uk5t7Mmj2rQJ2DB0FBSWIpaOB9Zd7J"
 	logger := logrus.New()
-	secretKey := "H6kbAHyGNNUdpp1aFEQpqwcQgDLTEWCe45W46vDcWGRtcZuKLJ2g52MdqC6QjuI5"
 	baseURL, err := url.Parse("https://api.binance.com/sapi/v1/accountSnapshot")
 	assert.NoError(t, err)
 
@@ -649,9 +613,7 @@ func Test_WalletSnapshot(t *testing.T) {
 }
 func Test_GetOrderInfo(t *testing.T) {
 	client := &http.Client{}
-	apiKey := "40A1YfOXYUm85x5slZCL6TcVdB6S8im024Uk5t7Mmj2rQJ2DB0FBSWIpaOB9Zd7J"
 	logger := logrus.New()
-	secretKey := "H6kbAHyGNNUdpp1aFEQpqwcQgDLTEWCe45W46vDcWGRtcZuKLJ2g52MdqC6QjuI5"
 	baseURL, err := url.Parse("https://api.binance.com/api/v3/order")
 	assert.NoError(t, err)
 
@@ -686,9 +648,7 @@ func Test_GetOrderInfo(t *testing.T) {
 }
 func Test_GetOpenOrders(t *testing.T) {
 	client := &http.Client{}
-	apiKey := "40A1YfOXYUm85x5slZCL6TcVdB6S8im024Uk5t7Mmj2rQJ2DB0FBSWIpaOB9Zd7J"
 	logger := logrus.New()
-	secretKey := "H6kbAHyGNNUdpp1aFEQpqwcQgDLTEWCe45W46vDcWGRtcZuKLJ2g52MdqC6QjuI5"
 	baseURL, err := url.Parse("https://api.binance.com/api/v3/openOrders")
 	assert.NoError(t, err)
 

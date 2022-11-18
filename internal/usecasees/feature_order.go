@@ -121,6 +121,8 @@ func (m *Monitor) UpdateCreateOrder(u *orderUseCase) {
 								WithField("status", m.ordersList.Get(OrderTypeMarket).Status).
 								WithField("orderID", m.ordersList.Get(OrderTypeMarket).ID).
 								Debug(err)
+
+							continue
 						}
 					}
 
@@ -134,6 +136,8 @@ func (m *Monitor) UpdateCreateOrder(u *orderUseCase) {
 					continue
 				}
 
+				m.ordersList.Get(OrderTypeMarket).Status = OrderStatusNew
+
 				if err := u.orderRepo.SetStatus(m.ordersList.Get(OrderTypeMarket).ID, OrderStatusNew); err != nil {
 					u.logRus.
 						WithField("func", "SetStatus").
@@ -142,8 +146,6 @@ func (m *Monitor) UpdateCreateOrder(u *orderUseCase) {
 						WithField("orderID", m.ordersList.Get(OrderTypeMarket).ID).
 						Debug(err)
 				}
-
-				m.ordersList.Get(OrderTypeMarket).Status = OrderStatusNew
 			}
 		}
 
@@ -165,6 +167,8 @@ func (m *Monitor) UpdateCreateOrder(u *orderUseCase) {
 					continue
 				}
 
+				m.ordersList.Get(OrderTypeTakeProfit).Status = OrderStatusNew
+
 				if err := u.orderRepo.SetStatus(m.ordersList.Get(OrderTypeTakeProfit).ID, OrderStatusNew); err != nil {
 					u.logRus.
 						WithField("func", "SetStatus").
@@ -172,9 +176,8 @@ func (m *Monitor) UpdateCreateOrder(u *orderUseCase) {
 						WithField("status", m.ordersList.Get(OrderTypeTakeProfit).Status).
 						WithField("orderID", m.ordersList.Get(OrderTypeTakeProfit).ID).
 						Debug(err)
-				}
 
-				m.ordersList.Get(OrderTypeTakeProfit).Status = OrderStatusNew
+				}
 			}
 		}
 
@@ -196,6 +199,8 @@ func (m *Monitor) UpdateCreateOrder(u *orderUseCase) {
 					continue
 				}
 
+				m.ordersList.Get(OrderTypeStopLoss).Status = OrderStatusNew
+
 				if err := u.orderRepo.SetStatus(m.ordersList.Get(OrderTypeStopLoss).ID, OrderStatusNew); err != nil {
 					u.logRus.
 						WithField("func", "SetStatus").
@@ -204,8 +209,6 @@ func (m *Monitor) UpdateCreateOrder(u *orderUseCase) {
 						WithField("orderID", m.ordersList.Get(OrderTypeStopLoss).ID).
 						Debug(err)
 				}
-
-				m.ordersList.Get(OrderTypeStopLoss).Status = OrderStatusNew
 			}
 		}
 
@@ -329,11 +332,15 @@ func (m *Monitor) UpdateLastOrder(u *orderUseCase, symbol string) {
 
 					pricePlan := u.fillPricePlan(OrderTypeBatch, symbol, m.actualPrice, m.settings, m.status).SetSide(SideBuy)
 
-					if err := u.storeFeaturesMarketOrder(pricePlan); err != nil {
+					marketOrder, err := u.storeFeaturesMarketOrder(pricePlan)
+					if err != nil {
 						u.logRus.
 							WithError(err).
 							Error(string(debug.Stack()))
 					}
+
+					marketOrder.Status = OrderStatusNotFound
+					m.ordersList.SetMarket(marketOrder)
 				}
 				continue
 			default:
@@ -455,17 +462,21 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 				pricePlan.SetSide(SideSell)
 			}
 
-			if err := u.storeFeatureOrder(pricePlan, u.constructTakeProfitOrder(pricePlan, m.settings)); err != nil {
+			takeProfitOrder, err := u.storeFeatureOrder(pricePlan, u.constructTakeProfitOrder(pricePlan, m.settings))
+			if err != nil {
 				u.logRus.
 					WithError(err).
 					Error(string(debug.Stack()))
 			}
+			m.ordersList.SetTakeProfit(takeProfitOrder)
 
-			if err := u.storeFeatureOrder(pricePlan, u.constructStopLossOrder(pricePlan, m.settings)); err != nil {
+			stopLossOrder, err := u.storeFeatureOrder(pricePlan, u.constructStopLossOrder(pricePlan, m.settings))
+			if err != nil {
 				u.logRus.
 					WithError(err).
 					Error(string(debug.Stack()))
 			}
+			m.ordersList.SetStopLoss(stopLossOrder)
 		}
 
 		if chkTakeProfitCancelFunc(m.ordersList) {
@@ -496,11 +507,15 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 				pricePlan.SetSide(SideBuy)
 			}
 
-			if err := u.storeFeaturesMarketOrder(pricePlan); err != nil {
+			marketOrder, err := u.storeFeaturesMarketOrder(pricePlan)
+			if err != nil {
 				u.logRus.
 					WithError(err).
 					Error(string(debug.Stack()))
 			}
+
+			marketOrder.Status = OrderStatusNotFound
+			m.ordersList.SetMarket(marketOrder)
 		}
 
 		if chkCreateLimitOrderStopLossFunc(m.ordersList) {
@@ -518,11 +533,15 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 				pricePlan.SetSide(SideBuy)
 			}
 
-			if err := u.storeFeaturesMarketOrder(pricePlan); err != nil {
+			marketOrder, err := u.storeFeaturesMarketOrder(pricePlan)
+			if err != nil {
 				u.logRus.
 					WithError(err).
 					Error(string(debug.Stack()))
 			}
+
+			marketOrder.Status = OrderStatusNotFound
+			m.ordersList.SetMarket(marketOrder)
 		}
 
 		time.Sleep(chkTime)
@@ -597,15 +616,15 @@ func (u *orderUseCase) constructStopLossOrder(pricePlan *structs.PricePlan, sett
 	return &out
 }
 
-func (u *orderUseCase) storeFeatureOrder(pricePlan *structs.PricePlan, order *structs.FeatureOrderReq) error {
+func (u *orderUseCase) storeFeatureOrder(pricePlan *structs.PricePlan, order *structs.FeatureOrderReq) (*models.Order, error) {
 	quantity, err := strconv.ParseFloat(order.Quantity, 64)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	stopPrice, err := strconv.ParseFloat(order.StopPrice, 64)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	o := models.Order{
@@ -622,10 +641,10 @@ func (u *orderUseCase) storeFeatureOrder(pricePlan *structs.PricePlan, order *st
 	}
 
 	if err := u.orderRepo.Store(&o); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &o, nil
 }
 
 func (u *orderUseCase) createFeatureOrder(order *models.Order) error {
@@ -853,7 +872,7 @@ func (u *orderUseCase) cancelFeatureOrder(orderID int64, symbol string) (*struct
 	return &out, nil
 }
 
-func (u *orderUseCase) storeFeaturesMarketOrder(pricePlan *structs.PricePlan) error {
+func (u *orderUseCase) storeFeaturesMarketOrder(pricePlan *structs.PricePlan) (*models.Order, error) {
 	o := models.Order{
 		ID:          uuid.NewString(),
 		SessionID:   pricePlan.Status.SessionID,
@@ -869,10 +888,10 @@ func (u *orderUseCase) storeFeaturesMarketOrder(pricePlan *structs.PricePlan) er
 	}
 
 	if err := u.orderRepo.Store(&o); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &o, nil
 }
 
 func (u *orderUseCase) createFeaturesMarketOrder(order *models.Order) error {
