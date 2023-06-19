@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"path"
 	"runtime/debug"
+	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -28,12 +29,13 @@ const (
 	orderOpenUrlPath = "/api/v3/openOrders"
 	orderOCO         = "/api/v3/order/oco"
 
-	featureURL = "https://fapi.binance.com"
-	//featureURL          = "https://testnet.binancefuture.com"
+	// featureURL = "https://fapi.binance.com"
+	// featureURL          = "https://testnet.binancefuture.com"
 	featureOrder        = "/fapi/v1/order"
 	featurePositionInfo = "/fapi/v2/positionRisk"
 	featureBatchOrders  = "/fapi/v1/batchOrders"
 	featureSymbolPrice  = "/fapi/v1/ticker/price"
+	featureTicker24hr   = "/fapi/v1/ticker/24hr"
 
 	BTC  = "BTC"
 	ETH  = "ETH"
@@ -45,6 +47,7 @@ const (
 	ETHBUSD = ETH + BUSD
 	BTCBUSD = BTC + BUSD
 	BTCUSDT = BTC + USDT
+	ETHUSDT = ETH + USDT
 
 	SideSell = "SELL"
 	SideBuy  = "BUY"
@@ -57,21 +60,23 @@ const (
 	OrderStatusInProgress = "IN PROGRESS"
 	OrderStatusError      = "ERROR"
 
-	OrderTypeLimit      = "LIMIT"
-	OrderTypeMarket     = "MARKET"
-	OrderTypeTakeProfit = "TAKE_PROFIT_MARKET"
+	OrderTypeLimit = "LIMIT"
+	//OrderTypeMarket     = "MARKET"
+	OrderTypeTakeProfit = "TAKE_PROFIT"
 	OrderTypeStopLoss   = "STOP_MARKET"
 	OrderTypeOCO        = "OCO"
 	OrderTypeBatch      = "BATCH"
 
-	OrderTypeMarketID     = 0
+	OrderTypeLimitID      = 0
 	OrderTypeTakeProfitID = 1
 	OrderTypeStopLossID   = 2
 )
 
 var (
 	SymbolList = []string{
-		BTCBUSD,
+		//BTCBUSD,
+		BTCUSDT,
+		ETHUSDT,
 	}
 )
 
@@ -159,8 +164,8 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 	//		stat.ActualPricePercent,
 	//		stat.StopPriceBUY,
 	//		stat.StopPriceSELL,
-	//		stat.PriceBUY,
-	//		stat.PriceSELL)); err != nil {
+	//		stat.HighPrice,
+	//		stat.LowPrice)); err != nil {
 	//		u.logRus.
 	//			WithError(err).
 	//			Error(string(debug.Stack()))
@@ -271,9 +276,9 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					}
 				case mongoStructs.LiquidationBUY.ToString():
 					if lastOrder.Status == OrderStatusCanceled && lastOrder.Side == SideSell && lastOrder.Type == "OCO" {
-						status.
-							SetQuantityByStep(settings.Step).
-							SetOrderTry(1)
+						//status.
+						//	SetQuantityByStep(settings.Step).
+						//	SetOrderTry(1)
 
 						pricePlan := u.fillPricePlan(OrderTypeLimit, symbol, lastOrder.StopPrice, settings, &status).SetSide(SideBuy)
 
@@ -299,9 +304,9 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 					continue
 				}
 
-				status.
-					SetOrderTry(lastOrder.Try).
-					SetQuantityByStep(lastOrder.Quantity)
+				//status.
+				//	SetOrderTry(lastOrder.Try).
+				//	SetQuantityByStep(lastOrder.Quantity)
 
 				lastOrderStatus := lastOrder.Status
 
@@ -337,11 +342,11 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 						case orderInfo.Type == "STOP_LOSS_LIMIT" && orderInfo.Status == OrderStatusFilled:
 							lastOrderStatus = OrderStatusCanceled
 
-							status.
-								AddOrderTry(1)
+							//status.
+							//	AddOrderTry(1)
 
 							if orderInfo.Side == SideSell {
-								status.SetQuantityByStep(settings.Step)
+								//status.SetQuantityByStep(settings.Step)
 							}
 
 						case orderInfo.Type == "LIMIT_MAKER" && orderInfo.Status == OrderStatusFilled:
@@ -445,14 +450,46 @@ func (u *orderUseCase) Monitoring(symbol string) error {
 func (u *orderUseCase) fillPricePlan(orderType string, symbol string, actualPrice float64, settings *mongoStructs.Settings, status *structs.Status) *structs.PricePlan {
 	var out structs.PricePlan
 
+	out.Status = status
 	out.Symbol = symbol
 	out.ActualPrice = actualPrice
 	out.SafeDelta = float64(settings.Delta) / 100 * 10
 
 	switch orderType {
 	case OrderTypeLimit:
+		stat, err := u.priceUseCase.GetPriceChangeStatistics(symbol)
+		if err != nil {
+			u.logRus.Error(err)
+
+			return nil
+		}
+
+		highPrice, err := strconv.ParseFloat(stat.HighPrice, 64)
+		if err != nil {
+			u.logRus.Error(err)
+
+			return nil
+		}
+
+		lowPrice, err := strconv.ParseFloat(stat.LowPrice, 64)
+		if err != nil {
+			u.logRus.Error(err)
+
+			return nil
+		}
+
+		out.AvgPrice = (highPrice + lowPrice) / 2
+		out.DeltaPrice = out.AvgPrice / 100 * 0.1
+
+		out.AvgPriceHigh = (highPrice + out.AvgPrice) / 2
+		out.AvgPriceLow = (lowPrice + out.AvgPrice) / 2
+
+		out.HighPrice = out.AvgPrice + out.DeltaPrice
+		out.LowPrice = out.AvgPrice - out.DeltaPrice
+
 		out.ActualPricePercent = out.ActualPrice / 100 * (float64(settings.Delta) * 1.2)
 		out.ActualStopPricePercent = out.ActualPrice / 100 * (float64(settings.Delta) * 1.2)
+
 	case OrderTypeOCO:
 		out.ActualPricePercent = out.ActualPrice / 100 * float64(settings.Delta)
 		out.ActualStopPricePercent = out.ActualPrice / 100 * float64(settings.Delta)
@@ -463,13 +500,11 @@ func (u *orderUseCase) fillPricePlan(orderType string, symbol string, actualPric
 
 	//out.ActualPricePercent = out.ActualPrice / 100 * (settings.Delta + (settings.DeltaStep * float64(orderTry)))
 
-	out.StopPriceBUY = out.ActualPrice + out.ActualStopPricePercent
-	out.StopPriceSELL = out.ActualPrice - out.ActualStopPricePercent
-
-	out.PriceBUY = out.ActualPrice - out.ActualPricePercent
-	out.PriceSELL = out.ActualPrice + out.ActualPricePercent
-
-	out.Status = status
+	//out.StopPriceBUY = out.ActualPrice + out.ActualStopPricePercent
+	//out.StopPriceSELL = out.ActualPrice - out.ActualStopPricePercent
+	//
+	//out.HighPrice = out.ActualPrice - out.ActualPricePercent
+	//out.LowPrice = out.ActualPrice + out.ActualPricePercent
 
 	return &out
 }
@@ -569,6 +604,7 @@ func (u *orderUseCase) getOrderInfo(orderID int64, symbol string) (*structs.Orde
 
 	return &out, nil
 }
+
 func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan, settings *mongoStructs.Settings) error {
 	actualPrice, err := u.priceUseCase.GetPrice(pricePlan.Symbol)
 	if err != nil {
@@ -577,13 +613,13 @@ func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan, settings *
 
 	switch pricePlan.Side {
 	case SideBuy:
-		if actualPrice < pricePlan.PriceBUY {
+		if actualPrice < pricePlan.HighPrice {
 			newPricePlan := u.fillPricePlan(OrderTypeLimit, pricePlan.Symbol, actualPrice, settings, pricePlan.Status).SetSide(SideBuy)
 			pricePlan = newPricePlan
 
 		}
 	case SideSell:
-		if actualPrice > pricePlan.PriceSELL {
+		if actualPrice > pricePlan.LowPrice {
 			newPricePlan := u.fillPricePlan(OrderTypeLimit, pricePlan.Symbol, actualPrice, settings, pricePlan.Status).SetSide(SideSell)
 			pricePlan = newPricePlan
 		}
@@ -602,9 +638,9 @@ func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan, settings *
 	q.Set("quantity", fmt.Sprintf("%.5f", pricePlan.Status.Quantity))
 	switch pricePlan.Side {
 	case SideBuy:
-		q.Set("price", fmt.Sprintf("%.2f", pricePlan.PriceBUY))
+		q.Set("price", fmt.Sprintf("%.2f", pricePlan.HighPrice))
 	case SideSell:
-		q.Set("price", fmt.Sprintf("%.2f", pricePlan.PriceSELL))
+		q.Set("price", fmt.Sprintf("%.2f", pricePlan.LowPrice))
 	}
 	q.Set("recvWindow", "60000")
 	q.Set("timeInForce", "GTC")
@@ -649,9 +685,9 @@ func (u *orderUseCase) CreateLimitOrder(pricePlan *structs.PricePlan, settings *
 
 	switch pricePlan.Side {
 	case SideBuy:
-		orderModel.Price = pricePlan.PriceBUY
+		orderModel.Price = pricePlan.HighPrice
 	case SideSell:
-		orderModel.Price = pricePlan.PriceSELL
+		orderModel.Price = pricePlan.LowPrice
 	}
 
 	if err := u.orderRepo.Store(&orderModel); err != nil {
@@ -669,13 +705,13 @@ func (u *orderUseCase) createOCOOrder(pricePlan *structs.PricePlan, settings *mo
 
 	switch pricePlan.Side {
 	case SideBuy:
-		if actualPrice < pricePlan.PriceBUY {
+		if actualPrice < pricePlan.HighPrice {
 			newPricePlan := u.fillPricePlan(OrderTypeOCO, pricePlan.Symbol, actualPrice, settings, pricePlan.Status).SetSide(SideBuy)
 			pricePlan = newPricePlan
 
 		}
 	case SideSell:
-		if actualPrice > pricePlan.PriceSELL {
+		if actualPrice > pricePlan.LowPrice {
 			newPricePlan := u.fillPricePlan(OrderTypeOCO, pricePlan.Symbol, actualPrice, settings, pricePlan.Status).SetSide(SideSell)
 			pricePlan = newPricePlan
 		}
@@ -695,11 +731,11 @@ func (u *orderUseCase) createOCOOrder(pricePlan *structs.PricePlan, settings *mo
 
 	switch pricePlan.Side {
 	case SideBuy:
-		q.Set("price", fmt.Sprintf("%.2f", pricePlan.PriceBUY))
+		q.Set("price", fmt.Sprintf("%.2f", pricePlan.HighPrice))
 		q.Set("stopPrice", fmt.Sprintf("%.2f", pricePlan.StopPriceBUY))
 		q.Set("stopLimitPrice", fmt.Sprintf("%.2f", pricePlan.StopPriceBUY))
 	case SideSell:
-		q.Set("price", fmt.Sprintf("%.2f", pricePlan.PriceSELL))
+		q.Set("price", fmt.Sprintf("%.2f", pricePlan.LowPrice))
 		q.Set("stopPrice", fmt.Sprintf("%.2f", pricePlan.StopPriceSELL))
 		q.Set("stopLimitPrice", fmt.Sprintf("%.2f", pricePlan.StopPriceSELL))
 	}
@@ -752,10 +788,10 @@ func (u *orderUseCase) createOCOOrder(pricePlan *structs.PricePlan, settings *mo
 
 	switch pricePlan.Side {
 	case SideBuy:
-		o.Price = pricePlan.PriceBUY
+		o.Price = pricePlan.HighPrice
 		o.StopPrice = pricePlan.StopPriceBUY
 	case SideSell:
-		o.Price = pricePlan.PriceSELL
+		o.Price = pricePlan.LowPrice
 		o.StopPrice = pricePlan.StopPriceSELL
 	}
 

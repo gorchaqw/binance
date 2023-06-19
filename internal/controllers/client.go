@@ -53,6 +53,8 @@ func (c *ClientController) Send(method string, url *url.URL, body []byte, useApi
 		return nil, err
 	}
 
+	//c.logger.WithField("API-KEY", c.apiKey).WithField("URL", url.String()).Debug("send")
+
 	req.Header.Add("Content-Type", "application/json")
 	if useApiKey {
 		req.Header.Add("X-MBX-APIKEY", c.apiKey)

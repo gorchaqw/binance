@@ -119,9 +119,11 @@ func main() {
 	//}
 
 	for _, symbol := range usecasees.SymbolList {
-		if err := orderUseCaseFeatures.FeaturesMonitoring(symbol); err != nil {
-			app.LogRus.Error(err)
-		}
+		go func(s string) {
+			if err := orderUseCaseFeatures.FeaturesMonitoring(s); err != nil {
+				app.LogRus.Error(err)
+			}
+		}(symbol)
 	}
 
 	app.registerHTTPEndpoints()

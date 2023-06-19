@@ -7,7 +7,6 @@ import (
 	"binance/models"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"net/http"
@@ -34,8 +33,8 @@ type Monitor struct {
 
 type ordersList [3]*models.Order
 
-func (o *ordersList) SetMarket(order *models.Order) {
-	o[OrderTypeMarketID] = order
+func (o *ordersList) SetLimit(order *models.Order) {
+	o[OrderTypeLimitID] = order
 }
 func (o *ordersList) SetTakeProfit(order *models.Order) {
 	o[OrderTypeTakeProfitID] = order
@@ -45,13 +44,13 @@ func (o *ordersList) SetStopLoss(order *models.Order) {
 }
 
 func (o *ordersList) IsNil() bool {
-	return o[OrderTypeMarketID] == nil && o[OrderTypeTakeProfitID] == nil && o[OrderTypeStopLossID] == nil
+	return o[OrderTypeLimitID] == nil && o[OrderTypeTakeProfitID] == nil && o[OrderTypeStopLossID] == nil
 }
 
 func (o *ordersList) Has(orderType string) bool {
 	switch orderType {
-	case OrderTypeMarket:
-		return o[OrderTypeMarketID] != nil
+	case OrderTypeLimit:
+		return o[OrderTypeLimitID] != nil
 	case OrderTypeTakeProfit:
 		return o[OrderTypeTakeProfitID] != nil
 	case OrderTypeStopLoss:
@@ -63,8 +62,8 @@ func (o *ordersList) Has(orderType string) bool {
 
 func (o *ordersList) Get(orderType string) *models.Order {
 	switch orderType {
-	case OrderTypeMarket:
-		return o[OrderTypeMarketID]
+	case OrderTypeLimit:
+		return o[OrderTypeLimitID]
 	case OrderTypeTakeProfit:
 		return o[OrderTypeTakeProfitID]
 	case OrderTypeStopLoss:
@@ -74,7 +73,7 @@ func (o *ordersList) Get(orderType string) *models.Order {
 	}
 }
 
-const chkTime = 250 * time.Millisecond
+const chkTime = 1 * time.Second
 
 func newMonitor() *Monitor {
 	return &Monitor{
@@ -104,22 +103,22 @@ func (m *Monitor) Update() {
 
 func (m *Monitor) UpdateCreateOrder(u *orderUseCase) {
 	for {
-		if m.ordersList.Has(OrderTypeMarket) {
-			if m.ordersList.Get(OrderTypeMarket).Status == OrderStatusInProgress {
+		if m.ordersList.Has(OrderTypeLimit) {
+			if m.ordersList.Get(OrderTypeLimit).Status == OrderStatusInProgress {
 
-				if m.ordersList.Get(OrderTypeMarket).Type != OrderTypeMarket {
-					u.logRus.Panicf("error order type\n id: %d\norder: %+v", 0, m.ordersList.Get(OrderTypeMarket))
+				if m.ordersList.Get(OrderTypeLimit).Type != OrderTypeLimit {
+					u.logRus.Panicf("error order type\n id: %d\norder: %+v", 0, m.ordersList.Get(OrderTypeLimit))
 				}
 
-				if err := u.createFeaturesMarketOrder(m.ordersList.Get(OrderTypeMarket)); err != nil {
+				if err := u.createFeaturesLimitOrder(m.ordersList.Get(OrderTypeLimit)); err != nil {
 					switch err {
 					case controllers.ErrUnknownOrderSent:
-						if err := u.orderRepo.Delete(m.ordersList.Get(OrderTypeMarket).ID); err != nil {
+						if err := u.orderRepo.Delete(m.ordersList.Get(OrderTypeLimit).ID); err != nil {
 							u.logRus.
 								WithField("func", "Delete").
-								WithField("type", OrderTypeMarket).
-								WithField("status", m.ordersList.Get(OrderTypeMarket).Status).
-								WithField("orderID", m.ordersList.Get(OrderTypeMarket).ID).
+								WithField("type", OrderTypeLimit).
+								WithField("status", m.ordersList.Get(OrderTypeLimit).Status).
+								WithField("orderID", m.ordersList.Get(OrderTypeLimit).ID).
 								Debug(err)
 
 							continue
@@ -128,22 +127,22 @@ func (m *Monitor) UpdateCreateOrder(u *orderUseCase) {
 
 					u.logRus.
 						WithField("func", "createFeaturesMarketOrder").
-						WithField("type", OrderTypeMarket).
-						WithField("status", m.ordersList.Get(OrderTypeMarket).Status).
-						WithField("orderID", m.ordersList.Get(OrderTypeMarket).ID).
+						WithField("type", OrderTypeLimit).
+						WithField("status", m.ordersList.Get(OrderTypeLimit).Status).
+						WithField("orderID", m.ordersList.Get(OrderTypeLimit).ID).
 						Debug(err)
 
 					continue
 				}
 
-				m.ordersList.Get(OrderTypeMarket).Status = OrderStatusNew
+				m.ordersList.Get(OrderTypeLimit).Status = OrderStatusNew
 
-				if err := u.orderRepo.SetStatus(m.ordersList.Get(OrderTypeMarket).ID, OrderStatusNew); err != nil {
+				if err := u.orderRepo.SetStatus(m.ordersList.Get(OrderTypeLimit).ID, OrderStatusNew); err != nil {
 					u.logRus.
 						WithField("func", "SetStatus").
-						WithField("type", OrderTypeMarket).
-						WithField("status", m.ordersList.Get(OrderTypeMarket).Status).
-						WithField("orderID", m.ordersList.Get(OrderTypeMarket).ID).
+						WithField("type", OrderTypeLimit).
+						WithField("status", m.ordersList.Get(OrderTypeLimit).Status).
+						WithField("orderID", m.ordersList.Get(OrderTypeLimit).ID).
 						Debug(err)
 				}
 			}
@@ -156,7 +155,7 @@ func (m *Monitor) UpdateCreateOrder(u *orderUseCase) {
 					u.logRus.Panicf("error order type\n id: %d\norder: %+v", 1, m.ordersList.Get(OrderTypeTakeProfit))
 				}
 
-				if err := u.createFeatureOrder(m.ordersList.Get(OrderTypeTakeProfit)); err != nil {
+				if err := u.createFeaturesLimitOrder(m.ordersList.Get(OrderTypeTakeProfit)); err != nil {
 					u.logRus.
 						WithField("func", "createFeatureOrder").
 						WithField("type", OrderTypeTakeProfit).
@@ -181,36 +180,36 @@ func (m *Monitor) UpdateCreateOrder(u *orderUseCase) {
 			}
 		}
 
-		if m.ordersList.Has(OrderTypeStopLoss) {
-			if m.ordersList.Get(OrderTypeStopLoss).Status == OrderStatusInProgress {
-
-				if m.ordersList.Get(OrderTypeStopLoss).Type != OrderTypeStopLoss {
-					u.logRus.Panicf("error order type\n id: %d\norder: %+v", 2, m.ordersList.Get(OrderTypeStopLoss))
-				}
-
-				if err := u.createFeatureOrder(m.ordersList.Get(OrderTypeStopLoss)); err != nil {
-					u.logRus.
-						WithField("func", "createFeatureOrder").
-						WithField("type", OrderTypeStopLoss).
-						WithField("status", m.ordersList.Get(OrderTypeStopLoss).Status).
-						WithField("orderID", m.ordersList.Get(OrderTypeStopLoss).ID).
-						Debug(err)
-
-					continue
-				}
-
-				m.ordersList.Get(OrderTypeStopLoss).Status = OrderStatusNew
-
-				if err := u.orderRepo.SetStatus(m.ordersList.Get(OrderTypeStopLoss).ID, OrderStatusNew); err != nil {
-					u.logRus.
-						WithField("func", "SetStatus").
-						WithField("type", OrderTypeStopLoss).
-						WithField("status", m.ordersList.Get(OrderTypeStopLoss).Status).
-						WithField("orderID", m.ordersList.Get(OrderTypeStopLoss).ID).
-						Debug(err)
-				}
-			}
-		}
+		//if m.ordersList.Has(OrderTypeStopLoss) {
+		//	if m.ordersList.Get(OrderTypeStopLoss).Status == OrderStatusInProgress {
+		//
+		//		if m.ordersList.Get(OrderTypeStopLoss).Type != OrderTypeStopLoss {
+		//			u.logRus.Panicf("error order type\n id: %d\norder: %+v", 2, m.ordersList.Get(OrderTypeStopLoss))
+		//		}
+		//
+		//		if err := u.createFeatureOrder(m.ordersList.Get(OrderTypeStopLoss)); err != nil {
+		//			u.logRus.
+		//				WithField("func", "createFeatureOrder").
+		//				WithField("type", OrderTypeStopLoss).
+		//				WithField("status", m.ordersList.Get(OrderTypeStopLoss).Status).
+		//				WithField("orderID", m.ordersList.Get(OrderTypeStopLoss).ID).
+		//				Debug(err)
+		//
+		//			continue
+		//		}
+		//
+		//		m.ordersList.Get(OrderTypeStopLoss).Status = OrderStatusNew
+		//
+		//		if err := u.orderRepo.SetStatus(m.ordersList.Get(OrderTypeStopLoss).ID, OrderStatusNew); err != nil {
+		//			u.logRus.
+		//				WithField("func", "SetStatus").
+		//				WithField("type", OrderTypeStopLoss).
+		//				WithField("status", m.ordersList.Get(OrderTypeStopLoss).Status).
+		//				WithField("orderID", m.ordersList.Get(OrderTypeStopLoss).ID).
+		//				Debug(err)
+		//		}
+		//	}
+		//}
 
 		time.Sleep(chkTime)
 	}
@@ -249,7 +248,7 @@ func (m *Monitor) UpdateOrderStatus(u *orderUseCase) {
 			}
 
 			switch order.Type {
-			case OrderTypeMarket:
+			case OrderTypeLimit:
 				avgPrice, err := strconv.ParseFloat(order.AvgPrice, 64)
 				if err != nil {
 					u.logRus.WithField("func", "ParseFloat").Debug(err)
@@ -287,9 +286,9 @@ func (m *Monitor) UpdateOrdersList(u *orderUseCase) {
 
 		for _, o := range list {
 			switch o.Type {
-			case OrderTypeMarket:
+			case OrderTypeLimit:
 				order := o
-				out.SetMarket(&order)
+				out.SetLimit(&order)
 			case OrderTypeTakeProfit:
 				order := o
 				out.SetTakeProfit(&order)
@@ -326,21 +325,20 @@ func (m *Monitor) UpdateLastOrder(u *orderUseCase, symbol string) {
 
 					m.status.
 						SetSessionID(uuid.NewString()).
-						SetOrderTry(1).
-						SetQuantityByStep(m.settings.Step).
-						SetMode(structs.Middle)
+						SetQuantity(m.settings.Step)
+					//SetMode(structs.Middle)
 
-					pricePlan := u.fillPricePlan(OrderTypeBatch, symbol, m.actualPrice, m.settings, m.status).SetSide(SideBuy)
+					pricePlan := u.fillPricePlan(OrderTypeLimit, symbol, m.actualPrice, m.settings, m.status)
 
-					marketOrder, err := u.storeFeaturesMarketOrder(pricePlan)
+					limitOrder, err := u.storeFeaturesLimitOrder(pricePlan)
 					if err != nil {
 						u.logRus.
 							WithError(err).
 							Error(string(debug.Stack()))
 					}
 
-					marketOrder.Status = OrderStatusNotFound
-					m.ordersList.SetMarket(marketOrder)
+					limitOrder.Status = OrderStatusNotFound
+					m.ordersList.SetLimit(limitOrder)
 				}
 				continue
 			default:
@@ -355,10 +353,10 @@ func (m *Monitor) UpdateLastOrder(u *orderUseCase, symbol string) {
 		}
 
 		m.status.
-			SetSessionID(order.SessionID).
-			SetOrderTry(order.Try).
-			SetQuantityByStep(m.settings.Step).
-			SetMode(structs.Middle)
+			SetSessionID(order.SessionID)
+		//SetQuantityByStep(m.settings.Step)
+		//SetOrderTry(order.Try).
+		//SetMode(structs.Middle)
 
 		m.lastOrderChan <- order
 
@@ -387,7 +385,7 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 
 	chkCreateOrdersFunc := func(o ordersList) bool {
 		switch true {
-		case o.Has(OrderTypeMarket) && o.Get(OrderTypeMarket).Status == OrderStatusFilled &&
+		case o.Has(OrderTypeLimit) && o.Get(OrderTypeLimit).Status == OrderStatusFilled &&
 			o.Has(OrderTypeTakeProfit) == false &&
 			o.Has(OrderTypeStopLoss) == false:
 
@@ -396,46 +394,45 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 		return false
 	}
 
-	chkTakeProfitCancelFunc := func(o ordersList) bool {
-		if o.Has(OrderTypeMarket) && o.Get(OrderTypeMarket).Status == OrderStatusFilled &&
-			o.Has(OrderTypeTakeProfit) && o.Get(OrderTypeTakeProfit).Status == OrderStatusNew &&
-			o.Has(OrderTypeStopLoss) && o.Get(OrderTypeStopLoss).Status == OrderStatusFilled {
+	//chkTakeProfitCancelFunc := func(o ordersList) bool {
+	//	if o.Has(OrderTypeMarket) && o.Get(OrderTypeMarket).Status == OrderStatusFilled &&
+	//		o.Has(OrderTypeTakeProfit) && o.Get(OrderTypeTakeProfit).Status == OrderStatusNew &&
+	//		o.Has(OrderTypeStopLoss) && o.Get(OrderTypeStopLoss).Status == OrderStatusFilled {
+	//
+	//		return true
+	//	}
+	//
+	//	return false
+	//}
 
-			return true
-		}
-
-		return false
-	}
-
-	chkStopLossCancelFunc := func(o ordersList) bool {
-		if o.Has(OrderTypeMarket) && o.Get(OrderTypeMarket).Status == OrderStatusFilled &&
-			o.Has(OrderTypeTakeProfit) && o.Get(OrderTypeTakeProfit).Status == OrderStatusFilled &&
-			o.Has(OrderTypeStopLoss) && o.Get(OrderTypeStopLoss).Status == OrderStatusNew {
-
-			return true
-		}
-		return false
-	}
+	//chkStopLossCancelFunc := func(o ordersList) bool {
+	//	if o.Has(OrderTypeMarket) && o.Get(OrderTypeMarket).Status == OrderStatusFilled &&
+	//		o.Has(OrderTypeTakeProfit) && o.Get(OrderTypeTakeProfit).Status == OrderStatusFilled &&
+	//		o.Has(OrderTypeStopLoss) && o.Get(OrderTypeStopLoss).Status == OrderStatusNew {
+	//
+	//		return true
+	//	}
+	//	return false
+	//}
 
 	chkCreateLimitOrderTakeProfitFunc := func(o ordersList) bool {
-		if o.Has(OrderTypeMarket) && o.Get(OrderTypeMarket).Status == OrderStatusFilled &&
-			o.Has(OrderTypeTakeProfit) && o.Get(OrderTypeTakeProfit).Status == OrderStatusFilled &&
-			o.Has(OrderTypeStopLoss) && (o.Get(OrderTypeStopLoss).Status == OrderStatusCanceled || o.Get(OrderTypeStopLoss).Status == OrderStatusExpired) {
+		if o.Has(OrderTypeLimit) && o.Get(OrderTypeLimit).Status == OrderStatusFilled &&
+			o.Has(OrderTypeTakeProfit) && o.Get(OrderTypeTakeProfit).Status == OrderStatusFilled {
 
 			return true
 		}
 		return false
 	}
 
-	chkCreateLimitOrderStopLossFunc := func(o ordersList) bool {
-		if o.Has(OrderTypeMarket) && o.Get(OrderTypeMarket).Status == OrderStatusFilled &&
-			o.Has(OrderTypeTakeProfit) && (o.Get(OrderTypeTakeProfit).Status == OrderStatusCanceled || o.Get(OrderTypeTakeProfit).Status == OrderStatusExpired) &&
-			o.Has(OrderTypeStopLoss) && o.Get(OrderTypeStopLoss).Status == OrderStatusFilled {
-
-			return true
-		}
-		return false
-	}
+	//chkCreateLimitOrderStopLossFunc := func(o ordersList) bool {
+	//	if o.Has(OrderTypeMarket) && o.Get(OrderTypeMarket).Status == OrderStatusFilled &&
+	//		o.Has(OrderTypeTakeProfit) && (o.Get(OrderTypeTakeProfit).Status == OrderStatusCanceled || o.Get(OrderTypeTakeProfit).Status == OrderStatusExpired) &&
+	//		o.Has(OrderTypeStopLoss) && o.Get(OrderTypeStopLoss).Status == OrderStatusFilled {
+	//
+	//		return true
+	//	}
+	//	return false
+	//}
 
 	m := newMonitor()
 	m.UpdateSettings(u, symbol)
@@ -452,17 +449,14 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 			continue
 		}
 
+		if m.status.Quantity == 0 {
+			m.status.SetQuantity(m.settings.Step)
+		}
+
 		if chkCreateOrdersFunc(m.ordersList) {
-			pricePlan := u.fillPricePlan(OrderTypeBatch, symbol, m.ordersList.Get(OrderTypeMarket).Price, m.settings, m.status)
+			pricePlan := u.fillPricePlan(OrderTypeLimit, symbol, m.ordersList.Get(OrderTypeLimit).Price, m.settings, m.status)
 
-			switch m.ordersList.Get(OrderTypeMarket).Side {
-			case SideBuy:
-				pricePlan.SetSide(SideBuy)
-			case SideSell:
-				pricePlan.SetSide(SideSell)
-			}
-
-			takeProfitOrder, err := u.storeFeatureOrder(pricePlan, u.constructTakeProfitOrder(pricePlan, m.settings))
+			takeProfitOrder, err := u.storeFeatureTakeProfitOrder(pricePlan, m.ordersList.Get(OrderTypeLimit), u.constructTakeProfitOrder(pricePlan, m.settings))
 			if err != nil {
 				u.logRus.
 					WithError(err).
@@ -470,44 +464,37 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 			}
 			m.ordersList.SetTakeProfit(takeProfitOrder)
 
-			stopLossOrder, err := u.storeFeatureOrder(pricePlan, u.constructStopLossOrder(pricePlan, m.settings))
-			if err != nil {
-				u.logRus.
-					WithError(err).
-					Error(string(debug.Stack()))
-			}
-			m.ordersList.SetStopLoss(stopLossOrder)
+			//stopLossOrder, err := u.storeFeatureTakeProfitOrder(pricePlan, u.constructStopLossOrder(pricePlan, m.settings))
+			//if err != nil {
+			//	u.logRus.
+			//		WithError(err).
+			//		Error(string(debug.Stack()))
+			//}
+			//m.ordersList.SetStopLoss(stopLossOrder)
 		}
 
-		if chkTakeProfitCancelFunc(m.ordersList) {
-			if _, err := u.cancelFeatureOrder(m.ordersList.Get(OrderTypeTakeProfit).OrderID, symbol); err != nil {
-				u.logRus.
-					WithError(err).
-					Error(string(debug.Stack()))
-			}
-		}
+		//if chkTakeProfitCancelFunc(m.ordersList) {
+		//	if _, err := u.cancelFeatureOrder(m.ordersList.Get(OrderTypeTakeProfit).OrderID, symbol); err != nil {
+		//		u.logRus.
+		//			WithError(err).
+		//			Error(string(debug.Stack()))
+		//	}
+		//}
 
-		if chkStopLossCancelFunc(m.ordersList) {
-			if _, err := u.cancelFeatureOrder(m.ordersList.Get(OrderTypeStopLoss).OrderID, symbol); err != nil {
-				u.logRus.
-					WithError(err).
-					Error(string(debug.Stack()))
-			}
-		}
+		//if chkStopLossCancelFunc(m.ordersList) {
+		//	if _, err := u.cancelFeatureOrder(m.ordersList.Get(OrderTypeStopLoss).OrderID, symbol); err != nil {
+		//		u.logRus.
+		//			WithError(err).
+		//			Error(string(debug.Stack()))
+		//	}
+		//}
 
 		if chkCreateLimitOrderTakeProfitFunc(m.ordersList) {
-			m.status.Reset(m.settings.Step)
 
-			pricePlan := u.fillPricePlan(OrderTypeBatch, symbol, m.ordersList.Get(OrderTypeTakeProfit).Price, m.settings, m.status)
+			pricePlan := u.fillPricePlan(OrderTypeLimit, symbol, m.ordersList.Get(OrderTypeTakeProfit).Price, m.settings, m.status)
+			pricePlan.Status.NewSessionID()
 
-			switch m.ordersList.Get(OrderTypeMarket).Side {
-			case SideBuy:
-				pricePlan.SetSide(SideSell)
-			case SideSell:
-				pricePlan.SetSide(SideBuy)
-			}
-
-			marketOrder, err := u.storeFeaturesMarketOrder(pricePlan)
+			marketOrder, err := u.storeFeaturesLimitOrder(pricePlan)
 			if err != nil {
 				u.logRus.
 					WithError(err).
@@ -515,34 +502,34 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 			}
 
 			marketOrder.Status = OrderStatusNotFound
-			m.ordersList.SetMarket(marketOrder)
+			m.ordersList.SetLimit(marketOrder)
 		}
 
-		if chkCreateLimitOrderStopLossFunc(m.ordersList) {
-			m.status.
-				NewSessionID().
-				AddOrderTry(1).
-				SetQuantityByStep(m.settings.Step)
-
-			pricePlan := u.fillPricePlan(OrderTypeBatch, symbol, m.ordersList.Get(OrderTypeStopLoss).Price, m.settings, m.status)
-
-			switch m.ordersList.Get(OrderTypeMarket).Side {
-			case SideBuy:
-				pricePlan.SetSide(SideSell)
-			case SideSell:
-				pricePlan.SetSide(SideBuy)
-			}
-
-			marketOrder, err := u.storeFeaturesMarketOrder(pricePlan)
-			if err != nil {
-				u.logRus.
-					WithError(err).
-					Error(string(debug.Stack()))
-			}
-
-			marketOrder.Status = OrderStatusNotFound
-			m.ordersList.SetMarket(marketOrder)
-		}
+		//if chkCreateLimitOrderStopLossFunc(m.ordersList) {
+		//	m.status.
+		//		NewSessionID().
+		//		AddOrderTry(1).
+		//		SetQuantityByStep(m.settings.Step)
+		//
+		//	pricePlan := u.fillPricePlan(OrderTypeBatch, symbol, m.ordersList.Get(OrderTypeStopLoss).Price, m.settings, m.status)
+		//
+		//	switch m.ordersList.Get(OrderTypeMarket).Side {
+		//	case SideBuy:
+		//		pricePlan.SetSide(SideSell)
+		//	case SideSell:
+		//		pricePlan.SetSide(SideBuy)
+		//	}
+		//
+		//	marketOrder, err := u.storeFeaturesMarketOrder(pricePlan)
+		//	if err != nil {
+		//		u.logRus.
+		//			WithError(err).
+		//			Error(string(debug.Stack()))
+		//	}
+		//
+		//	marketOrder.Status = OrderStatusNotFound
+		//	m.ordersList.SetMarket(marketOrder)
+		//}
 
 		time.Sleep(chkTime)
 	}
@@ -574,70 +561,77 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 
 func (u *orderUseCase) constructTakeProfitOrder(pricePlan *structs.PricePlan, settings *mongoStructs.Settings) *structs.FeatureOrderReq {
 	out := structs.FeatureOrderReq{
-		Symbol:        settings.Symbol,
-		Type:          OrderTypeTakeProfit,
-		PriceProtect:  "true",
-		Quantity:      fmt.Sprintf("%.3f", pricePlan.Status.Quantity),
-		ClosePosition: "true",
+		Symbol:       settings.Symbol,
+		Type:         OrderTypeTakeProfit,
+		PriceProtect: "true",
+		Quantity:     fmt.Sprintf("%.3f", pricePlan.Status.Quantity),
+		//ClosePosition: "true",
 	}
 
 	switch pricePlan.Side {
 	case SideBuy:
 		out.Side = SideSell
-		out.StopPrice = fmt.Sprintf("%.1f", pricePlan.PriceSELL)
-		out.PositionSide = "LONG"
+		//out.StopPrice = fmt.Sprintf("%.1f", pricePlan.LowPrice)
+		//out.Price = fmt.Sprintf("%.1f", pricePlan.LowPrice)
+		//out.PositionSide = "LONG"
 	case SideSell:
 		out.Side = SideBuy
-		out.StopPrice = fmt.Sprintf("%.1f", pricePlan.PriceBUY)
-		out.PositionSide = "SHORT"
+		//out.StopPrice = fmt.Sprintf("%.1f", pricePlan.HighPrice)
+		//out.Price = fmt.Sprintf("%.1f", pricePlan.HighPrice)
+		//out.PositionSide = "SHORT"
 	}
 
 	return &out
 }
-func (u *orderUseCase) constructStopLossOrder(pricePlan *structs.PricePlan, settings *mongoStructs.Settings) *structs.FeatureOrderReq {
-	out := structs.FeatureOrderReq{
-		Symbol:        settings.Symbol,
-		Type:          OrderTypeStopLoss,
-		PriceProtect:  "true",
-		Quantity:      fmt.Sprintf("%.3f", pricePlan.Status.Quantity),
-		ClosePosition: "true",
-	}
 
-	switch pricePlan.Side {
-	case SideBuy:
-		out.Side = SideSell
-		out.StopPrice = fmt.Sprintf("%.1f", pricePlan.StopPriceSELL)
-		out.PositionSide = "LONG"
-	case SideSell:
-		out.Side = SideBuy
-		out.StopPrice = fmt.Sprintf("%.1f", pricePlan.StopPriceBUY)
-		out.PositionSide = "SHORT"
-	}
-	return &out
-}
+//}
+//func (u *orderUseCase) constructStopLossOrder(pricePlan *structs.PricePlan, settings *mongoStructs.Settings) *structs.FeatureOrderReq {
+//	out := structs.FeatureOrderReq{
+//		Symbol:        settings.Symbol,
+//		Type:          OrderTypeStopLoss,
+//		PriceProtect:  "true",
+//		Quantity:      fmt.Sprintf("%.3f", pricePlan.Status.Quantity),
+//		ClosePosition: "true",
+//	}
+//
+//	switch pricePlan.Side {
+//	case SideBuy:
+//		out.Side = SideSell
+//		out.StopPrice = fmt.Sprintf("%.1f", pricePlan.StopPriceSELL)
+//		out.PositionSide = "LONG"
+//	case SideSell:
+//		out.Side = SideBuy
+//		out.StopPrice = fmt.Sprintf("%.1f", pricePlan.StopPriceBUY)
+//		out.PositionSide = "SHORT"
+//	}
+//	return &out
+//}
 
-func (u *orderUseCase) storeFeatureOrder(pricePlan *structs.PricePlan, order *structs.FeatureOrderReq) (*models.Order, error) {
-	quantity, err := strconv.ParseFloat(order.Quantity, 64)
-	if err != nil {
-		return nil, err
-	}
-
-	stopPrice, err := strconv.ParseFloat(order.StopPrice, 64)
-	if err != nil {
-		return nil, err
-	}
-
+func (u *orderUseCase) storeFeaturesLimitOrder(pricePlan *structs.PricePlan) (*models.Order, error) {
 	o := models.Order{
-		ID:          uuid.NewString(),
-		SessionID:   pricePlan.Status.SessionID,
-		Try:         pricePlan.Status.OrderTry,
-		ActualPrice: pricePlan.ActualPrice,
-		Symbol:      order.Symbol,
-		Side:        order.Side,
-		Type:        order.Type,
-		Quantity:    quantity,
-		StopPrice:   stopPrice,
-		Status:      OrderStatusInProgress,
+		ID:           uuid.NewString(),
+		SessionID:    pricePlan.Status.SessionID,
+		Try:          pricePlan.Status.OrderTry,
+		ActualPrice:  pricePlan.ActualPrice,
+		Symbol:       pricePlan.Symbol,
+		Side:         pricePlan.Side,
+		Type:         "LIMIT",
+		Quantity:     pricePlan.Status.Quantity,
+		Status:       OrderStatusInProgress,
+		StopPrice:    0,
+		PositionSide: pricePlan.PositionSide,
+	}
+
+	if pricePlan.ActualPrice > pricePlan.AvgPrice {
+		o.Side = SideSell
+		o.PositionSide = "SHORT"
+		o.Price = pricePlan.ActualPrice + pricePlan.DeltaPrice
+	}
+
+	if pricePlan.ActualPrice <= pricePlan.AvgPrice {
+		o.Side = SideBuy
+		o.PositionSide = "LONG"
+		o.Price = pricePlan.ActualPrice - pricePlan.DeltaPrice
 	}
 
 	if err := u.orderRepo.Store(&o); err != nil {
@@ -647,123 +641,196 @@ func (u *orderUseCase) storeFeatureOrder(pricePlan *structs.PricePlan, order *st
 	return &o, nil
 }
 
-func (u *orderUseCase) createFeatureOrder(order *models.Order) error {
-	baseURL, err := url.Parse(featureURL)
-	if err != nil {
-		return err
+func (u *orderUseCase) storeFeatureTakeProfitOrder(pricePlan *structs.PricePlan, limitOrder *models.Order, order *structs.FeatureOrderReq) (*models.Order, error) {
+	o := models.Order{
+		ID:          uuid.NewString(),
+		SessionID:   pricePlan.Status.SessionID,
+		Try:         pricePlan.Status.OrderTry,
+		ActualPrice: pricePlan.ActualPrice,
+		Symbol:      order.Symbol,
+		Side:        order.Side,
+		Type:        order.Type,
+		Quantity:    pricePlan.Status.Quantity,
+		Status:      OrderStatusInProgress,
 	}
 
-	baseURL.Path = path.Join(featureOrder)
+	o.PositionSide = limitOrder.PositionSide
+
+	switch o.PositionSide {
+	case "LONG":
+		o.Side = SideSell
+		o.Price = limitOrder.Price + pricePlan.DeltaPrice
+		o.StopPrice = limitOrder.Price + pricePlan.DeltaPrice
+
+		if pricePlan.ActualPrice > o.Price {
+			o.Price += pricePlan.DeltaPrice / 3
+			o.StopPrice += pricePlan.DeltaPrice / 3
+		}
+
+	case "SHORT":
+		o.Side = SideBuy
+		o.Price = limitOrder.Price - pricePlan.DeltaPrice
+		o.StopPrice = limitOrder.Price - pricePlan.DeltaPrice
+
+		if pricePlan.ActualPrice < o.Price {
+			o.Price -= pricePlan.DeltaPrice / 3
+			o.StopPrice -= pricePlan.DeltaPrice / 3
+		}
+	}
+
+	if err := u.orderRepo.Store(&o); err != nil {
+		return nil, err
+	}
+
+	return &o, nil
+}
+
+func (u *orderUseCase) ticker24hr(symbol string) (*PriceChangeStatistics, error) {
+	baseURL, err := url.Parse(u.url)
+	if err != nil {
+		return nil, err
+	}
+
+	baseURL.Path = path.Join(featureTicker24hr)
 
 	q := baseURL.Query()
-	q.Set("symbol", order.Symbol)
-	q.Set("type", order.Type)
-	q.Set("priceProtect", "true")
-	q.Set("quantity", fmt.Sprintf("%.3f", order.Quantity))
-	q.Set("closePosition", "true")
-	q.Set("newClientOrderId", order.ID)
-
-	q.Set("side", order.Side)
-	q.Set("stopPrice", fmt.Sprintf("%.2f", order.StopPrice))
-
-	switch order.Side {
-	case SideBuy:
-		q.Set("positionSide", "SHORT")
-	case SideSell:
-		q.Set("positionSide", "LONG")
-	}
-
-	q.Set("recvWindow", "60000")
-	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
-
-	sig := u.cryptoController.GetSignature(q.Encode())
-	q.Set("signature", sig)
+	q.Set("symbol", symbol)
 
 	baseURL.RawQuery = q.Encode()
 
-	resp, err := u.clientController.Send(http.MethodPost, baseURL, nil, true)
+	resp, err := u.clientController.Send(http.MethodGet, baseURL, nil, true)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	var respOrder structs.FeatureOrderResp
-	if err := json.Unmarshal(resp, &respOrder); err != nil {
-		return err
+	var out PriceChangeStatistics
+	if err := json.Unmarshal(resp, &out); err != nil {
+		return nil, err
 	}
 
-	if respOrder.OrderId == 0 {
-		return fmt.Errorf("err OrderId == 0 : %s", resp)
-	}
-
-	return nil
+	return &out, nil
 }
 
-func (u *orderUseCase) createBatchOrders(pricePlan *structs.PricePlan, orders []structs.FeatureOrderReq) error {
-	for _, order := range orders {
-		o := models.Order{
-			ID:          order.NewClientOrderId,
-			SessionID:   pricePlan.Status.SessionID,
-			Try:         pricePlan.Status.OrderTry,
-			ActualPrice: pricePlan.ActualPrice,
-			Symbol:      order.Symbol,
-			Side:        order.Side,
-			Type:        order.Type,
-		}
+//func (u *orderUseCase) createFeatureOrder(order *models.Order) error {
+//	baseURL, err := url.Parse(u.url)
+//	if err != nil {
+//		return err
+//	}
+//
+//	baseURL.Path = path.Join(featureOrder)
+//
+//	q := baseURL.Query()
+//	q.Set("symbol", order.Symbol)
+//	q.Set("type", order.Type)
+//	q.Set("timeInForce", "FOK")
+//	q.Set("priceProtect", "true")
+//	q.Set("quantity", fmt.Sprintf("%.3f", order.Quantity))
+//	//q.Set("closePosition", "true")
+//	q.Set("newClientOrderId", order.ID)
+//
+//	q.Set("side", order.Side)
+//	q.Set("stopPrice", fmt.Sprintf("%.2f", order.StopPrice))
+//	q.Set("price", fmt.Sprintf("%.2f", order.StopPrice))
+//
+//	switch order.Side {
+//	case SideBuy:
+//		q.Set("positionSide", "SHORT")
+//	case SideSell:
+//		q.Set("positionSide", "LONG")
+//	}
+//
+//	q.Set("recvWindow", "60000")
+//	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
+//
+//	sig := u.cryptoController.GetSignature(q.Encode())
+//	q.Set("signature", sig)
+//
+//	baseURL.RawQuery = q.Encode()
+//
+//	resp, err := u.clientController.Send(http.MethodPost, baseURL, nil, true)
+//	if err != nil {
+//		return err
+//	}
+//
+//	var respOrder structs.FeatureOrderResp
+//	if err := json.Unmarshal(resp, &respOrder); err != nil {
+//		return err
+//	}
+//
+//	if respOrder.OrderId == 0 {
+//		return fmt.Errorf("err OrderId == 0 : %s", resp)
+//	}
+//
+//	return nil
+//}
 
-		if err := u.orderRepo.Store(&o); err != nil {
-			return err
-		}
-	}
-
-	baseURL, err := url.Parse(featureURL)
-	if err != nil {
-		return err
-	}
-
-	baseURL.Path = path.Join(featureBatchOrders)
-
-	batchOrders, err := json.Marshal(orders)
-	if err != nil {
-		return err
-	}
-
-	q := baseURL.Query()
-	q.Set("batchOrders", fmt.Sprintf("%s", batchOrders))
-	q.Set("recvWindow", "60000")
-	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
-
-	sig := u.cryptoController.GetSignature(q.Encode())
-	q.Set("signature", sig)
-
-	baseURL.RawQuery = q.Encode()
-
-	req, err := u.clientController.Send(http.MethodPost, baseURL, nil, true)
-	if err != nil {
-		return err
-	}
-
-	u.logRus.Debugf("createBatchOrders Req: %s", req)
-	u.logRus.Debugf("createBatchOrders PricePlan: %+v", pricePlan)
-	u.logRus.Debugf("createBatchOrders Orders: %+v", orders)
-
-	var orderList []structs.FeatureOrderResp
-	if err := json.Unmarshal(req, &orderList); err != nil {
-		return errors.New(fmt.Sprintf("%+v %s", err, req))
-	}
-
-	for _, o := range orderList {
-		if o.OrderId == 0 {
-			if err := u.orderRepo.SetStatus(o.ClientOrderId, OrderStatusError); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
+//
+//func (u *orderUseCase) createBatchOrders(pricePlan *structs.PricePlan, orders []structs.FeatureOrderReq) error {
+//	for _, order := range orders {
+//		o := models.Order{
+//			ID:          order.NewClientOrderId,
+//			SessionID:   pricePlan.Status.SessionID,
+//			Try:         pricePlan.Status.OrderTry,
+//			ActualPrice: pricePlan.ActualPrice,
+//			Symbol:      order.Symbol,
+//			Side:        order.Side,
+//			Type:        order.Type,
+//		}
+//
+//		if err := u.orderRepo.Store(&o); err != nil {
+//			return err
+//		}
+//	}
+//
+//	baseURL, err := url.Parse(u.url)
+//	if err != nil {
+//		return err
+//	}
+//
+//	baseURL.Path = path.Join(featureBatchOrders)
+//
+//	batchOrders, err := json.Marshal(orders)
+//	if err != nil {
+//		return err
+//	}
+//
+//	q := baseURL.Query()
+//	q.Set("batchOrders", fmt.Sprintf("%s", batchOrders))
+//	q.Set("recvWindow", "60000")
+//	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
+//
+//	sig := u.cryptoController.GetSignature(q.Encode())
+//	q.Set("signature", sig)
+//
+//	baseURL.RawQuery = q.Encode()
+//
+//	req, err := u.clientController.Send(http.MethodPost, baseURL, nil, true)
+//	if err != nil {
+//		return err
+//	}
+//
+//	u.logRus.Debugf("createBatchOrders Req: %s", req)
+//	u.logRus.Debugf("createBatchOrders PricePlan: %+v", pricePlan)
+//	u.logRus.Debugf("createBatchOrders Orders: %+v", orders)
+//
+//	var orderList []structs.FeatureOrderResp
+//	if err := json.Unmarshal(req, &orderList); err != nil {
+//		return errors.New(fmt.Sprintf("%+v %s", err, req))
+//	}
+//
+//	for _, o := range orderList {
+//		if o.OrderId == 0 {
+//			if err := u.orderRepo.SetStatus(o.ClientOrderId, OrderStatusError); err != nil {
+//				return err
+//			}
+//		}
+//	}
+//
+//	return nil
+//}
 
 func (u *orderUseCase) getFeaturePositionInfo(orderID int64, symbol string) (*structs.Order, error) {
-	baseURL, err := url.Parse(featureURL)
+	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return nil, err
 	}
@@ -795,7 +862,7 @@ func (u *orderUseCase) getFeaturePositionInfo(orderID int64, symbol string) (*st
 	return &out, nil
 }
 func (u *orderUseCase) getFeatureOrderInfo(orderID string, symbol string) (*structs.FeatureOrderResp, error) {
-	baseURL, err := url.Parse(featureURL)
+	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return nil, err
 	}
@@ -840,7 +907,7 @@ func (u *orderUseCase) getFeatureOrderInfo(orderID string, symbol string) (*stru
 
 }
 func (u *orderUseCase) cancelFeatureOrder(orderID int64, symbol string) (*structs.Order, error) {
-	baseURL, err := url.Parse(featureURL)
+	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return nil, err
 	}
@@ -872,52 +939,58 @@ func (u *orderUseCase) cancelFeatureOrder(orderID int64, symbol string) (*struct
 	return &out, nil
 }
 
-func (u *orderUseCase) storeFeaturesMarketOrder(pricePlan *structs.PricePlan) (*models.Order, error) {
-	o := models.Order{
-		ID:          uuid.NewString(),
-		SessionID:   pricePlan.Status.SessionID,
-		Try:         pricePlan.Status.OrderTry,
-		ActualPrice: pricePlan.ActualPrice,
-		Symbol:      pricePlan.Symbol,
-		Side:        pricePlan.Side,
-		Type:        "MARKET",
-		Quantity:    pricePlan.Status.Quantity,
-		Status:      OrderStatusInProgress,
-		StopPrice:   0,
-		Price:       0,
-	}
+//func (u *orderUseCase) storeFeaturesMarketOrder(pricePlan *structs.PricePlan) (*models.Order, error) {
+//	o := models.Order{
+//		ID:          uuid.NewString(),
+//		SessionID:   pricePlan.Status.SessionID,
+//		Try:         pricePlan.Status.OrderTry,
+//		ActualPrice: pricePlan.ActualPrice,
+//		Symbol:      pricePlan.Symbol,
+//		Side:        pricePlan.Side,
+//		Type:        "MARKET",
+//		Quantity:    pricePlan.Status.Quantity,
+//		Status:      OrderStatusInProgress,
+//		StopPrice:   0,
+//		Price:       0,
+//	}
+//
+//	if err := u.orderRepo.Store(&o); err != nil {
+//		return nil, err
+//	}
+//
+//	return &o, nil
+//}
 
-	if err := u.orderRepo.Store(&o); err != nil {
-		return nil, err
-	}
-
-	return &o, nil
-}
-
-func (u *orderUseCase) createFeaturesMarketOrder(order *models.Order) error {
-	baseURL, err := url.Parse(featureURL)
+func (u *orderUseCase) createFeaturesLimitOrder(order *models.Order) error {
+	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return err
 	}
 
+	u.logRus.Debug("createFeaturesLimitOrder", order)
+
 	baseURL.Path = path.Join(featureOrder)
 
 	q := baseURL.Query()
+
+	q.Set("type", order.Type)
 	q.Set("symbol", order.Symbol)
-	switch order.Side {
-	case SideBuy:
-		q.Set("side", SideBuy)
-		q.Set("positionSide", "LONG")
-	case SideSell:
-		q.Set("side", SideSell)
-		q.Set("positionSide", "SHORT")
-	}
+	q.Set("price", fmt.Sprintf("%.1f", order.Price))
+	q.Set("quantity", fmt.Sprintf("%.3f", order.Quantity))
+	q.Set("side", order.Side)
+	q.Set("positionSide", order.PositionSide)
 
 	q.Set("newClientOrderId", order.ID)
-	q.Set("type", "MARKET")
-	q.Set("quantity", fmt.Sprintf("%.3f", order.Quantity))
 	q.Set("recvWindow", "60000")
+
 	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
+
+	switch order.Type {
+	case OrderTypeTakeProfit:
+		q.Set("stopPrice", fmt.Sprintf("%.1f", order.StopPrice))
+	case OrderTypeLimit:
+		q.Set("timeInForce", "GTC")
+	}
 
 	sig := u.cryptoController.GetSignature(q.Encode())
 	q.Set("signature", sig)
@@ -943,8 +1016,57 @@ func (u *orderUseCase) createFeaturesMarketOrder(order *models.Order) error {
 	return nil
 }
 
+//func (u *orderUseCase) createFeaturesMarketOrder(order *models.Order) error {
+//	baseURL, err := url.Parse(u.url)
+//	if err != nil {
+//		return err
+//	}
+//
+//	baseURL.Path = path.Join(featureOrder)
+//
+//	q := baseURL.Query()
+//	q.Set("symbol", order.Symbol)
+//	switch order.Side {
+//	case SideBuy:
+//		q.Set("side", SideBuy)
+//		q.Set("positionSide", "LONG")
+//	case SideSell:
+//		q.Set("side", SideSell)
+//		q.Set("positionSide", "SHORT")
+//	}
+//
+//	q.Set("newClientOrderId", order.ID)
+//	q.Set("type", "MARKET")
+//	q.Set("quantity", fmt.Sprintf("%.3f", order.Quantity))
+//	q.Set("recvWindow", "60000")
+//	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
+//
+//	sig := u.cryptoController.GetSignature(q.Encode())
+//	q.Set("signature", sig)
+//
+//	baseURL.RawQuery = q.Encode()
+//
+//	resp, err := u.clientController.Send(http.MethodPost, baseURL, nil, true)
+//	if err != nil {
+//		return err
+//	}
+//
+//	var respOrder structs.FeatureOrderResp
+//	if err := json.Unmarshal(resp, &respOrder); err != nil {
+//		return err
+//	}
+//
+//	if respOrder.OrderId == 0 {
+//		if err := u.orderRepo.SetStatus(order.ID, OrderStatusError); err != nil {
+//			return err
+//		}
+//	}
+//
+//	return nil
+//}
+
 func (u *priceUseCase) featuresGetPrice(symbol string) (float64, error) {
-	baseURL, err := url.Parse(featureURL)
+	baseURL, err := url.Parse(u.url)
 	if err != nil {
 		return 0, err
 	}

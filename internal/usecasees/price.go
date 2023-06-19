@@ -76,7 +76,7 @@ func (u *priceUseCase) GetPriceChangeStatistics(symbol string) (*PriceChangeStat
 		return nil, err
 	}
 
-	baseURL.Path = path.Join(priceChangeStatistics)
+	baseURL.Path = path.Join(featureTicker24hr)
 
 	q := baseURL.Query()
 	q.Set("symbol", symbol)

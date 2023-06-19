@@ -22,10 +22,66 @@ import (
 )
 
 var (
-	apiKey    = "#"
-	secretKey = "#"
+	//apiKey     = "8332396867b2d1fe57dfa2735a8b10727da8e2d382942481ec3461d07d7cdc32"
+	//secretKey  = "d4c11ab5e1f27eb14d735b2c1ac2bb3e62ea3f9da6f8accfecbd3e19a534b717"
+	//binanceUrl = "https://testnet.binancefuture.com"
+
+	apiKey     = "pse5Ea9VrFDXpBpgiiYIGpaTF8ta6s8t8fZK6QkyyE6iJ3eF8ntA8fhbGSU1Ywx9"
+	secretKey  = "CscWH7sAR5eBsMCCdXTjPe2ZXDqmyV4TsiM6IkjEIQQRaycec2VhlDC2wCBKHUwc"
+	binanceUrl = "https://fapi.binance.com"
 )
 
+func Test_Ticker24(t *testing.T) {
+	client := &http.Client{}
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+
+	//cryptoController := controllers.NewCryptoController(secretKey)
+	clientController := controllers.NewClientController(
+		client,
+		apiKey,
+		logger,
+	)
+
+	baseURL, err := url.Parse(binanceUrl)
+	assert.NoError(t, err)
+
+	baseURL.Path = path.Join("fapi/v1/ticker/24hr")
+
+	q := baseURL.Query()
+	q.Set("symbol", usecasees.BTCUSDT)
+
+	baseURL.RawQuery = q.Encode()
+
+	fmt.Println(baseURL)
+
+	resp, err := clientController.Send(http.MethodGet, baseURL, nil, true)
+	assert.NoError(t, err)
+
+	var out usecasees.PriceChangeStatistics
+	if err := json.Unmarshal(resp, &out); err != nil {
+		assert.Nil(t, err)
+	}
+
+	fmt.Println("HighPrice", out.HighPrice)
+	fmt.Println("LowPrice", out.LowPrice)
+
+	highPrice, err := strconv.ParseFloat(out.HighPrice, 64)
+	assert.NoError(t, err)
+
+	lowPrice, err := strconv.ParseFloat(out.LowPrice, 64)
+	assert.NoError(t, err)
+
+	avgPrice := (highPrice + lowPrice) / 2
+	fmt.Println("AvgPrice", avgPrice)
+
+	deltaPrice := avgPrice / 100 * 0.1
+	fmt.Println("DeltaPrice", deltaPrice)
+
+	fmt.Println("SHORT", avgPrice+deltaPrice)
+	fmt.Println("LONG", avgPrice-deltaPrice)
+
+}
 func Test_DailyAccountSnapshot(t *testing.T) {
 	client := &http.Client{}
 	logger := logrus.New()
@@ -38,7 +94,7 @@ func Test_DailyAccountSnapshot(t *testing.T) {
 		logger,
 	)
 
-	baseURL, err := url.Parse("https://api.binance.com")
+	baseURL, err := url.Parse(binanceUrl)
 	assert.NoError(t, err)
 
 	baseURL.Path = path.Join("/sapi/v1/capital/withdraw/apply")
@@ -194,7 +250,6 @@ func Test_BatchOrders(t *testing.T) {
 	}
 
 	takeProfitOrder := structs.FeatureOrderReq{
-
 		Symbol:        symbol,
 		Type:          "TAKE_PROFIT",
 		Side:          "SELL",
@@ -367,12 +422,11 @@ func Test_CreateFuturesMarketOrder(t *testing.T) {
 func Test_CreateFuturesLimitOrder(t *testing.T) {
 	client := &http.Client{}
 	logger := logrus.New()
-	secretKey := "HeIwNhAQRjWsJTcfVUlXc3yS04Vag9cTPRb2Ls88dBG5x6YtybE579uJhIwz95MC"
-	symbol := "BTCBUSD"
-	baseURL, err := url.Parse("https://fapi.binance.com/fapi/v1/order")
+	symbol := "BTCUSDT"
+	baseURL, err := url.Parse(fmt.Sprintf("%s/fapi/v1/order", binanceUrl))
 	assert.NoError(t, err)
 	quantity := 0.001
-	price := float64(19000)
+	price := float64(26700)
 
 	cryptoController := controllers.NewCryptoController(secretKey)
 	clientController := controllers.NewClientController(
@@ -391,6 +445,66 @@ func Test_CreateFuturesLimitOrder(t *testing.T) {
 	q.Set("recvWindow", "60000")
 	q.Set("timeInForce", "GTC")
 	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
+
+	sig := cryptoController.GetSignature(q.Encode())
+	q.Set("signature", sig)
+
+	baseURL.RawQuery = q.Encode()
+
+	req, err := clientController.Send(http.MethodPost, baseURL, nil, true)
+	assert.NoError(t, err)
+
+	fmt.Printf("%s", req)
+
+	var o structs.LimitOrder
+	assert.NoError(t, json.Unmarshal(req, &o))
+
+	fmt.Printf("%+v", o)
+}
+func Test_CreateFuturesTakeProfitOrder(t *testing.T) {
+	client := &http.Client{}
+	logger := logrus.New()
+	symbol := "BTCUSDT"
+	baseURL, err := url.Parse(fmt.Sprintf("%s/fapi/v1/order", binanceUrl))
+	assert.NoError(t, err)
+	quantity := 0.02
+	price := float64(28800)
+
+	cryptoController := controllers.NewCryptoController(secretKey)
+	clientController := controllers.NewClientController(
+		client,
+		apiKey,
+		logger,
+	)
+
+	q := baseURL.Query()
+	q.Set("symbol", symbol)
+	q.Set("side", "SELL")
+	q.Set("type", "LIMIT")
+	q.Set("positionSide", "SHORT")
+	q.Set("quantity", fmt.Sprintf("%.3f", quantity))
+	q.Set("price", fmt.Sprintf("%.1f", price))
+	//q.Set("stopPrice", fmt.Sprintf("%.1f", price))
+	q.Set("recvWindow", "60000")
+	//q.Set("closePosition", "TRUE")
+
+	q.Set("timeInForce", "GTC")
+	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
+
+	// take profit dont touch
+	//q := baseURL.Query()
+	//q.Set("symbol", symbol)
+	//q.Set("side", "BUY")
+	//q.Set("type", "LIMIT")
+	//q.Set("positionSide", "LONG")
+	//q.Set("quantity", fmt.Sprintf("%.3f", quantity))
+	//q.Set("price", fmt.Sprintf("%.1f", price))
+	////q.Set("stopPrice", fmt.Sprintf("%.1f", price))
+	//q.Set("recvWindow", "60000")
+	////q.Set("closePosition", "TRUE")
+	//
+	//q.Set("timeInForce", "GTC")
+	//q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
 
 	sig := cryptoController.GetSignature(q.Encode())
 	q.Set("signature", sig)

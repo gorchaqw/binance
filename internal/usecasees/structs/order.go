@@ -4,8 +4,6 @@ import (
 	"binance/internal/controllers"
 	"errors"
 	"fmt"
-	"math"
-
 	"github.com/google/uuid"
 )
 
@@ -39,38 +37,43 @@ type Status struct {
 func (s *Status) Reset(v float64) {
 	s.OrderTry = 1
 	s.SessionID = uuid.New().String()
-	s.SetQuantityByStep(v)
+	//s.SetQuantityByStep(v)
 }
 
 func (s *Status) NewSessionID() *Status {
 	s.SessionID = uuid.New().String()
 	return s
 }
-
-func (s *Status) SetOrderTry(v int) *Status {
-	s.OrderTry = v
-
-	return s
-}
-
-func (s *Status) AddOrderTry(v int) *Status {
-	s.OrderTry += v
+func (s *Status) SetQuantity(v float64) *Status {
+	s.Quantity = v
 
 	return s
 }
 
-func (s *Status) SetQuantityByStep(v float64) *Status {
-	//s.Quantity = v * math.Pow(2, float64(s.OrderTry-1))
-	//s.Quantity = v * math.Pow(2.7, float64(s.OrderTry-1))
+//func (s *Status) SetOrderTry(v int) *Status {
+//	s.OrderTry = v
+//
+//	return s
+//}
+//
+//func (s *Status) AddOrderTry(v int) *Status {
+//	s.OrderTry += v
+//
+//	return s
+//}
 
-	if s.OrderTry == 1 {
-		s.Quantity = v * math.Pow(2, float64(s.OrderTry-1))
-	} else {
-		s.Quantity = (v * math.Pow(2, float64(s.OrderTry-1))) + 0.001
-	}
-
-	return s
-}
+//func (s *Status) SetQuantityByStep(v float64) *Status {
+//	//s.Quantity = v * math.Pow(2, float64(s.OrderTry-1))
+//	//s.Quantity = v * math.Pow(2.7, float64(s.OrderTry-1))
+//
+//	if s.OrderTry == 1 {
+//		s.Quantity = v * math.Pow(2, float64(s.OrderTry-1))
+//	} else {
+//		s.Quantity = (v * math.Pow(2, float64(s.OrderTry-1))) + 0.001
+//	}
+//
+//	return s
+//}
 
 func (s *Status) SetSessionID(v string) *Status {
 	s.SessionID = v
@@ -223,13 +226,19 @@ func (e *Err) Send(tgm controllers.TgmCtrl) error {
 type PricePlan struct {
 	Symbol                 string
 	Side                   string
+	PositionSide           string
 	ActualPrice            float64
 	ActualPricePercent     float64
 	ActualStopPricePercent float64
 	StopPriceBUY           float64
 	StopPriceSELL          float64
-	PriceBUY               float64
-	PriceSELL              float64
+	HighPrice              float64
+	LowPrice               float64
+	AvgPrice               float64
+	AvgPriceHigh           float64
+	AvgPriceLow            float64
+	AvgPriceDelta          float64
+	DeltaPrice             float64
 	SafeDelta              float64
 	Status                 *Status
 }

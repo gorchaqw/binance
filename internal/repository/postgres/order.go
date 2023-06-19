@@ -28,11 +28,11 @@ func NewOrderRepository(conn *sqlx.DB, table string) OrderRepo {
 func (r *OrderRepository) Store(m *models.Order) error {
 	switch r.table {
 	case Spot:
-		if _, err := r.conn.NamedExec("INSERT INTO orders (id,order_id,session_id,symbol,side,quantity,actual_price,price,stop_price,status,type,try) VALUES (:id,:order_id,:session_id,:symbol,:side,:quantity,:actual_price,:price,:stop_price,:status,:type,:try)", m); err != nil {
+		if _, err := r.conn.NamedExec("INSERT INTO orders (id,order_id,session_id,symbol,side,position_side,quantity,actual_price,price,stop_price,status,type,try) VALUES (:id,:order_id,:session_id,:symbol,:side,:position_side,:quantity,:actual_price,:price,:stop_price,:status,:type,:try)", m); err != nil {
 			return err
 		}
 	case Features:
-		if _, err := r.conn.NamedExec("INSERT INTO features_orders (id,order_id,session_id,symbol,side,quantity,actual_price,price,stop_price,status,type,try) VALUES (:id,:order_id,:session_id,:symbol,:side,:quantity,:actual_price,:price,:stop_price,:status,:type,:try)", m); err != nil {
+		if _, err := r.conn.NamedExec("INSERT INTO features_orders (id,order_id,session_id,symbol,side,position_side,quantity,actual_price,price,stop_price,status,type,try) VALUES (:id,:order_id,:session_id,:symbol,:side,:position_side,:quantity,:actual_price,:price,:stop_price,:status,:type,:try)", m); err != nil {
 			return err
 		}
 	}
@@ -45,11 +45,11 @@ func (r *OrderRepository) GetLast(symbol string) (*models.Order, error) {
 
 	switch r.table {
 	case Spot:
-		if err := r.conn.QueryRowx("SELECT * FROM orders WHERE symbol = $1 AND type = 'MARKET' ORDER BY created_at DESC LIMIT 1", symbol).StructScan(&order); err != nil {
+		if err := r.conn.QueryRowx("SELECT * FROM orders WHERE symbol = $1 AND type = 'LIMIT' ORDER BY created_at DESC LIMIT 1", symbol).StructScan(&order); err != nil {
 			return nil, err
 		}
 	case Features:
-		if err := r.conn.QueryRowx("SELECT * FROM features_orders WHERE symbol = $1 AND type = 'MARKET'  ORDER BY created_at DESC LIMIT 1", symbol).StructScan(&order); err != nil {
+		if err := r.conn.QueryRowx("SELECT * FROM features_orders WHERE symbol = $1 AND type = 'LIMIT'  ORDER BY created_at DESC LIMIT 1", symbol).StructScan(&order); err != nil {
 			return nil, err
 		}
 	}
