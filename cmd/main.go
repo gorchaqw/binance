@@ -40,6 +40,10 @@ func main() {
 	//app.InitMetrics()
 	app.initHTTPClient()
 
+	if err := app.initTgBot(); err != nil {
+		panic(err)
+	}
+
 	chatId, err := strconv.ParseInt(app.Config.TelegramChatID, 10, 64)
 	if err != nil {
 		panic(err)
@@ -94,6 +98,7 @@ func main() {
 	orderUseCaseFeatures := usecasees.NewOrderUseCase(
 		clientController,
 		cryptoController,
+		tgmController,
 		mongoRepo,
 		orderRepoFeatures,
 		priceUseCase,
@@ -120,6 +125,8 @@ func main() {
 
 	for _, symbol := range usecasees.SymbolList {
 		go func(s string) {
+			_ = tgmController.Send(fmt.Sprintf("Init\t%s", s))
+
 			if err := orderUseCaseFeatures.FeaturesMonitoring(s); err != nil {
 				app.LogRus.Error(err)
 			}

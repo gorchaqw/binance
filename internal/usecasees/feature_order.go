@@ -503,6 +503,10 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 
 			marketOrder.Status = OrderStatusNotFound
 			m.ordersList.SetLimit(marketOrder)
+
+			_ = u.tgmController.Send(fmt.Sprintf("%s \n"+
+				"Quantity:\t%.4f \n"+
+				"Price:\t%.4f", marketOrder.Symbol, marketOrder.Quantity, marketOrder.Price))
 		}
 
 		//if chkCreateLimitOrderStopLossFunc(m.ordersList) {
@@ -622,16 +626,21 @@ func (u *orderUseCase) storeFeaturesLimitOrder(pricePlan *structs.PricePlan) (*m
 		PositionSide: pricePlan.PositionSide,
 	}
 
-	if pricePlan.ActualPrice > pricePlan.AvgPrice {
-		o.Side = SideSell
-		o.PositionSide = "SHORT"
-		o.Price = pricePlan.ActualPrice + pricePlan.DeltaPrice
+	depth, err := u.priceUseCase.GetDepthInfo(pricePlan.Symbol)
+	if err != nil {
+		return nil, err
 	}
 
-	if pricePlan.ActualPrice <= pricePlan.AvgPrice {
+	if depth.AsksSum < depth.BidsSum {
+		//if pricePlan.ActualPrice > pricePlan.AvgPrice {
 		o.Side = SideBuy
 		o.PositionSide = "LONG"
-		o.Price = pricePlan.ActualPrice - pricePlan.DeltaPrice
+		o.Price = depth.AsksMaxPrice - 0.1
+	} else {
+		//if pricePlan.ActualPrice <= pricePlan.AvgPrice {
+		o.Side = SideSell
+		o.PositionSide = "SHORT"
+		o.Price = depth.BidsMaxPrice + 0.1
 	}
 
 	if err := u.orderRepo.Store(&o); err != nil {
@@ -656,26 +665,21 @@ func (u *orderUseCase) storeFeatureTakeProfitOrder(pricePlan *structs.PricePlan,
 
 	o.PositionSide = limitOrder.PositionSide
 
+	depth, err := u.priceUseCase.GetDepthInfo(pricePlan.Symbol)
+	if err != nil {
+		return nil, err
+	}
+
 	switch o.PositionSide {
 	case "LONG":
 		o.Side = SideSell
-		o.Price = limitOrder.Price + pricePlan.DeltaPrice
-		o.StopPrice = limitOrder.Price + pricePlan.DeltaPrice
-
-		if pricePlan.ActualPrice > o.Price {
-			o.Price += pricePlan.DeltaPrice / 3
-			o.StopPrice += pricePlan.DeltaPrice / 3
-		}
+		o.Price = depth.AsksMaxPrice
+		o.StopPrice = depth.AsksMaxPrice
 
 	case "SHORT":
 		o.Side = SideBuy
-		o.Price = limitOrder.Price - pricePlan.DeltaPrice
-		o.StopPrice = limitOrder.Price - pricePlan.DeltaPrice
-
-		if pricePlan.ActualPrice < o.Price {
-			o.Price -= pricePlan.DeltaPrice / 3
-			o.StopPrice -= pricePlan.DeltaPrice / 3
-		}
+		o.Price = depth.BidsMaxPrice
+		o.StopPrice = depth.BidsMaxPrice
 	}
 
 	if err := u.orderRepo.Store(&o); err != nil {

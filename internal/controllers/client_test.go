@@ -31,6 +31,62 @@ var (
 	binanceUrl = "https://fapi.binance.com"
 )
 
+func Test_Depth(t *testing.T) {
+	client := &http.Client{}
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+
+	//cryptoController := controllers.NewCryptoController(secretKey)
+	clientController := controllers.NewClientController(
+		client,
+		apiKey,
+		logger,
+	)
+
+	baseURL, err := url.Parse(binanceUrl)
+	assert.NoError(t, err)
+
+	baseURL.Path = path.Join("/fapi/v1/depth")
+
+	q := baseURL.Query()
+	q.Set("symbol", usecasees.BTCUSDT)
+	q.Set("limit", "50")
+
+	baseURL.RawQuery = q.Encode()
+
+	fmt.Println(baseURL)
+
+	resp, err := clientController.Send(http.MethodGet, baseURL, nil, true)
+	assert.NoError(t, err)
+
+	var out usecasees.Depth
+	if err := json.Unmarshal(resp, &out); err != nil {
+		assert.Nil(t, err)
+	}
+
+	sum1 := float64(0)
+	for k, g := range out.Asks {
+		fmt.Printf("%+v %d\n", g, k)
+
+		if s, err := strconv.ParseFloat(g[1], 64); err == nil {
+			sum1 += s
+		}
+
+	}
+
+	fmt.Printf("%f \n", sum1)
+
+	sum1 = float64(0)
+	for k, g := range out.Bids {
+		fmt.Printf("%+v %d\n", g, k)
+		if s, err := strconv.ParseFloat(g[1], 64); err == nil {
+			sum1 += s
+		}
+	}
+	fmt.Printf("%f \n", sum1)
+
+}
+
 func Test_Ticker24(t *testing.T) {
 	client := &http.Client{}
 	logger := logrus.New()
@@ -75,11 +131,12 @@ func Test_Ticker24(t *testing.T) {
 	avgPrice := (highPrice + lowPrice) / 2
 	fmt.Println("AvgPrice", avgPrice)
 
-	deltaPrice := avgPrice / 100 * 0.1
+	deltaPrice := avgPrice / 100 * 0.2
 	fmt.Println("DeltaPrice", deltaPrice)
 
 	fmt.Println("SHORT", avgPrice+deltaPrice)
 	fmt.Println("LONG", avgPrice-deltaPrice)
+	fmt.Println("LIMIT", deltaPrice/10)
 
 }
 func Test_DailyAccountSnapshot(t *testing.T) {

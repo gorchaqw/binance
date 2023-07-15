@@ -36,18 +36,25 @@ const (
 	featureBatchOrders  = "/fapi/v1/batchOrders"
 	featureSymbolPrice  = "/fapi/v1/ticker/price"
 	featureTicker24hr   = "/fapi/v1/ticker/24hr"
+	featureDepth        = "/fapi/v1/depth"
 
+	BNB  = "BNB"
 	BTC  = "BTC"
 	ETH  = "ETH"
 	RUB  = "RUB"
 	BUSD = "BUSD"
 	USDT = "USDT"
+	BCH  = "BCH"
 
-	ETHRUB  = ETH + RUB
+	ETHRUB = ETH + RUB
+
 	ETHBUSD = ETH + BUSD
 	BTCBUSD = BTC + BUSD
+	BNBBUSD = BNB + BUSD
+
 	BTCUSDT = BTC + USDT
 	ETHUSDT = ETH + USDT
+	BCHUSDT = BCH + USDT
 
 	SideSell = "SELL"
 	SideBuy  = "BUY"
@@ -64,25 +71,28 @@ const (
 	//OrderTypeMarket     = "MARKET"
 	OrderTypeTakeProfit = "TAKE_PROFIT"
 	OrderTypeStopLoss   = "STOP_MARKET"
+	OrderTypeDelta      = "DELTA"
 	OrderTypeOCO        = "OCO"
 	OrderTypeBatch      = "BATCH"
 
 	OrderTypeLimitID      = 0
 	OrderTypeTakeProfitID = 1
 	OrderTypeStopLossID   = 2
+	OrderTypeDeltaID      = 3
 )
 
 var (
 	SymbolList = []string{
-		//BTCBUSD,
-		BTCUSDT,
-		ETHUSDT,
+		BTCBUSD,
+		//ETHBUSD,
+		//BNBBUSD,
 	}
 )
 
 type orderUseCase struct {
 	clientController controllers.ClientCtrl
 	cryptoController controllers.CryptoCtrl
+	tgmController    controllers.TgmCtrl
 
 	settingsRepo mongo.SettingsRepo
 	orderRepo    postgres.OrderRepo
@@ -97,6 +107,7 @@ type orderUseCase struct {
 func NewOrderUseCase(
 	client controllers.ClientCtrl,
 	crypto controllers.CryptoCtrl,
+	tgm controllers.TgmCtrl,
 	settingsRepo mongo.SettingsRepo,
 	orderRepo postgres.OrderRepo,
 	priceUseCase *priceUseCase,
@@ -106,6 +117,7 @@ func NewOrderUseCase(
 	return &orderUseCase{
 		clientController: client,
 		cryptoController: crypto,
+		tgmController:    tgm,
 		settingsRepo:     settingsRepo,
 		orderRepo:        orderRepo,
 		priceUseCase:     priceUseCase,
@@ -479,7 +491,7 @@ func (u *orderUseCase) fillPricePlan(orderType string, symbol string, actualPric
 		}
 
 		out.AvgPrice = (highPrice + lowPrice) / 2
-		out.DeltaPrice = out.AvgPrice / 100 * 0.1
+		out.DeltaPrice = out.AvgPrice / 100 * 0.2
 
 		out.AvgPriceHigh = (highPrice + out.AvgPrice) / 2
 		out.AvgPriceLow = (lowPrice + out.AvgPrice) / 2

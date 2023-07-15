@@ -46,6 +46,27 @@ func NewPriceUseCase(
 	}
 }
 
+type Depth struct {
+	LastUpdateID int64      `json:"lastUpdateId"`
+	E            int64      `json:"E"`
+	T            int64      `json:"T"`
+	Bids         [][]string `json:"bids"`
+	Asks         [][]string `json:"asks"`
+}
+
+type DepthInfo struct {
+	AsksSum float64
+	BidsSum float64
+
+	AsksMaxQuery    float64
+	AsksMaxPrice    float64
+	AsksMaxPosition int
+
+	BidsMaxQuery    float64
+	BidsMaxPrice    float64
+	BidsMaxPosition int
+}
+
 type PriceChangeStatistics struct {
 	Symbol             string `json:"symbol"`
 	PriceChange        string `json:"priceChange"`
@@ -68,6 +89,102 @@ type PriceChangeStatistics struct {
 	FirstID            int    `json:"firstId"`
 	LastID             int    `json:"lastId"`
 	Count              int    `json:"count"`
+}
+
+func (u *priceUseCase) GetDepth(symbol string) (*Depth, error) {
+	baseURL, err := url.Parse(u.url)
+	if err != nil {
+		return nil, err
+	}
+
+	baseURL.Path = path.Join(featureDepth)
+
+	q := baseURL.Query()
+	q.Set("symbol", symbol)
+	q.Set("limit", "1000")
+
+	baseURL.RawQuery = q.Encode()
+
+	resp, err := u.clientController.Send(http.MethodGet, baseURL, nil, true)
+	if err != nil {
+		return nil, err
+	}
+
+	var out Depth
+	if err := json.Unmarshal(resp, &out); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+}
+
+func (u *priceUseCase) GetDepthInfo(symbol string) (*DepthInfo, error) {
+	var out DepthInfo
+
+	depth, err := u.GetDepth(symbol)
+	if err != nil {
+		return nil, err
+	}
+
+	for k, g := range depth.Asks {
+		var query, price float64
+
+		price, err = strconv.ParseFloat(g[0], 64)
+		if err != nil {
+			return nil, err
+		}
+
+		query, err = strconv.ParseFloat(g[1], 64)
+		if err != nil {
+			return nil, err
+		}
+
+		if query > out.AsksMaxQuery {
+			out.AsksMaxQuery = query
+			out.AsksMaxPrice = price
+			out.AsksMaxPosition = k
+		}
+	}
+
+	for i := 0; i < out.AsksMaxPosition; i++ {
+		query, err := strconv.ParseFloat(depth.Asks[i][1], 64)
+		if err != nil {
+			return nil, err
+		}
+
+		out.AsksSum += query
+	}
+
+	for k, g := range depth.Bids {
+		var query, price float64
+
+		price, err = strconv.ParseFloat(g[0], 64)
+		if err != nil {
+			return nil, err
+		}
+
+		query, err = strconv.ParseFloat(g[1], 64)
+		if err != nil {
+			return nil, err
+		}
+
+		if query > out.BidsMaxQuery {
+			out.BidsMaxQuery = query
+			out.BidsMaxPrice = price
+			out.BidsMaxPosition = k
+		}
+	}
+
+	for i := 0; i < out.BidsMaxPosition; i++ {
+		query, err := strconv.ParseFloat(depth.Bids[i][1], 64)
+		if err != nil {
+			return nil, err
+		}
+
+		out.BidsSum += query
+	}
+
+	return &out, nil
 }
 
 func (u *priceUseCase) GetPriceChangeStatistics(symbol string) (*PriceChangeStatistics, error) {
