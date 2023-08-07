@@ -70,7 +70,7 @@ const (
 	OrderTypeLimit = "LIMIT"
 	//OrderTypeMarket     = "MARKET"
 	OrderTypeTakeProfit = "TAKE_PROFIT"
-	OrderTypeStopLoss   = "STOP_MARKET"
+	OrderTypeStopLoss   = "STOP"
 	OrderTypeDelta      = "DELTA"
 	OrderTypeOCO        = "OCO"
 	OrderTypeBatch      = "BATCH"

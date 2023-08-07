@@ -26,8 +26,8 @@ var (
 	//secretKey  = "d4c11ab5e1f27eb14d735b2c1ac2bb3e62ea3f9da6f8accfecbd3e19a534b717"
 	//binanceUrl = "https://testnet.binancefuture.com"
 
-	apiKey     = "pse5Ea9VrFDXpBpgiiYIGpaTF8ta6s8t8fZK6QkyyE6iJ3eF8ntA8fhbGSU1Ywx9"
-	secretKey  = "CscWH7sAR5eBsMCCdXTjPe2ZXDqmyV4TsiM6IkjEIQQRaycec2VhlDC2wCBKHUwc"
+	apiKey     = "sBGPvKBA9qQH5OJscrXunjDd4b89SsC64K2kdtbrGiazEXnuszyqrT7dsmUSFrcu"
+	secretKey  = "r4k6e234hHoE3Z88S8YYcMKrRMKdbC1OULDmIavQuoVhc2zzmVfp3JthgyC3QsiI"
 	binanceUrl = "https://fapi.binance.com"
 )
 
@@ -541,6 +541,70 @@ func Test_CreateFuturesTakeProfitOrder(t *testing.T) {
 	q.Set("positionSide", "SHORT")
 	q.Set("quantity", fmt.Sprintf("%.3f", quantity))
 	q.Set("price", fmt.Sprintf("%.1f", price))
+	//q.Set("stopPrice", fmt.Sprintf("%.1f", price))
+	q.Set("recvWindow", "60000")
+	//q.Set("closePosition", "TRUE")
+
+	q.Set("timeInForce", "GTC")
+	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
+
+	// take profit dont touch
+	//q := baseURL.Query()
+	//q.Set("symbol", symbol)
+	//q.Set("side", "BUY")
+	//q.Set("type", "LIMIT")
+	//q.Set("positionSide", "LONG")
+	//q.Set("quantity", fmt.Sprintf("%.3f", quantity))
+	//q.Set("price", fmt.Sprintf("%.1f", price))
+	////q.Set("stopPrice", fmt.Sprintf("%.1f", price))
+	//q.Set("recvWindow", "60000")
+	////q.Set("closePosition", "TRUE")
+	//
+	//q.Set("timeInForce", "GTC")
+	//q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
+
+	sig := cryptoController.GetSignature(q.Encode())
+	q.Set("signature", sig)
+
+	baseURL.RawQuery = q.Encode()
+
+	req, err := clientController.Send(http.MethodPost, baseURL, nil, true)
+	assert.NoError(t, err)
+
+	fmt.Printf("%s", req)
+
+	var o structs.LimitOrder
+	assert.NoError(t, json.Unmarshal(req, &o))
+
+	fmt.Printf("%+v", o)
+}
+
+func Test_CreateFuturesStopLossOrder(t *testing.T) {
+	client := &http.Client{}
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+
+	//cryptoController := controllers.NewCryptoController(secretKey)
+	clientController := controllers.NewClientController(
+		client,
+		apiKey,
+		logger,
+	)
+	cryptoController := controllers.NewCryptoController(secretKey)
+
+	baseURL, err := url.Parse(binanceUrl)
+	assert.NoError(t, err)
+
+	baseURL.Path = path.Join("/fapi/v1/order")
+
+	q := baseURL.Query()
+	q.Set("symbol", "BTCBUSD")
+	q.Set("side", "BUY")
+	q.Set("type", "STOP")
+	q.Set("positionSide", "SHORT")
+	q.Set("quantity", fmt.Sprintf("%.3f", 0.001))
+	q.Set("price", fmt.Sprintf("%.1f", 29160.5))
+	q.Set("stopPrice", fmt.Sprintf("%.1f", 29170.5))
 	//q.Set("stopPrice", fmt.Sprintf("%.1f", price))
 	q.Set("recvWindow", "60000")
 	//q.Set("closePosition", "TRUE")

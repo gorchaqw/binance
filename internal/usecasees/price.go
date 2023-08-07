@@ -101,7 +101,7 @@ func (u *priceUseCase) GetDepth(symbol string) (*Depth, error) {
 
 	q := baseURL.Query()
 	q.Set("symbol", symbol)
-	q.Set("limit", "1000")
+	q.Set("limit", "100")
 
 	baseURL.RawQuery = q.Encode()
 
@@ -127,6 +127,10 @@ func (u *priceUseCase) GetDepthInfo(symbol string) (*DepthInfo, error) {
 	}
 
 	for k, g := range depth.Asks {
+		if k < 5 {
+			continue
+		}
+
 		var query, price float64
 
 		price, err = strconv.ParseFloat(g[0], 64)
@@ -156,6 +160,10 @@ func (u *priceUseCase) GetDepthInfo(symbol string) (*DepthInfo, error) {
 	}
 
 	for k, g := range depth.Bids {
+		if k < 5 {
+			continue
+		}
+
 		var query, price float64
 
 		price, err = strconv.ParseFloat(g[0], 64)

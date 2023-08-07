@@ -49,6 +49,7 @@ deploy_dev(){
 
   docker context use beget_dev
 
+  docker system prune -f
   docker build --no-cache -t binance/binance:dev .
   docker-compose up --remove-orphans -d
 
