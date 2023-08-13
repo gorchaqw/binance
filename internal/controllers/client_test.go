@@ -333,7 +333,7 @@ func Test_BatchOrders(t *testing.T) {
 	stopLossOrder := structs.FeatureOrderReq{
 		NewClientOrderId: uuid.NewString(),
 		Symbol:           symbol,
-		Type:             usecasees.OrderTypeStopLoss,
+		Type:             usecasees.OrderTypeCurrentStopLoss,
 		PriceProtect:     "true",
 		Quantity:         "0.001",
 		ClosePosition:    "true",
@@ -849,7 +849,7 @@ func Test_WalletSnapshot(t *testing.T) {
 func Test_GetOrderInfo(t *testing.T) {
 	client := &http.Client{}
 	logger := logrus.New()
-	baseURL, err := url.Parse("https://api.binance.com/api/v3/order")
+	baseURL, err := url.Parse("https://fapi.binance.com/fapi/v1/order")
 	assert.NoError(t, err)
 
 	cryptoController := controllers.NewCryptoController(secretKey)
@@ -861,9 +861,10 @@ func Test_GetOrderInfo(t *testing.T) {
 
 	q := baseURL.Query()
 	q.Set("symbol", "BTCBUSD")
-	q.Set("orderId", fmt.Sprintf("%d", 5715391573))
+	q.Set("orderId", fmt.Sprintf("%d", 54221521995))
 	q.Set("recvWindow", "60000")
-	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Add(time.Second*60).Unix()))
+	//q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Add(time.Second*60).Unix()))
+	q.Set("timestamp", fmt.Sprintf("%d000", time.Now().Unix()))
 
 	sig := cryptoController.GetSignature(q.Encode())
 	q.Set("signature", sig)

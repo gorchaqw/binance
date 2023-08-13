@@ -17,6 +17,8 @@ import (
 const (
 	priceUrlPath          = "/api/v3/ticker/price"
 	priceChangeStatistics = "/api/v3/ticker/24hr"
+
+	DepthLimit = 30
 )
 
 type priceUseCase struct {
@@ -65,6 +67,8 @@ type DepthInfo struct {
 	BidsMaxQuery    float64
 	BidsMaxPrice    float64
 	BidsMaxPosition int
+
+	Delta float64
 }
 
 type PriceChangeStatistics struct {
@@ -101,7 +105,7 @@ func (u *priceUseCase) GetDepth(symbol string) (*Depth, error) {
 
 	q := baseURL.Query()
 	q.Set("symbol", symbol)
-	q.Set("limit", "100")
+	q.Set("limit", "500")
 
 	baseURL.RawQuery = q.Encode()
 
@@ -127,7 +131,14 @@ func (u *priceUseCase) GetDepthInfo(symbol string) (*DepthInfo, error) {
 	}
 
 	for k, g := range depth.Asks {
-		if k < 5 {
+		q, err := strconv.ParseFloat(g[1], 64)
+		if err != nil {
+			return nil, err
+		}
+
+		out.AsksSum += q
+
+		if k < 10 {
 			continue
 		}
 
@@ -149,18 +160,25 @@ func (u *priceUseCase) GetDepthInfo(symbol string) (*DepthInfo, error) {
 			out.AsksMaxPosition = k
 		}
 	}
+	//
+	//for i := 0; i < out.AsksMaxPosition; i++ {
+	//	query, err := strconv.ParseFloat(depth.Asks[i][1], 64)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//
+	//	out.AsksSum += query
+	//}
 
-	for i := 0; i < out.AsksMaxPosition; i++ {
-		query, err := strconv.ParseFloat(depth.Asks[i][1], 64)
+	for k, g := range depth.Bids {
+		q, err := strconv.ParseFloat(g[1], 64)
 		if err != nil {
 			return nil, err
 		}
 
-		out.AsksSum += query
-	}
+		out.BidsSum += q
 
-	for k, g := range depth.Bids {
-		if k < 5 {
+		if k < 10 {
 			continue
 		}
 
@@ -183,14 +201,16 @@ func (u *priceUseCase) GetDepthInfo(symbol string) (*DepthInfo, error) {
 		}
 	}
 
-	for i := 0; i < out.BidsMaxPosition; i++ {
-		query, err := strconv.ParseFloat(depth.Bids[i][1], 64)
-		if err != nil {
-			return nil, err
-		}
+	//for i := 0; i < out.BidsMaxPosition; i++ {
+	//	query, err := strconv.ParseFloat(depth.Bids[i][1], 64)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//
+	//	out.c += query
+	//}
 
-		out.BidsSum += query
-	}
+	out.Delta = (out.AsksSum/out.BidsSum)*100 - 100
 
 	return &out, nil
 }

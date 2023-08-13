@@ -11,6 +11,7 @@ type Mode string
 type MetricConst string
 
 const (
+	MetricDepth                    MetricConst = "depth"
 	MetricOrderComplete            MetricConst = "order_complete"
 	MetricOrderStopLossLimitFilled MetricConst = "order_stop_loss_limit_filled"
 	MetricOrderLimitMaker          MetricConst = "order_limit_maker_filled"
@@ -240,6 +241,7 @@ type PricePlan struct {
 	AvgPriceDelta          float64
 	DeltaPrice             float64
 	SafeDelta              float64
+	TriggerDelta           float64
 	Status                 *Status
 }
 

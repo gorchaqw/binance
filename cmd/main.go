@@ -6,6 +6,7 @@ import (
 	"binance/internal/repository/postgres"
 	"flag"
 	"fmt"
+	"net/http"
 	"strconv"
 
 	"binance/internal/usecasees"
@@ -36,7 +37,7 @@ func main() {
 		panic(err)
 	}
 
-	app.initFiber()
+	//app.initFiber()
 	//app.InitMetrics()
 	app.initHTTPClient()
 
@@ -133,9 +134,14 @@ func main() {
 		}(symbol)
 	}
 
-	app.registerHTTPEndpoints()
+	//app.registerHTTPEndpoints()
 
-	if err := app.Fiber.Listen(fmt.Sprintf(":%s", app.Config.AppPort)); err != nil {
-		panic(err)
-	}
+	//if err := app.Fiber.Listen(fmt.Sprintf(":%s", app.Config.AppPort)); err != nil {
+	//	panic(err)
+	//}
+
+	http.HandleFunc("/", app.initHTTPServer)
+	//http.Handle("/static", http.FileServer(http.Dir("./static")))
+
+	http.ListenAndServe(":8081", nil)
 }

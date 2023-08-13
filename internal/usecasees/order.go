@@ -45,12 +45,14 @@ const (
 	BUSD = "BUSD"
 	USDT = "USDT"
 	BCH  = "BCH"
+	SOL  = "SOL"
 
 	ETHRUB = ETH + RUB
 
 	ETHBUSD = ETH + BUSD
 	BTCBUSD = BTC + BUSD
 	BNBBUSD = BNB + BUSD
+	SOLBUSD = SOL + BUSD
 
 	BTCUSDT = BTC + USDT
 	ETHUSDT = ETH + USDT
@@ -69,11 +71,19 @@ const (
 
 	OrderTypeLimit = "LIMIT"
 	//OrderTypeMarket     = "MARKET"
-	OrderTypeTakeProfit = "TAKE_PROFIT"
-	OrderTypeStopLoss   = "STOP"
-	OrderTypeDelta      = "DELTA"
-	OrderTypeOCO        = "OCO"
-	OrderTypeBatch      = "BATCH"
+
+	OrderTypeCurrentTakeProfit = OrderTypeTakeProfitLimit
+	OrderTypeCurrentStopLoss   = OrderTypeStopLossLimit
+
+	OrderTypeTakeProfitMarket = "TAKE_PROFIT_MARKET"
+	OrderTypeStopLossMarket   = "STOP_MARKET"
+
+	OrderTypeTakeProfitLimit = "TAKE_PROFIT"
+	OrderTypeStopLossLimit   = "STOP"
+
+	OrderTypeDelta = "DELTA"
+	OrderTypeOCO   = "OCO"
+	OrderTypeBatch = "BATCH"
 
 	OrderTypeLimitID      = 0
 	OrderTypeTakeProfitID = 1
@@ -84,6 +94,7 @@ const (
 var (
 	SymbolList = []string{
 		BTCBUSD,
+		//SOLBUSD,
 		//ETHBUSD,
 		//BNBBUSD,
 	}
@@ -465,7 +476,8 @@ func (u *orderUseCase) fillPricePlan(orderType string, symbol string, actualPric
 	out.Status = status
 	out.Symbol = symbol
 	out.ActualPrice = actualPrice
-	out.SafeDelta = float64(settings.Delta) / 100 * 10
+	out.SafeDelta = float64(settings.Delta)
+	out.TriggerDelta = float64(settings.Delta) / 100 * 1
 
 	switch orderType {
 	case OrderTypeLimit:
