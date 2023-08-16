@@ -18,7 +18,7 @@ const (
 	priceUrlPath          = "/api/v3/ticker/price"
 	priceChangeStatistics = "/api/v3/ticker/24hr"
 
-	DepthLimit = 30
+	DepthLimit = 35
 )
 
 type priceUseCase struct {

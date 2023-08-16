@@ -78,7 +78,7 @@ func (o *ordersList) Get(orderType string) *models.Order {
 	}
 }
 
-const chkTime = 100 * time.Millisecond
+const chkTime = 50 * time.Millisecond
 
 func newMonitor() *Monitor {
 	return &Monitor{
@@ -519,7 +519,7 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 					OrderTypeCurrentTakeProfit,
 				))
 			}()
-			stopLossOrder, err := u.storeFeatureStopLossOrder(pricePlan, m.ordersList.Get(OrderTypeLimit), u.constructStopLossOrder(pricePlan, m.settings))
+			stopLossOrder, err := u.storeFeatureStopLossOrder(pricePlan, m.ordersList.Get(OrderTypeLimit), u.constructStopLossOrder(pricePlan, m.settings), m.depth)
 			if err != nil {
 				u.logRus.
 					WithError(err).
@@ -599,7 +599,7 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 			m.ordersList.SetLimit(marketOrder)
 
 			go func() {
-				_ = u.tgmController.Send(fmt.Sprintf("Store Order:\n"+
+				_ = u.tgmController.Send(fmt.Sprintf("Complete Order\n"+
 					"Symbol:\t%s\n"+
 					"Quantity:\t%.4f\n"+
 					"Price:\t%.4f\n"+
@@ -663,7 +663,7 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 			m.ordersList.SetLimit(marketOrder)
 
 			go func() {
-				_ = u.tgmController.Send(fmt.Sprintf("Store Order:\n"+
+				_ = u.tgmController.Send(fmt.Sprintf("Complete Order\n"+
 					"Symbol:\t%s\n"+
 					"Quantity:\t%.4f\n"+
 					"Price:\t%.4f\n"+
@@ -680,7 +680,7 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 			}()
 		}
 
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(250 * time.Millisecond)
 	}
 }
 
@@ -750,11 +750,11 @@ func (u *orderUseCase) storeFeaturesLimitOrder(pricePlan *structs.PricePlan, dep
 	if depth.AsksSum < depth.BidsSum {
 		o.Side = SideBuy
 		o.PositionSide = "LONG"
-		o.Price = pricePlan.ActualPrice + (pricePlan.TriggerDelta / 2)
+		o.Price = pricePlan.ActualPrice - (pricePlan.TriggerDelta / 2)
 	} else {
 		o.Side = SideSell
 		o.PositionSide = "SHORT"
-		o.Price = pricePlan.ActualPrice - (pricePlan.TriggerDelta / 2)
+		o.Price = pricePlan.ActualPrice + (pricePlan.TriggerDelta / 2)
 	}
 
 	if err := u.orderRepo.Store(&o); err != nil {
@@ -832,7 +832,7 @@ func (u *orderUseCase) storeFeatureTakeProfitOrder(pricePlan *structs.PricePlan,
 	return &o, nil
 }
 
-func (u *orderUseCase) storeFeatureStopLossOrder(pricePlan *structs.PricePlan, limitOrder *models.Order, order *structs.FeatureOrderReq) (*models.Order, error) {
+func (u *orderUseCase) storeFeatureStopLossOrder(pricePlan *structs.PricePlan, limitOrder *models.Order, order *structs.FeatureOrderReq, depth *DepthInfo) (*models.Order, error) {
 	o := models.Order{
 		ID:          uuid.NewString(),
 		SessionID:   pricePlan.Status.SessionID,
@@ -856,7 +856,7 @@ func (u *orderUseCase) storeFeatureStopLossOrder(pricePlan *structs.PricePlan, l
 	case "LONG":
 		o.Side = SideSell
 		//o.Price = limitOrder.Price - pricePlan.SafeDelta
-		o.StopPrice = limitOrder.Price - (pricePlan.SafeDelta / 2)
+		o.StopPrice = limitOrder.Price - pricePlan.SafeDelta
 
 		//o.Price = (depth.BidsMaxPrice + limitOrder.Price) / 2
 		//o.StopPrice = (depth.BidsMaxPrice + limitOrder.Price) / 2
@@ -880,7 +880,7 @@ func (u *orderUseCase) storeFeatureStopLossOrder(pricePlan *structs.PricePlan, l
 	case "SHORT":
 		o.Side = SideBuy
 		//o.Price = limitOrder.Price + pricePlan.SafeDelta
-		o.StopPrice = limitOrder.Price + (pricePlan.SafeDelta / 2)
+		o.StopPrice = limitOrder.Price + pricePlan.SafeDelta
 
 		//o.Price = limitOrder.Price + delta + 0.1
 		//o.StopPrice = limitOrder.Price + delta + 0.1
