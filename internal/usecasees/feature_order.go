@@ -34,6 +34,8 @@ type Monitor struct {
 	ordersListChan chan [3]*models.Order
 }
 
+var DepthLimit = float64(35)
+
 const step = 40
 
 type ordersList [3]*models.Order
@@ -662,6 +664,8 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 			marketOrder.Status = OrderStatusNotFound
 			m.ordersList.SetLimit(marketOrder)
 
+			DepthLimit += 5
+
 			go func() {
 				_ = u.tgmController.Send(fmt.Sprintf("Complete Order\n"+
 					"Symbol:\t%s\n"+
@@ -669,13 +673,15 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 					"Price:\t%.4f\n"+
 					"Session:\t%s\n"+
 					"PositionSide:\t%s\n"+
-					"Order: \t %s",
+					"Order: \t %s"+
+					"DepthLimit: \t %.4f",
 					marketOrder.Symbol,
 					marketOrder.Quantity,
 					marketOrder.Price,
 					marketOrder.SessionID,
 					marketOrder.PositionSide,
 					OrderTypeLimit,
+					DepthLimit,
 				))
 			}()
 		}
@@ -747,14 +753,14 @@ func (u *orderUseCase) storeFeaturesLimitOrder(pricePlan *structs.PricePlan, dep
 		PositionSide: pricePlan.PositionSide,
 	}
 
-	if depth.AsksSum < depth.BidsSum {
+	if depth.AsksSum > depth.BidsSum {
 		o.Side = SideBuy
 		o.PositionSide = "LONG"
-		o.Price = pricePlan.ActualPrice - (pricePlan.TriggerDelta / 2)
+		o.Price = pricePlan.ActualPrice + (pricePlan.TriggerDelta / 2)
 	} else {
 		o.Side = SideSell
 		o.PositionSide = "SHORT"
-		o.Price = pricePlan.ActualPrice + (pricePlan.TriggerDelta / 2)
+		o.Price = pricePlan.ActualPrice - (pricePlan.TriggerDelta / 2)
 	}
 
 	if err := u.orderRepo.Store(&o); err != nil {
@@ -1200,7 +1206,6 @@ func (u *orderUseCase) createFeaturesLimitOrder(order *models.Order) error {
 
 	q := baseURL.Query()
 
-	q.Set("type", order.Type)
 	q.Set("symbol", order.Symbol)
 
 	q.Set("quantity", fmt.Sprintf("%.3f", order.Quantity))
@@ -1214,6 +1219,7 @@ func (u *orderUseCase) createFeaturesLimitOrder(order *models.Order) error {
 
 	switch order.Type {
 	case OrderTypeTakeProfitLimit:
+		q.Set("type", order.Type)
 		q.Set("price", fmt.Sprintf("%.1f", order.StopPrice))
 
 		switch order.PositionSide {
@@ -1223,6 +1229,7 @@ func (u *orderUseCase) createFeaturesLimitOrder(order *models.Order) error {
 			q.Set("stopPrice", fmt.Sprintf("%.1f", order.StopPrice+triggerDelta))
 		}
 	case OrderTypeStopLossLimit:
+		q.Set("type", order.Type)
 		q.Set("price", fmt.Sprintf("%.1f", order.StopPrice))
 
 		switch order.PositionSide {
@@ -1232,14 +1239,17 @@ func (u *orderUseCase) createFeaturesLimitOrder(order *models.Order) error {
 			q.Set("stopPrice", fmt.Sprintf("%.1f", order.StopPrice-triggerDelta))
 		}
 	case OrderTypeTakeProfitMarket:
+		q.Set("type", order.Type)
 		q.Set("stopPrice", fmt.Sprintf("%.1f", order.StopPrice))
 
 	case OrderTypeStopLossMarket:
+		q.Set("type", order.Type)
 		q.Set("stopPrice", fmt.Sprintf("%.1f", order.StopPrice))
 
 	case OrderTypeLimit:
-		q.Set("price", fmt.Sprintf("%.1f", order.Price))
-		q.Set("timeInForce", "GTC")
+		q.Set("type", OrderTypeMarket)
+		//q.Set("price", fmt.Sprintf("%.1f", order.Price))
+		//q.Set("timeInForce", "GTC")
 	}
 
 	sig := u.cryptoController.GetSignature(q.Encode())

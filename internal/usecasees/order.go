@@ -75,6 +75,7 @@ const (
 	OrderTypeCurrentTakeProfit = OrderTypeTakeProfitLimit
 	OrderTypeCurrentStopLoss   = OrderTypeStopLossLimit
 
+	OrderTypeMarket           = "MARKET"
 	OrderTypeTakeProfitMarket = "TAKE_PROFIT_MARKET"
 	OrderTypeStopLossMarket   = "STOP_MARKET"
 
