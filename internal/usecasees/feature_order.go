@@ -673,7 +673,7 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 					"Price:\t%.4f\n"+
 					"Session:\t%s\n"+
 					"PositionSide:\t%s\n"+
-					"Order: \t %s"+
+					"Order: \t %s\n"+
 					"DepthLimit: \t %.4f",
 					marketOrder.Symbol,
 					marketOrder.Quantity,
