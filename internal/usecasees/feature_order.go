@@ -753,7 +753,7 @@ func (u *orderUseCase) storeFeaturesLimitOrder(pricePlan *structs.PricePlan, dep
 		PositionSide: pricePlan.PositionSide,
 	}
 
-	if depth.AsksSum > depth.BidsSum {
+	if depth.AsksSum < depth.BidsSum {
 		o.Side = SideBuy
 		o.PositionSide = "LONG"
 		o.Price = pricePlan.ActualPrice + (pricePlan.TriggerDelta / 2)
