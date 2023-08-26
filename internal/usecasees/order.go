@@ -95,8 +95,8 @@ const (
 var (
 	SymbolList = []string{
 		BTCBUSD,
-		//SOLBUSD,
-		//ETHBUSD,
+		SOLBUSD,
+		ETHBUSD,
 		//BNBBUSD,
 	}
 )

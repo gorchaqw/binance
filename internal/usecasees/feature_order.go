@@ -34,7 +34,7 @@ type Monitor struct {
 	ordersListChan chan [3]*models.Order
 }
 
-var DepthLimit = float64(35)
+var DepthLimit = float64(80)
 
 const step = 40
 
@@ -413,7 +413,7 @@ func (m *Monitor) UpdateDepth(u *orderUseCase, symbol string) {
 			continue
 		}
 
-		u.logRus.Println(depth)
+		//u.logRus.Println(depth)
 
 		m.depthChan <- depth
 		time.Sleep(chkTime)
@@ -505,22 +505,6 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 			}
 			m.ordersList.SetTakeProfit(takeProfitOrder)
 
-			go func() {
-				_ = u.tgmController.Send(fmt.Sprintf("Store Order:\n"+
-					"Symbol:\t%s\n"+
-					"Quantity:\t%.4f\n"+
-					"Price:\t%.4f\n"+
-					"Session:\t%s\n"+
-					"PositionSide:\t%s\n"+
-					"Order: \t %s",
-					takeProfitOrder.Symbol,
-					takeProfitOrder.Quantity,
-					takeProfitOrder.Price,
-					takeProfitOrder.SessionID,
-					takeProfitOrder.PositionSide,
-					OrderTypeCurrentTakeProfit,
-				))
-			}()
 			stopLossOrder, err := u.storeFeatureStopLossOrder(pricePlan, m.ordersList.Get(OrderTypeLimit), u.constructStopLossOrder(pricePlan, m.settings), m.depth)
 			if err != nil {
 				u.logRus.
@@ -528,23 +512,6 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 					Error(string(debug.Stack()))
 			}
 			m.ordersList.SetStopLoss(stopLossOrder)
-
-			go func() {
-				_ = u.tgmController.Send(fmt.Sprintf("Store Order:\n"+
-					"Symbol:\t%s\n"+
-					"Quantity:\t%.4f\n"+
-					"Price:\t%.4f\n"+
-					"Session:\t%s\n"+
-					"PositionSide:\t%s\n"+
-					"Order: \t %s",
-					takeProfitOrder.Symbol,
-					takeProfitOrder.Quantity,
-					takeProfitOrder.Price,
-					takeProfitOrder.SessionID,
-					takeProfitOrder.PositionSide,
-					OrderTypeCurrentStopLoss,
-				))
-			}()
 		}
 
 		if chkTakeProfitCancelFunc(m.ordersList) {
@@ -553,6 +520,27 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 					WithError(err).
 					Error(string(debug.Stack()))
 			}
+
+			o := m.ordersList.Get(OrderTypeCurrentStopLoss)
+
+			go func() {
+				_ = u.tgmController.Send(fmt.Sprintf("Complete Order\n"+
+					"Symbol:\t%s\n"+
+					"Quantity:\t%.4f\n"+
+					"Price:\t%.4f\n"+
+					"Session:\t%s\n"+
+					"PositionSide:\t%s\n"+
+					"Order: \t %s\n"+
+					"DepthLimit: \t %.4f",
+					o.Symbol,
+					o.Quantity,
+					o.Price,
+					o.SessionID,
+					o.PositionSide,
+					o.Type,
+					DepthLimit,
+				))
+			}()
 		}
 
 		if chkStopLossCancelFunc(m.ordersList) {
@@ -561,6 +549,27 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 					WithError(err).
 					Error(string(debug.Stack()))
 			}
+
+			o := m.ordersList.Get(OrderTypeCurrentTakeProfit)
+
+			go func() {
+				_ = u.tgmController.Send(fmt.Sprintf("Complete Order\n"+
+					"Symbol:\t%s\n"+
+					"Quantity:\t%.4f\n"+
+					"Price:\t%.4f\n"+
+					"Session:\t%s\n"+
+					"PositionSide:\t%s\n"+
+					"Order: \t %s\n"+
+					"DepthLimit: \t %.4f",
+					o.Symbol,
+					o.Quantity,
+					o.Price,
+					o.SessionID,
+					o.PositionSide,
+					o.Type,
+					DepthLimit,
+				))
+			}()
 		}
 
 		if chkCreateLimitOrderTakeProfitFunc(m.ordersList) {
@@ -600,22 +609,6 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 			marketOrder.Status = OrderStatusNotFound
 			m.ordersList.SetLimit(marketOrder)
 
-			go func() {
-				_ = u.tgmController.Send(fmt.Sprintf("Complete Order\n"+
-					"Symbol:\t%s\n"+
-					"Quantity:\t%.4f\n"+
-					"Price:\t%.4f\n"+
-					"Session:\t%s\n"+
-					"PositionSide:\t%s\n"+
-					"Order: \t %s",
-					marketOrder.Symbol,
-					marketOrder.Quantity,
-					marketOrder.Price,
-					marketOrder.SessionID,
-					marketOrder.PositionSide,
-					OrderTypeLimit,
-				))
-			}()
 		}
 
 		if chkCreateLimitOrderStopLossFunc(m.ordersList) {
@@ -635,15 +628,6 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 					actualDepth = m.depth
 				}
 			}
-
-			_ = u.tgmController.Send(fmt.Sprintf(""+
-				"depth.AsksSum:\t%.2f\n"+
-				"depth.BidsSum:\t%.2f\n"+
-				"depth.Delta:\t%.2f%%",
-				m.depth.AsksSum,
-				m.depth.BidsSum,
-				m.depth.Delta,
-			))
 
 			order := m.ordersList.Get(OrderTypeCurrentStopLoss)
 
@@ -665,25 +649,6 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 			m.ordersList.SetLimit(marketOrder)
 
 			DepthLimit += 5
-
-			go func() {
-				_ = u.tgmController.Send(fmt.Sprintf("Complete Order\n"+
-					"Symbol:\t%s\n"+
-					"Quantity:\t%.4f\n"+
-					"Price:\t%.4f\n"+
-					"Session:\t%s\n"+
-					"PositionSide:\t%s\n"+
-					"Order: \t %s\n"+
-					"DepthLimit: \t %.4f",
-					marketOrder.Symbol,
-					marketOrder.Quantity,
-					marketOrder.Price,
-					marketOrder.SessionID,
-					marketOrder.PositionSide,
-					OrderTypeLimit,
-					DepthLimit,
-				))
-			}()
 		}
 
 		time.Sleep(250 * time.Millisecond)
@@ -753,7 +718,7 @@ func (u *orderUseCase) storeFeaturesLimitOrder(pricePlan *structs.PricePlan, dep
 		PositionSide: pricePlan.PositionSide,
 	}
 
-	if depth.AsksSum < depth.BidsSum {
+	if depth.AsksSum > depth.BidsSum {
 		o.Side = SideBuy
 		o.PositionSide = "LONG"
 		o.Price = pricePlan.ActualPrice + (pricePlan.TriggerDelta / 2)
