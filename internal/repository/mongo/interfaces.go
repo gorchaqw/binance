@@ -13,4 +13,5 @@ type SettingsRepo interface {
 	Load(symbol string) (*structs.Settings, error)
 	ReLoad(settings *structs.Settings) error
 	UpdateStatus(id primitive.ObjectID, status structs.SymbolStatus) error
+	UpdateDepthLimit(id primitive.ObjectID, depthLimit float64) error
 }

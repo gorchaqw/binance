@@ -24,25 +24,38 @@ func NewSettingsRepository(conn *mongo.Client) SettingsRepo {
 func (r *SettingsRepository) SetDefault() error {
 	symbols := []structs.Settings{
 		{
-			Symbol:    "BTCUSDT",
-			Limit:     0.02,
-			Step:      0.002,
-			Delta:     25,
-			DeltaStep: 0.065,
-			SpotURL:   "https://www.binance.com/ru/trade/BTC_USDT?theme=dark&type=spot",
-			Status:    structs.Enabled.ToString(),
-			MaxPrice:  20500.00,
-			MinPrice:  19800.00,
+			Symbol:     "ETHUSDT",
+			Limit:      0.02,
+			Step:       0.05,
+			Delta:      5,
+			DepthLimit: 45,
+			DeltaStep:  0.065,
+			SpotURL:    "https://www.binance.com/ru/trade/BTC_BUSD?theme=dark&type=spot",
+			Status:     structs.Enabled.ToString(),
+			MaxPrice:   20500.00,
+			MinPrice:   19800.00,
 		}, {
-			Symbol:    "BTCBUSD",
-			Limit:     0.02,
-			Step:      0.002,
-			Delta:     25,
-			DeltaStep: 0.065,
-			SpotURL:   "https://www.binance.com/ru/trade/BTC_BUSD?theme=dark&type=spot",
-			Status:    structs.Enabled.ToString(),
-			MaxPrice:  20500.00,
-			MinPrice:  19800.00,
+			Symbol:     "BTCUSDT",
+			Limit:      0.02,
+			Step:       0.003,
+			Delta:      45,
+			DepthLimit: 35,
+			DeltaStep:  0.065,
+			SpotURL:    "https://www.binance.com/ru/trade/BTC_BUSD?theme=dark&type=spot",
+			Status:     structs.Enabled.ToString(),
+			MaxPrice:   20500.00,
+			MinPrice:   19800.00,
+		}, {
+			Symbol:     "AMBUSDT",
+			Limit:      0.02,
+			Step:       500,
+			Delta:      0.002605,
+			DepthLimit: 45,
+			DeltaStep:  0.065,
+			SpotURL:    "https://www.binance.com/ru/trade/BTC_BUSD?theme=dark&type=spot",
+			Status:     structs.Enabled.ToString(),
+			MaxPrice:   20500.00,
+			MinPrice:   19800.00,
 		},
 	}
 
@@ -87,6 +100,19 @@ func (r *SettingsRepository) UpdateStatus(id primitive.ObjectID, status structs.
 		context.TODO(),
 		bson.D{{"_id", id}},
 		bson.D{{"$set", bson.D{{"status", status}}}},
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *SettingsRepository) UpdateDepthLimit(id primitive.ObjectID, depthLimit float64) error {
+	_, err := r.collection.UpdateOne(
+		context.TODO(),
+		bson.D{{"_id", id}},
+		bson.D{{"$set", bson.D{{"depth_limit", depthLimit}}}},
 	)
 	if err != nil {
 		return err

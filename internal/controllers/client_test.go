@@ -31,6 +31,57 @@ var (
 	binanceUrl = "https://fapi.binance.com"
 )
 
+func Test_TradesList(t *testing.T) {
+	client := &http.Client{}
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+
+	//cryptoController := controllers.NewCryptoController(secretKey)
+	clientController := controllers.NewClientController(
+		client,
+		apiKey,
+		logger,
+	)
+
+	baseURL, err := url.Parse(binanceUrl)
+	assert.NoError(t, err)
+
+	baseURL.Path = path.Join("/fapi/v1/trades")
+
+	q := baseURL.Query()
+	q.Set("symbol", usecasees.BTCUSDT)
+	q.Set("limit", "500")
+
+	baseURL.RawQuery = q.Encode()
+
+	fmt.Println(baseURL)
+
+	resp, err := clientController.Send(http.MethodGet, baseURL, nil, true)
+	assert.NoError(t, err)
+
+	var out []usecasees.Trade
+	if err := json.Unmarshal(resp, &out); err != nil {
+		assert.NoError(t, err)
+	}
+
+	for _, trade := range out {
+		price, err := strconv.ParseFloat(trade.Price, 64)
+		if err != nil {
+			assert.NoError(t, err)
+		}
+
+		qty, err := strconv.ParseFloat(trade.Price, 64)
+		if err != nil {
+			assert.NoError(t, err)
+		}
+
+		fmt.Printf("%f : %f\n", qty, price)
+	}
+
+	//fmt.Printf("%+v", out)
+
+}
+
 func Test_Depth(t *testing.T) {
 	client := &http.Client{}
 	logger := logrus.New()
@@ -50,7 +101,7 @@ func Test_Depth(t *testing.T) {
 
 	q := baseURL.Query()
 	q.Set("symbol", usecasees.BTCUSDT)
-	q.Set("limit", "50")
+	q.Set("limit", "500")
 
 	baseURL.RawQuery = q.Encode()
 
@@ -65,25 +116,43 @@ func Test_Depth(t *testing.T) {
 	}
 
 	sum1 := float64(0)
-	for k, g := range out.Asks {
-		fmt.Printf("%+v %d\n", g, k)
+	max1 := float64(0)
 
-		if s, err := strconv.ParseFloat(g[1], 64); err == nil {
-			sum1 += s
+	for _, g := range out.Asks {
+		//fmt.Printf("%+v %d\n", g, k)
+
+		if q, err := strconv.ParseFloat(g[1], 64); err == nil {
+			sum1 += q
+		}
+
+		if s, err := strconv.ParseFloat(g[0], 64); err == nil {
+			if s > max1 {
+				max1 = s
+			}
 		}
 
 	}
 
-	fmt.Printf("%f \n", sum1)
+	fmt.Printf("%f %f \n", sum1, max1)
 
 	sum1 = float64(0)
-	for k, g := range out.Bids {
-		fmt.Printf("%+v %d\n", g, k)
-		if s, err := strconv.ParseFloat(g[1], 64); err == nil {
-			sum1 += s
+	max2 := float64(30000)
+
+	for _, g := range out.Bids {
+		//fmt.Printf("%+v %d\n", g, k)
+		if q, err := strconv.ParseFloat(g[1], 64); err == nil {
+			sum1 += q
+		}
+
+		if s, err := strconv.ParseFloat(g[0], 64); err == nil {
+			if s < max1 {
+				max2 = s
+			}
 		}
 	}
-	fmt.Printf("%f \n", sum1)
+	fmt.Printf("%f, %f \n", sum1, max2)
+
+	fmt.Printf("%f \n", (max1-max2)/4)
 
 }
 

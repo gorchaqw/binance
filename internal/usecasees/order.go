@@ -37,6 +37,7 @@ const (
 	featureSymbolPrice  = "/fapi/v1/ticker/price"
 	featureTicker24hr   = "/fapi/v1/ticker/24hr"
 	featureDepth        = "/fapi/v1/depth"
+	featureTrades       = "/fapi/v1/trades"
 
 	BNB  = "BNB"
 	BTC  = "BTC"
@@ -94,10 +95,12 @@ const (
 
 var (
 	SymbolList = []string{
-		BTCBUSD,
-		SOLBUSD,
-		ETHBUSD,
+		//BTCBUSD,
+		//SOLBUSD,
+		//ETHBUSD,
 		//BNBBUSD,
+		BTCUSDT,
+		ETHUSDT,
 	}
 )
 

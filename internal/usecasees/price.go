@@ -54,6 +54,24 @@ type Depth struct {
 	Asks         [][]string `json:"asks"`
 }
 
+type Trade struct {
+	ID           int64  `json:"id"`
+	Price        string `json:"price"`
+	Qty          string `json:"qty"`
+	QuoteQty     string `json:"quoteQty"`
+	Time         int64  `json:"time"`
+	IsBuyerMaker bool   `json:"isBuyerMaker"`
+}
+type TradeInfo struct {
+	SellerQuantity float64
+	BuyerQuantity  float64
+
+	SellerPriceSum float64
+	BuyerPriceSum  float64
+
+	Delta float64
+}
+
 type DepthInfo struct {
 	AsksSum float64
 	BidsSum float64
@@ -116,6 +134,66 @@ func (u *priceUseCase) GetDepth(symbol string) (*Depth, error) {
 	if err := json.Unmarshal(resp, &out); err != nil {
 		return nil, err
 	}
+
+	return &out, nil
+}
+
+func (u *priceUseCase) GetTrades(symbol string) ([]Trade, error) {
+	baseURL, err := url.Parse(u.url)
+	if err != nil {
+		return nil, err
+	}
+
+	baseURL.Path = path.Join(featureTrades)
+
+	q := baseURL.Query()
+	q.Set("symbol", symbol)
+	q.Set("limit", "500")
+
+	baseURL.RawQuery = q.Encode()
+
+	resp, err := u.clientController.Send(http.MethodGet, baseURL, nil, true)
+	if err != nil {
+		return nil, err
+	}
+
+	var out []Trade
+	if err := json.Unmarshal(resp, &out); err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+func (u *priceUseCase) GetTradeInfo(symbol string) (*TradeInfo, error) {
+	var out TradeInfo
+
+	trades, err := u.GetTrades(symbol)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, trade := range trades {
+		price, err := strconv.ParseFloat(trade.Price, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		qty, err := strconv.ParseFloat(trade.Qty, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		if trade.IsBuyerMaker {
+			out.BuyerPriceSum += price
+			out.BuyerQuantity += qty
+		} else {
+			out.SellerPriceSum += price
+			out.SellerQuantity += qty
+		}
+	}
+
+	out.Delta = (out.BuyerQuantity/out.SellerQuantity)*100 - 100
 
 	return &out, nil
 }
