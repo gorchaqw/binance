@@ -29,10 +29,12 @@ func (s MetricConst) ToString() string {
 var ErrTheRelationshipOfThePrices = errors.New("the relationship of the prices for the orders is not correct")
 
 type Status struct {
-	OrderTry  int
-	Quantity  float64
-	SessionID string
-	Mode      Mode
+	OrderTry        int
+	Quantity        float64
+	SessionID       string
+	Mode            Mode
+	LastTopLevel    float64
+	LastBottomLevel float64
 }
 
 func (s *Status) Reset(v float64) {
@@ -47,6 +49,17 @@ func (s *Status) NewSessionID() *Status {
 }
 func (s *Status) SetQuantity(v float64) *Status {
 	s.Quantity = v
+
+	return s
+}
+
+func (s *Status) SetTopLevel(v float64) *Status {
+	s.LastTopLevel = v
+
+	return s
+}
+func (s *Status) SetBottomLevel(v float64) *Status {
+	s.LastBottomLevel = v
 
 	return s
 }
@@ -229,6 +242,7 @@ type PricePlan struct {
 	Side                   string
 	PositionSide           string
 	ActualPrice            float64
+	Price                  float64
 	ActualPricePercent     float64
 	ActualStopPricePercent float64
 	StopPriceBUY           float64
@@ -243,6 +257,35 @@ type PricePlan struct {
 	SafeDelta              float64
 	TriggerDelta           float64
 	Status                 *Status
+	DepthInfo              *DepthInfo
+	TradeInfo              *TradeInfo
+}
+
+type TradeInfo struct {
+	SellerQuantity float64
+	BuyerQuantity  float64
+
+	SellerPriceSum float64
+	BuyerPriceSum  float64
+
+	DeltaSeller float64
+	DeltaBuyer  float64
+}
+
+type DepthInfo struct {
+	AsksSum float64
+	BidsSum float64
+
+	AsksMaxQuery    float64
+	AsksMaxPrice    float64
+	AsksMaxPosition int
+
+	BidsMaxQuery    float64
+	BidsMaxPrice    float64
+	BidsMaxPosition int
+
+	DeltaBids float64
+	DeltaAsks float64
 }
 
 func (p *PricePlan) SetSide(s string) *PricePlan {

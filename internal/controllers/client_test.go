@@ -101,7 +101,7 @@ func Test_Depth(t *testing.T) {
 
 	q := baseURL.Query()
 	q.Set("symbol", usecasees.BTCUSDT)
-	q.Set("limit", "500")
+	q.Set("limit", "1000")
 
 	baseURL.RawQuery = q.Encode()
 
@@ -152,7 +152,7 @@ func Test_Depth(t *testing.T) {
 	}
 	fmt.Printf("%f, %f \n", sum1, max2)
 
-	fmt.Printf("%f \n", (max1-max2)/4)
+	fmt.Printf("%f \n", (max1-max2)/6)
 
 }
 

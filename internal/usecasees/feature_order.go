@@ -21,11 +21,11 @@ type Monitor struct {
 	actualPrice     float64
 	actualPriceChan chan float64
 
-	depth     *DepthInfo
-	depthChan chan *DepthInfo
+	depth     *structs.DepthInfo
+	depthChan chan *structs.DepthInfo
 
-	trades     *TradeInfo
-	tradesChan chan *TradeInfo
+	trades     *structs.TradeInfo
+	tradesChan chan *structs.TradeInfo
 
 	lastOrder     *models.Order
 	lastOrderChan chan *models.Order
@@ -90,11 +90,11 @@ const chkTime = 50 * time.Millisecond
 func newMonitor() *Monitor {
 	return &Monitor{
 		actualPriceChan: make(chan float64),
-		depthChan:       make(chan *DepthInfo),
+		depthChan:       make(chan *structs.DepthInfo),
 		lastOrderChan:   make(chan *models.Order),
 		ordersListChan:  make(chan [3]*models.Order),
 		settingsChan:    make(chan *mongoStructs.Settings),
-		tradesChan:      make(chan *TradeInfo),
+		tradesChan:      make(chan *structs.TradeInfo),
 		status: &structs.Status{
 			OrderTry:  1,
 			SessionID: uuid.New().String(),
@@ -338,6 +338,11 @@ func (m *Monitor) UpdateSettings(u *orderUseCase, symbol string) {
 	}
 }
 
+func (m *Monitor) chkDepthAndTrades() bool {
+
+	return false
+}
+
 func (m *Monitor) UpdateLastOrder(u *orderUseCase, symbol string) {
 	for {
 		order, err := u.orderRepo.GetLast(symbol)
@@ -351,28 +356,16 @@ func (m *Monitor) UpdateLastOrder(u *orderUseCase, symbol string) {
 						SetQuantity(m.settings.Step)
 					//SetMode(structs.Middle)
 
-					pricePlan := u.fillPricePlan(OrderTypeLimit, symbol, m.actualPrice, m.settings, m.status)
-
-					var actualDepth *DepthInfo
-
-					switch true {
-					case m.depth == nil:
+					if m.depth == nil || m.trades == nil {
 						continue
-					case m.depth.Delta < 0:
-						if m.depth.Delta > (m.settings.DepthLimit * -1) {
-							continue
-						} else {
-							actualDepth = m.depth
-						}
-					case m.depth.Delta > 0:
-						if m.depth.Delta < m.settings.DepthLimit {
-							continue
-						} else {
-							actualDepth = m.depth
-						}
 					}
 
-					limitOrder, err := u.storeFeaturesLimitOrder(pricePlan, actualDepth)
+					pricePlan, err := u.fillPricePlan(OrderTypeLimit, symbol, m.actualPrice, m.settings, m.status, m.depth, m.trades)
+					if err != nil {
+						continue
+					}
+
+					limitOrder, err := u.storeFeaturesLimitOrder(pricePlan)
 					if err != nil {
 						u.logRus.
 							WithError(err).
@@ -432,8 +425,6 @@ func (m *Monitor) UpdateDepth(u *orderUseCase, symbol string) {
 			continue
 		}
 
-		u.logRus.Printf("Depth [%s] %.2f", symbol, depth.Delta)
-
 		m.depthChan <- depth
 		time.Sleep(chkTime)
 	}
@@ -447,8 +438,6 @@ func (m *Monitor) UpdateTrades(u *orderUseCase, symbol string) {
 
 			continue
 		}
-
-		u.logRus.Printf("Trades [%s] %.2f", symbol, trades.Delta)
 
 		m.tradesChan <- trades
 		time.Sleep(chkTime)
@@ -523,8 +512,27 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 	go m.UpdateOrderStatus(u)
 	go m.UpdateCreateOrder(u)
 
+	go func() {
+		for {
+			if m.status == nil || m.depth == nil || m.trades == nil {
+				continue
+			}
+
+			u.logRus.Printf("LastTopLevel [%s] %.2f", symbol, m.status.LastTopLevel)
+			u.logRus.Printf("LastBottomLevel [%s] %.2f", symbol, m.status.LastBottomLevel)
+
+			u.logRus.Printf("DeltaBids [%s] %.2f", symbol, m.depth.DeltaBids)
+			u.logRus.Printf("DeltaAsks [%s] %.2f", symbol, m.depth.DeltaAsks)
+
+			u.logRus.Printf("DeltaBuyer [%s] %.2f", symbol, m.trades.DeltaBuyer)
+			u.logRus.Printf("DeltaSeller [%s] %.2f", symbol, m.trades.DeltaSeller)
+
+			time.Sleep(time.Second)
+		}
+	}()
+
 	for {
-		if m.settings == nil || m.status == nil || m.ordersList.IsNil() || m.depth == nil {
+		if m.settings == nil || m.status == nil || m.ordersList.IsNil() || m.depth == nil || m.trades == nil {
 			continue
 		}
 
@@ -533,7 +541,11 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 		}
 
 		if chkCreateOrdersFunc(m.ordersList) {
-			pricePlan := u.fillPricePlan(OrderTypeLimit, symbol, m.ordersList.Get(OrderTypeLimit).Price, m.settings, m.status)
+			if m.depth == nil || m.trades == nil {
+				continue
+			}
+
+			pricePlan, _ := u.fillPricePlan(OrderTypeLimit, symbol, m.ordersList.Get(OrderTypeLimit).Price, m.settings, m.status, m.depth, m.trades)
 
 			takeProfitOrder, err := u.storeFeatureTakeProfitOrder(pricePlan, m.ordersList.Get(OrderTypeLimit), u.constructTakeProfitOrder(pricePlan, m.settings))
 			if err != nil {
@@ -569,52 +581,22 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 		}
 
 		if chkCreateLimitOrderTakeProfitFunc(m.ordersList) {
-			var actualDepth *DepthInfo
-
-			switch true {
-			case m.depth.Delta < 0:
-				if m.depth.Delta > (m.settings.DepthLimit * -1) {
-					continue
-				} else {
-					actualDepth = m.depth
-				}
-			case m.depth.Delta > 0:
-				if m.depth.Delta < m.settings.DepthLimit {
-					continue
-				} else {
-					actualDepth = m.depth
-				}
+			if m.depth == nil || m.trades == nil {
+				continue
 			}
-
-			o := m.ordersList.Get(OrderTypeCurrentTakeProfit)
-
-			go func() {
-				_ = u.tgmController.Send(fmt.Sprintf("Complete Order\n"+
-					"Symbol:\t%s\n"+
-					"Quantity:\t%.4f\n"+
-					"Price:\t%.4f\n"+
-					"Session:\t%s\n"+
-					"PositionSide:\t%s\n"+
-					"Order: \t %s\n"+
-					"DepthLimit: \t %.4f",
-					o.Symbol,
-					o.Quantity,
-					o.Price,
-					o.SessionID,
-					o.PositionSide,
-					o.Type,
-					m.settings.DepthLimit,
-				))
-			}()
 
 			order := m.ordersList.Get(OrderTypeCurrentTakeProfit)
 
-			pricePlan := u.fillPricePlan(OrderTypeLimit, symbol, order.Price, m.settings, m.status)
+			pricePlan, err := u.fillPricePlan(OrderTypeLimit, symbol, order.Price, m.settings, m.status, m.depth, m.trades)
+			if err != nil {
+				continue
+			}
+
 			pricePlan.Status.NewSessionID()
 
 			m.status.SetSessionID(pricePlan.Status.SessionID)
 
-			marketOrder, err := u.storeFeaturesLimitOrder(pricePlan, actualDepth)
+			marketOrder, err := u.storeFeaturesLimitOrder(pricePlan)
 			if err != nil {
 				u.logRus.
 					WithError(err).
@@ -629,52 +611,20 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 		}
 
 		if chkCreateLimitOrderStopLossFunc(m.ordersList) {
-			var actualDepth *DepthInfo
-
-			switch true {
-			case m.depth.Delta < 0:
-				if m.depth.Delta > (m.settings.DepthLimit * -1) {
-					continue
-				} else {
-					actualDepth = m.depth
-				}
-			case m.depth.Delta > 0:
-				if m.depth.Delta < m.settings.DepthLimit {
-					continue
-				} else {
-					actualDepth = m.depth
-				}
+			if m.depth == nil || m.trades == nil {
+				continue
 			}
-
-			o := m.ordersList.Get(OrderTypeCurrentStopLoss)
-
-			go func() {
-				_ = u.tgmController.Send(fmt.Sprintf("Complete Order\n"+
-					"Symbol:\t%s\n"+
-					"Quantity:\t%.4f\n"+
-					"Price:\t%.4f\n"+
-					"Session:\t%s\n"+
-					"PositionSide:\t%s\n"+
-					"Order: \t %s\n"+
-					"DepthLimit: \t %.4f",
-					o.Symbol,
-					o.Quantity,
-					o.Price,
-					o.SessionID,
-					o.PositionSide,
-					o.Type,
-					m.settings.DepthLimit,
-				))
-			}()
 
 			order := m.ordersList.Get(OrderTypeCurrentStopLoss)
 
-			pricePlan := u.fillPricePlan(OrderTypeLimit, symbol, order.Price, m.settings, m.status)
+			pricePlan, err := u.fillPricePlan(OrderTypeLimit, symbol, order.Price, m.settings, m.status, m.depth, m.trades)
+			if err != nil {
+				continue
+			}
 			pricePlan.Status.NewSessionID()
-
 			m.status.SetSessionID(pricePlan.Status.SessionID)
 
-			marketOrder, err := u.storeFeaturesLimitOrder(pricePlan, actualDepth)
+			marketOrder, err := u.storeFeaturesLimitOrder(pricePlan)
 			if err != nil {
 				u.logRus.
 					WithError(err).
@@ -686,8 +636,6 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 			marketOrder.Status = OrderStatusNotFound
 			m.ordersList.SetLimit(marketOrder)
 
-			m.settings.DepthLimit += 2.5
-
 			if err := u.settingsRepo.UpdateDepthLimit(m.settings.ID, m.settings.DepthLimit); err != nil {
 				u.logRus.
 					WithError(err).
@@ -697,7 +645,7 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 			}
 		}
 
-		time.Sleep(250 * time.Millisecond)
+		time.Sleep(150 * time.Millisecond)
 	}
 }
 
@@ -749,7 +697,7 @@ func (u *orderUseCase) constructStopLossOrder(pricePlan *structs.PricePlan, sett
 	return &out
 }
 
-func (u *orderUseCase) storeFeaturesLimitOrder(pricePlan *structs.PricePlan, depth *DepthInfo) (*models.Order, error) {
+func (u *orderUseCase) storeFeaturesLimitOrder(pricePlan *structs.PricePlan) (*models.Order, error) {
 	o := models.Order{
 		ID:           uuid.NewString(),
 		SessionID:    uuid.NewString(),
@@ -762,16 +710,7 @@ func (u *orderUseCase) storeFeaturesLimitOrder(pricePlan *structs.PricePlan, dep
 		Status:       OrderStatusInProgress,
 		StopPrice:    0,
 		PositionSide: pricePlan.PositionSide,
-	}
-
-	if depth.Delta < 0 {
-		o.Side = SideBuy
-		o.PositionSide = "LONG"
-		o.Price = pricePlan.ActualPrice + (pricePlan.TriggerDelta / 2)
-	} else {
-		o.Side = SideSell
-		o.PositionSide = "SHORT"
-		o.Price = pricePlan.ActualPrice - (pricePlan.TriggerDelta / 2)
+		Price:        pricePlan.Price,
 	}
 
 	if err := u.orderRepo.Store(&o); err != nil {
@@ -799,45 +738,11 @@ func (u *orderUseCase) storeFeatureTakeProfitOrder(pricePlan *structs.PricePlan,
 	switch o.PositionSide {
 	case "LONG":
 		o.Side = SideSell
-		//o.Price = (depth.AsksMaxPrice + limitOrder.Price) / 2
-		//o.StopPrice = (depth.AsksMaxPrice + limitOrder.Price) / 2
-
-		//o.Price = limitOrder.Price + pricePlan.SafeDelta
-		o.StopPrice = limitOrder.Price + pricePlan.SafeDelta
-
-		//_ = u.tgmController.Send(fmt.Sprintf(""+
-		//	"o.Side:\t%s\n"+
-		//	"o.Price:\t%.4f\n"+
-		//	"o.StopPrice:\t%.4f\n"+
-		//	"depth.AsksMaxPrice:\t%.4f\n"+
-		//	"depth.BidsMaxPrice:\t%.4f\n",
-		//	o.Side,
-		//	o.Price,
-		//	o.StopPrice,
-		//	depth.AsksMaxPrice,
-		//	depth.BidsMaxPrice,
-		//))
+		o.StopPrice = limitOrder.Price + (pricePlan.SafeDelta * 2.5)
 
 	case "SHORT":
 		o.Side = SideBuy
-		//o.Price = (depth.BidsMaxPrice + limitOrder.Price) / 2
-		//o.StopPrice = (depth.BidsMaxPrice + +limitOrder.Price) / 2
-
-		//o.Price = limitOrder.Price - pricePlan.SafeDelta
-		o.StopPrice = limitOrder.Price - pricePlan.SafeDelta
-
-		//_ = u.tgmController.Send(fmt.Sprintf(""+
-		//	"o.Side:\t%s\n"+
-		//	"o.Price:\t%.4f\n"+
-		//	"o.StopPrice:\t%.4f\n"+
-		//	"depth.AsksMaxPrice:\t%.4f\n"+
-		//	"depth.BidsMaxPrice:\t%.4f\n",
-		//	o.Side,
-		//	o.Price,
-		//	o.StopPrice,
-		//	depth.AsksMaxPrice,
-		//	depth.BidsMaxPrice,
-		//))
+		o.StopPrice = limitOrder.Price - (pricePlan.SafeDelta * 2.5)
 	}
 
 	u.logRus.Printf("Order TakeProfit: %+v", o)
@@ -849,73 +754,28 @@ func (u *orderUseCase) storeFeatureTakeProfitOrder(pricePlan *structs.PricePlan,
 	return &o, nil
 }
 
-func (u *orderUseCase) storeFeatureStopLossOrder(pricePlan *structs.PricePlan, limitOrder *models.Order, order *structs.FeatureOrderReq, depth *DepthInfo) (*models.Order, error) {
+func (u *orderUseCase) storeFeatureStopLossOrder(pricePlan *structs.PricePlan, limitOrder *models.Order, order *structs.FeatureOrderReq, depth *structs.DepthInfo) (*models.Order, error) {
 	o := models.Order{
-		ID:          uuid.NewString(),
-		SessionID:   pricePlan.Status.SessionID,
-		Try:         pricePlan.Status.OrderTry,
-		ActualPrice: pricePlan.ActualPrice,
-		Symbol:      order.Symbol,
-		Side:        order.Side,
-		Type:        order.Type,
-		Quantity:    pricePlan.Status.Quantity,
-		Status:      OrderStatusInProgress,
+		ID:           uuid.NewString(),
+		SessionID:    pricePlan.Status.SessionID,
+		Try:          pricePlan.Status.OrderTry,
+		ActualPrice:  pricePlan.ActualPrice,
+		Symbol:       order.Symbol,
+		Side:         order.Side,
+		Type:         order.Type,
+		Quantity:     pricePlan.Status.Quantity,
+		Status:       OrderStatusInProgress,
+		PositionSide: limitOrder.PositionSide,
 	}
-
-	o.PositionSide = limitOrder.PositionSide
-
-	//depth, err := u.priceUseCase.GetDepthInfo(pricePlan.Symbol)
-	//if err != nil {
-	//	return nil, err
-	//}
 
 	switch o.PositionSide {
 	case "LONG":
 		o.Side = SideSell
-		//o.Price = limitOrder.Price - pricePlan.SafeDelta
 		o.StopPrice = limitOrder.Price - pricePlan.SafeDelta
-
-		//o.Price = (depth.BidsMaxPrice + limitOrder.Price) / 2
-		//o.StopPrice = (depth.BidsMaxPrice + limitOrder.Price) / 2
-
-		//o.Price = limitOrder.Price - delta - 0.1
-		//o.StopPrice = limitOrder.Price - delta - 0.1
-
-		//_ = u.tgmController.Send(fmt.Sprintf(""+
-		//	"o.Side:\t%s\n"+
-		//	"o.Price:\t%.4f\n"+
-		//	"o.StopPrice:\t%.4f\n"+
-		//	"depth.AsksMaxPrice:\t%.4f\n"+
-		//	"depth.BidsMaxPrice:\t%.4f\n",
-		//	o.Side,
-		//	o.Price,
-		//	o.StopPrice,
-		//	depth.AsksMaxPrice,
-		//	depth.BidsMaxPrice,
-		//))
 
 	case "SHORT":
 		o.Side = SideBuy
-		//o.Price = limitOrder.Price + pricePlan.SafeDelta
 		o.StopPrice = limitOrder.Price + pricePlan.SafeDelta
-
-		//o.Price = limitOrder.Price + delta + 0.1
-		//o.StopPrice = limitOrder.Price + delta + 0.1
-		//o.Price = (depth.AsksMaxPrice + limitOrder.Price) / 2
-		//o.StopPrice = (depth.AsksMaxPrice + limitOrder.Price) / 2
-
-		//_ = u.tgmController.Send(fmt.Sprintf(""+
-		//	"o.Side:\t%s\n"+
-		//	"o.Price:\t%.4f\n"+
-		//	"o.StopPrice:\t%.4f\n"+
-		//	"depth.AsksMaxPrice:\t%.4f\n"+
-		//	"depth.BidsMaxPrice:\t%.4f\n",
-		//	o.Side,
-		//	o.Price,
-		//	o.StopPrice,
-		//	depth.AsksMaxPrice,
-		//	depth.BidsMaxPrice,
-		//))
 	}
 
 	u.logRus.Printf("Order StopLoss: %+v", o)

@@ -3,6 +3,7 @@ package usecasees
 import (
 	"binance/internal/controllers"
 	"binance/internal/repository/postgres"
+	"binance/internal/usecasees/structs"
 	"binance/models"
 	"encoding/json"
 	"net/http"
@@ -62,30 +63,6 @@ type Trade struct {
 	Time         int64  `json:"time"`
 	IsBuyerMaker bool   `json:"isBuyerMaker"`
 }
-type TradeInfo struct {
-	SellerQuantity float64
-	BuyerQuantity  float64
-
-	SellerPriceSum float64
-	BuyerPriceSum  float64
-
-	Delta float64
-}
-
-type DepthInfo struct {
-	AsksSum float64
-	BidsSum float64
-
-	AsksMaxQuery    float64
-	AsksMaxPrice    float64
-	AsksMaxPosition int
-
-	BidsMaxQuery    float64
-	BidsMaxPrice    float64
-	BidsMaxPosition int
-
-	Delta float64
-}
 
 type PriceChangeStatistics struct {
 	Symbol             string `json:"symbol"`
@@ -121,7 +98,7 @@ func (u *priceUseCase) GetDepth(symbol string) (*Depth, error) {
 
 	q := baseURL.Query()
 	q.Set("symbol", symbol)
-	q.Set("limit", "500")
+	q.Set("limit", "1000")
 
 	baseURL.RawQuery = q.Encode()
 
@@ -165,8 +142,8 @@ func (u *priceUseCase) GetTrades(symbol string) ([]Trade, error) {
 	return out, nil
 }
 
-func (u *priceUseCase) GetTradeInfo(symbol string) (*TradeInfo, error) {
-	var out TradeInfo
+func (u *priceUseCase) GetTradeInfo(symbol string) (*structs.TradeInfo, error) {
+	var out structs.TradeInfo
 
 	trades, err := u.GetTrades(symbol)
 	if err != nil {
@@ -193,13 +170,14 @@ func (u *priceUseCase) GetTradeInfo(symbol string) (*TradeInfo, error) {
 		}
 	}
 
-	out.Delta = (out.BuyerQuantity/out.SellerQuantity)*100 - 100
+	out.DeltaSeller = out.SellerQuantity / (out.BuyerQuantity + out.SellerQuantity) * 100
+	out.DeltaBuyer = out.BuyerQuantity / (out.BuyerQuantity + out.SellerQuantity) * 100
 
 	return &out, nil
 }
 
-func (u *priceUseCase) GetDepthInfo(symbol string) (*DepthInfo, error) {
-	var out DepthInfo
+func (u *priceUseCase) GetDepthInfo(symbol string) (*structs.DepthInfo, error) {
+	var out structs.DepthInfo
 
 	depth, err := u.GetDepth(symbol)
 	if err != nil {
@@ -286,7 +264,8 @@ func (u *priceUseCase) GetDepthInfo(symbol string) (*DepthInfo, error) {
 	//	out.c += query
 	//}
 
-	out.Delta = (out.AsksSum/out.BidsSum)*100 - 100
+	out.DeltaBids = out.BidsSum / (out.BidsSum + out.AsksSum) * 100
+	out.DeltaAsks = out.AsksSum / (out.BidsSum + out.AsksSum) * 100
 
 	return &out, nil
 }
