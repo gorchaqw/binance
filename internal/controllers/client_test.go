@@ -31,6 +31,9 @@ var (
 	binanceUrl = "https://fapi.binance.com"
 )
 
+func Test_WebSocket(t *testing.T) {
+}
+
 func Test_TradesList(t *testing.T) {
 	client := &http.Client{}
 	logger := logrus.New()

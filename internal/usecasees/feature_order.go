@@ -425,8 +425,18 @@ func (m *Monitor) UpdateDepth(u *orderUseCase, symbol string) {
 			continue
 		}
 
+		if depth.DeltaAsks > m.status.MaxAsksDelta {
+			//maxAsksDelta = depth.DeltaAsks
+			m.status.SetMaxAsksDelta(depth.DeltaAsks)
+		}
+
+		if depth.DeltaBids > m.status.MaxBidsDelta {
+			//maxBidsDelta = depth.DeltaBids
+			m.status.SetMaxBidsDelta(depth.DeltaBids)
+		}
+
 		m.depthChan <- depth
-		time.Sleep(chkTime)
+		time.Sleep(250 * time.Millisecond)
 	}
 }
 
@@ -520,6 +530,9 @@ func (u *orderUseCase) FeaturesMonitoring(symbol string) error {
 
 			u.logRus.Printf("LastTopLevel [%s] %.2f", symbol, m.status.LastTopLevel)
 			u.logRus.Printf("LastBottomLevel [%s] %.2f", symbol, m.status.LastBottomLevel)
+
+			u.logRus.Printf("MaxBidsDelta [%s] %.2f", symbol, m.status.MaxBidsDelta)
+			u.logRus.Printf("MaxAsksDelta [%s] %.2f", symbol, m.status.MaxAsksDelta)
 
 			u.logRus.Printf("DeltaBids [%s] %.2f", symbol, m.depth.DeltaBids)
 			u.logRus.Printf("DeltaAsks [%s] %.2f", symbol, m.depth.DeltaAsks)
@@ -738,11 +751,11 @@ func (u *orderUseCase) storeFeatureTakeProfitOrder(pricePlan *structs.PricePlan,
 	switch o.PositionSide {
 	case "LONG":
 		o.Side = SideSell
-		o.StopPrice = limitOrder.Price + (pricePlan.SafeDelta * 2.5)
+		o.StopPrice = limitOrder.Price + (pricePlan.SafeDelta * 3)
 
 	case "SHORT":
 		o.Side = SideBuy
-		o.StopPrice = limitOrder.Price - (pricePlan.SafeDelta * 2.5)
+		o.StopPrice = limitOrder.Price - (pricePlan.SafeDelta * 3)
 	}
 
 	u.logRus.Printf("Order TakeProfit: %+v", o)

@@ -35,6 +35,8 @@ type Status struct {
 	Mode            Mode
 	LastTopLevel    float64
 	LastBottomLevel float64
+	MaxAsksDelta    float64
+	MaxBidsDelta    float64
 }
 
 func (s *Status) Reset(v float64) {
@@ -60,6 +62,18 @@ func (s *Status) SetTopLevel(v float64) *Status {
 }
 func (s *Status) SetBottomLevel(v float64) *Status {
 	s.LastBottomLevel = v
+
+	return s
+}
+
+func (s *Status) SetMaxAsksDelta(v float64) *Status {
+	s.MaxAsksDelta = v
+
+	return s
+}
+
+func (s *Status) SetMaxBidsDelta(v float64) *Status {
+	s.MaxBidsDelta = v
 
 	return s
 }

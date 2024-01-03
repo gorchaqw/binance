@@ -141,12 +141,6 @@ func (u *orderUseCase) fillPricePlan(orderType string, symbol string, actualPric
 	switch orderType {
 	case OrderTypeLimit:
 		if actualDepth.DeltaBids > settings.DepthLimit {
-
-			out.ActualPrice = actualPrice
-			out.Side = SideSell
-			out.PositionSide = "SHORT"
-			out.Price = actualPrice - (out.TriggerDelta / 2)
-
 			//out.ActualPrice = actualPrice
 			//out.Side = SideBuy
 			//out.PositionSide = "LONG"
@@ -158,14 +152,14 @@ func (u *orderUseCase) fillPricePlan(orderType string, symbol string, actualPric
 		}
 
 		if actualDepth.DeltaAsks > settings.DepthLimit {
+			out.ActualPrice = actualPrice
+			out.Side = SideSell
+			out.PositionSide = "SHORT"
+			out.Price = actualPrice - (out.TriggerDelta / 2)
+
 			status.SetTopLevel(actualPrice)
 
-			//out.ActualPrice = actualPrice
-			//out.Side = SideSell
-			//out.PositionSide = "SHORT"
-			//out.Price = actualPrice - (out.TriggerDelta / 2)
-			//
-			//return &out, nil
+			return &out, nil
 		}
 	}
 
